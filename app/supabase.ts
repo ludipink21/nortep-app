@@ -67,7 +67,7 @@ export function readSession(): Session | null {
   try { return JSON.parse(localStorage.getItem(sessionKey) || "null"); } catch { return null; }
 }
 
-export async function readSessionFromUrl(): Promise<Session | null> {
+export async function readSessionFromUrl(): Promise<{ session: Session; type: string } | null> {
   if (typeof window === "undefined" || !window.location.hash) return null;
   const params = new URLSearchParams(window.location.hash.slice(1));
   const accessToken = params.get("access_token");
@@ -86,7 +86,7 @@ export async function readSessionFromUrl(): Promise<Session | null> {
   } as Session;
   saveSession(session);
   window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-  return session;
+  return { session, type: params.get("type") || "signin" };
 }
 
 export function saveSession(session: Session | null) {
@@ -122,6 +122,29 @@ export async function signUp(name: string, email: string, password: string, redi
     return { session, confirmationRequired: false };
   }
   return { session: null, confirmationRequired: true };
+}
+
+export async function requestPasswordReset(email: string, redirectTo: string) {
+  const response = await fetch(`${url}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, {
+    method: "POST",
+    headers: { apikey: key, "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  await parseResponse(response);
+}
+
+export async function updatePassword(session: Session, password: string) {
+  const current = await refreshSession(session);
+  const response = await fetch(`${url}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${current.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password }),
+  });
+  await parseResponse(response);
 }
 
 export async function redeemAccessInvite(session: Session, code: string) {

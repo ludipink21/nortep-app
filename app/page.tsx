@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
-import { configured, createAccessInvite, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey } from "./supabase";
+import { configured, createAccessInvite, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, requestPasswordReset, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey, updatePassword } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "administracao";
@@ -41,6 +41,7 @@ export default function Home() {
   const [accessChannel, setAccessChannel] = useState<AccessChannel>("publico");
   const [inviteCode, setInviteCode] = useState("");
   const [observerSummary, setObserverSummary] = useState<ObserverSummary | null>(null);
+  const [passwordRecoverySession, setPasswordRecoverySession] = useState<Session | null>(null);
 
   useEffect(() => {
     const channel = readAccessChannel();
@@ -58,7 +59,13 @@ export default function Home() {
     window.addEventListener("online", updateOnline);
     window.addEventListener("offline", updateOnline);
     const boot = async () => {
-      const stored = await readSessionFromUrl() ?? readSession();
+      const callback = await readSessionFromUrl();
+      if (callback?.type === "recovery") {
+        setPasswordRecoverySession(callback.session);
+        setAuthReady(true);
+        return;
+      }
+      const stored = callback?.session ?? readSession();
       if (!stored) return setAuthReady(true);
       try { await autenticar(stored, channel); } catch { saveSession(null); }
       setAuthReady(true);
@@ -155,6 +162,12 @@ export default function Home() {
 
   if (!authReady) return <TelaCarregando />;
   if (!configured()) return <TelaConfigErro />;
+  if (passwordRecoverySession) return <RedefinirSenha session={passwordRecoverySession} concluir={() => {
+    saveSession(null);
+    setPasswordRecoverySession(null);
+    setSession(null);
+    setProfile(null);
+  }} />;
   if (!session || !profile) {
     if (accessChannel === "publico") return <PublicLanding />;
     return <Login access={accessChannel} inviteCode={inviteCode} onAuthenticated={autenticar} />;
@@ -259,7 +272,7 @@ function PublicLanding() {
 function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel; inviteCode: string; onAuthenticated: (session: Session, channel?: AccessChannel) => Promise<void> }) {
   const invited = access === "administracao" && Boolean(inviteCode);
   const allowSignup = access === "pesquisador" || invited;
-  const [modo, setModo] = useState<"entrar" | "criar">(invited ? "criar" : "entrar");
+  const [modo, setModo] = useState<"entrar" | "criar" | "recuperar">(invited ? "criar" : "entrar");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -267,6 +280,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
   const enviar = async () => {
     setBusy(true); setMessage("");
     try {
@@ -274,6 +288,11 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
         const newSession = await signIn(email.trim().toLowerCase(), password);
         if (invited) await redeemAccessInvite(newSession, inviteCode);
         await onAuthenticated(newSession, access);
+      }
+      else if (modo === "recuperar") {
+        const redirect = `${window.location.origin}/?acesso=${access}`;
+        await requestPasswordReset(email.trim().toLowerCase(), redirect);
+        setRecoveryEmail(email.trim().toLowerCase());
       }
       else {
         const redirect = `${window.location.origin}/?acesso=${access}${inviteCode ? `&convite=${encodeURIComponent(inviteCode)}` : ""}`;
@@ -311,6 +330,23 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       <button type="button" className="auth-switch" onClick={() => setConfirmationEmail("")}>Voltar para corrigir o e-mail</button>
     </div>
   </div>;
+  if (recoveryEmail) return <div className="auth-shell">
+    <section className="auth-brand">
+      <small>NORTEP PESQUISA</small>
+      <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
+      <p>A recuperação é feita por um link individual enviado ao e-mail da conta.</p>
+      <div><span>✓ Link temporário</span><span>✓ Nova senha protegida</span><span>✓ Aprovação de acesso preservada</span></div>
+    </section>
+    <div className="auth-card confirmation-card">
+      <div className="auth-logo">NP</div>
+      <small>RECUPERAÇÃO SOLICITADA</small>
+      <h2>Confira seu e-mail</h2>
+      <p>Se <b>{recoveryEmail}</b> estiver cadastrado, você receberá um link para criar uma nova senha.</p>
+      <div className="pending-shield"><i>✉</i><span><b>Abra a mensagem da NorteP</b><small>Confira também Spam ou Lixo eletrônico. Por segurança, o link é temporário.</small></span></div>
+      <button type="button" className="primary auth-submit" onClick={() => { setRecoveryEmail(""); setModo("entrar"); }}>Voltar para entrar</button>
+      <button type="button" className="auth-switch" onClick={() => setRecoveryEmail("")}>Enviar novamente ou corrigir o e-mail</button>
+    </div>
+  </div>;
   return <div className="auth-shell">
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
@@ -321,21 +357,62 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     <form className="auth-card" onSubmit={e => { e.preventDefault(); void enviar(); }}>
       <div className="auth-logo">NP</div>
       <small>{adminAccess ? "ADMINISTRAÇÃO RESTRITA" : "ÁREA DO PESQUISADOR"}</small>
-      <h2>{modo === "entrar" ? (adminAccess ? "Entrar na administração" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
-      <p>{modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : "Use seu e-mail cadastrado. Se a conta for nova, a coordenação precisa aprovar antes da primeira pesquisa.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
+      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (adminAccess ? "Entrar na administração" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
+      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : "Use seu e-mail cadastrado. Se a conta for nova, a coordenação precisa aprovar antes da primeira pesquisa.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
       {modo === "criar" && <><label htmlFor="auth-name">Nome completo</label><input id="auth-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}
       <label htmlFor="auth-email">E-mail</label>
       <input id="auth-email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@exemplo.com" />
-      <label htmlFor="auth-password">Senha</label>
-      <div className="password-field">
-        <input id="auth-password" type={showPassword ? "text" : "password"} autoComplete={modo === "entrar" ? "current-password" : "new-password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" />
-        <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} title={showPassword ? "Ocultar senha" : "Mostrar senha"}>{showPassword ? "◉" : "◎"}<span>{showPassword ? "Ocultar" : "Mostrar"}</span></button>
-      </div>
-      <div className="password-save-note"><i>✓</i><span><b>Você pode salvar a senha neste aparelho</b><small>Depois de enviar, aceite “Salvar senha” quando o seu celular ou navegador oferecer. A NorteP não lê nem guarda essa senha.</small></span></div>
-      <button type="submit" className="primary auth-submit" disabled={busy || !email || password.length < 8 || (modo === "criar" && !name)}>{busy ? "Aguarde…" : modo === "entrar" ? "Entrar com segurança" : invited ? "Criar conta e aceitar convite" : "Criar meu acesso"}</button>
+      {modo !== "recuperar" && <><label htmlFor="auth-password">Senha</label>
+        <div className="password-field">
+          <input id="auth-password" type={showPassword ? "text" : "password"} autoComplete={modo === "entrar" ? "current-password" : "new-password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" />
+          <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} title={showPassword ? "Ocultar senha" : "Mostrar senha"}>{showPassword ? "◉" : "◎"}<span>{showPassword ? "Ocultar" : "Mostrar"}</span></button>
+        </div>
+        <div className="password-save-note"><i>✓</i><span><b>Você pode salvar a senha neste aparelho</b><small>Depois de enviar, aceite “Salvar senha” quando o seu celular ou navegador oferecer. A NorteP não lê nem guarda essa senha.</small></span></div></>}
+      <button type="submit" className="primary auth-submit" disabled={busy || !email || (modo !== "recuperar" && password.length < 8) || (modo === "criar" && !name)}>{busy ? "Aguarde…" : modo === "recuperar" ? "Enviar link de recuperação" : modo === "entrar" ? "Entrar com segurança" : invited ? "Criar conta e aceitar convite" : "Criar meu acesso"}</button>
       {message && <div className="auth-message" role="status">{message}</div>}
-      {allowSignup && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
+      {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
+      {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
+      {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
       <small className="auth-help">{adminAccess ? "Convites vencem em 72 horas e funcionam uma única vez." : "O entrevistado não precisa criar conta."}</small>
+    </form>
+  </div>;
+}
+
+function RedefinirSenha({ session, concluir }: { session: Session; concluir: () => void }) {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState(false);
+  const enviar = async () => {
+    if (password.length < 8) return setMessage("A nova senha precisa ter pelo menos 8 caracteres.");
+    if (password !== confirmation) return setMessage("As duas senhas não são iguais. Digite novamente.");
+    setBusy(true); setMessage("");
+    try {
+      await updatePassword(session, password);
+      setSuccess(true);
+    } catch (error) {
+      setMessage(error instanceof Error ? traduzErro(error.message) : "Não foi possível alterar a senha.");
+    } finally { setBusy(false); }
+  };
+  if (success) return <div className="auth-shell"><div className="auth-card pending-card password-success">
+    <div className="auth-logo">NP</div><small>SENHA ATUALIZADA</small><h2>Nova senha criada com sucesso</h2>
+    <p>Seu nível de acesso e a aprovação da administração continuam iguais. Agora entre novamente usando a nova senha.</p>
+    <div className="pending-shield"><i>✓</i><span><b>A alteração foi concluída</b><small>As sessões anteriores não mostram sua nova senha.</small></span></div>
+    <button type="button" className="primary pending-refresh" onClick={concluir}>Entrar com a nova senha</button>
+  </div></div>;
+  return <div className="auth-shell">
+    <section className="auth-brand"><small>NORTEP PESQUISA</small><h1><b>N</b>orte<b>P</b> Pesquisa</h1><p>Crie uma senha nova para recuperar seu acesso.</p><div><span>✓ Link individual</span><span>✓ Senha criptografada</span><span>✓ Acesso continua controlado</span></div></section>
+    <form className="auth-card" onSubmit={e => { e.preventDefault(); void enviar(); }}>
+      <div className="auth-logo">NP</div><small>RECUPERAÇÃO SEGURA</small><h2>Criar nova senha</h2><p>Use pelo menos 8 caracteres e evite nomes, datas de nascimento ou senhas usadas em outros serviços.</p>
+      <label htmlFor="new-password">Nova senha</label>
+      <div className="password-field"><input id="new-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" /><button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar senhas" : "Mostrar senhas"}>{showPassword ? "◉" : "◎"}<span>{showPassword ? "Ocultar" : "Mostrar"}</span></button></div>
+      <label htmlFor="confirm-password">Confirmar nova senha</label>
+      <input id="confirm-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)} placeholder="Digite a mesma senha novamente" />
+      <div className="password-save-note"><i>✓</i><span><b>O navegador poderá atualizar a senha salva</b><small>A NorteP não consegue ler a sua senha.</small></span></div>
+      <button type="submit" className="primary auth-submit" disabled={busy || password.length < 8 || confirmation.length < 8}>{busy ? "Alterando…" : "Salvar nova senha"}</button>
+      {message && <div className="auth-message" role="alert">{message}</div>}
     </form>
   </div>;
 }
@@ -347,6 +424,8 @@ function traduzErro(message: string) {
   if (texto.includes("rate limit") || texto.includes("too many requests")) return "Foram feitas muitas tentativas. Aguarde alguns minutos e tente novamente.";
   if (texto.includes("invalid login")) return "E-mail ou senha incorretos.";
   if (texto.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
+  if (texto.includes("same password") || texto.includes("different from the old")) return "Escolha uma senha diferente da anterior.";
+  if ((texto.includes("token") || texto.includes("link")) && (texto.includes("expired") || texto.includes("invalid"))) return "Este link de recuperação expirou. Solicite um novo link na tela de entrada.";
   if (texto.includes("already registered") || texto.includes("user already exists")) return "Este e-mail já possui uma conta. Use a opção Entrar.";
   if (texto.includes("password") && (texto.includes("least") || texto.includes("weak"))) return "A senha precisa ter pelo menos 8 caracteres.";
   if (texto.includes("invalid") && texto.includes("email")) return "Digite um endereço de e-mail válido.";
