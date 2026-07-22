@@ -67,6 +67,28 @@ export function readSession(): Session | null {
   try { return JSON.parse(localStorage.getItem(sessionKey) || "null"); } catch { return null; }
 }
 
+export async function readSessionFromUrl(): Promise<Session | null> {
+  if (typeof window === "undefined" || !window.location.hash) return null;
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+  if (!accessToken || !refreshToken) return null;
+
+  const response = await fetch(`${url}/auth/v1/user`, {
+    headers: { apikey: key, Authorization: `Bearer ${accessToken}` },
+  });
+  const user = await parseResponse(response);
+  const session = {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_at: Math.floor(Date.now() / 1000) + Number(params.get("expires_in") || 3600),
+    user,
+  } as Session;
+  saveSession(session);
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  return session;
+}
+
 export function saveSession(session: Session | null) {
   if (typeof window === "undefined") return;
   if (session) localStorage.setItem(sessionKey, JSON.stringify(session));
@@ -152,7 +174,11 @@ export async function rest<T>(session: Session, path: string, init: RequestInit 
 
 export async function loadProfile(session: Session) {
   const rows = await rest<Profile[]>(session, `profiles?id=eq.${session.user.id}&select=*`);
-  return rows[0] ?? null;
+  if (rows[0]) return rows[0];
+  return rest<Profile>(session, "rpc/ensure_own_profile", {
+    method: "POST",
+    body: "{}",
+  });
 }
 
 export async function loadSurveys(session: Session) {

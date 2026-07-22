@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
-import { configured, createAccessInvite, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveys, ObserverSummary, Profile, readSession, redeemAccessInvite, refreshSession, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey } from "./supabase";
+import { configured, createAccessInvite, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "administracao";
@@ -58,7 +58,7 @@ export default function Home() {
     window.addEventListener("online", updateOnline);
     window.addEventListener("offline", updateOnline);
     const boot = async () => {
-      const stored = readSession();
+      const stored = await readSessionFromUrl() ?? readSession();
       if (!stored) return setAuthReady(true);
       try { await autenticar(stored, channel); } catch { saveSession(null); }
       setAuthReady(true);
@@ -266,6 +266,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [confirmationEmail, setConfirmationEmail] = useState("");
   const enviar = async () => {
     setBusy(true); setMessage("");
     try {
@@ -281,14 +282,35 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
           if (invited) await redeemAccessInvite(result.session, inviteCode);
           await onAuthenticated(result.session, access);
         } else {
-          setModo("entrar");
-          setMessage(invited ? "Conta criada. Confirme o e-mail e volte por este mesmo convite para entrar." : "Conta criada. Confirme o e-mail recebido e volte a esta tela para entrar. Depois, a coordenação libera a pesquisa.");
+          setConfirmationEmail(email.trim().toLowerCase());
         }
       }
     } catch (error) { saveSession(null); setMessage(error instanceof Error ? traduzErro(error.message) : "Não foi possível entrar."); }
     setBusy(false);
   };
   const adminAccess = access === "administracao";
+  if (confirmationEmail) return <div className="auth-shell">
+    <section className="auth-brand">
+      <small>NORTEP PESQUISA</small>
+      <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
+      <p>Seu acesso está protegido por duas confirmações simples.</p>
+      <div><span>1. Confirmação do e-mail</span><span>2. Aprovação da administração</span><span>3. Pesquisa liberada</span></div>
+    </section>
+    <div className="auth-card confirmation-card">
+      <div className="auth-logo">NP</div>
+      <small>PRIMEIRA ETAPA CONCLUÍDA</small>
+      <h2>Confira seu e-mail</h2>
+      <p>Enviamos uma mensagem de confirmação para <b>{confirmationEmail}</b>.</p>
+      <ol className="confirmation-steps">
+        <li><i>1</i><span><b>Abra o e-mail da NorteP</b><small>Confira também as pastas Spam ou Lixo eletrônico.</small></span></li>
+        <li><i>2</i><span><b>Toque em “Confirmar cadastro”</b><small>O link abrirá novamente a NorteP Pesquisa.</small></span></li>
+        <li><i>3</i><span><b>Aguarde a aprovação de acesso</b><small>A administração precisa liberar a pesquisa antes da primeira entrevista.</small></span></li>
+      </ol>
+      <div className="auth-message success-message" role="status">Cadastro recebido. Depois de confirmar o e-mail, aparecerá a mensagem “Aguardando aprovação”.</div>
+      <button type="button" className="primary auth-submit" onClick={() => { setConfirmationEmail(""); setModo("entrar"); setPassword(""); }}>Já confirmei: entrar</button>
+      <button type="button" className="auth-switch" onClick={() => setConfirmationEmail("")}>Voltar para corrigir o e-mail</button>
+    </div>
+  </div>;
   return <div className="auth-shell">
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
@@ -309,6 +331,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
         <input id="auth-password" type={showPassword ? "text" : "password"} autoComplete={modo === "entrar" ? "current-password" : "new-password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" />
         <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} title={showPassword ? "Ocultar senha" : "Mostrar senha"}>{showPassword ? "◉" : "◎"}<span>{showPassword ? "Ocultar" : "Mostrar"}</span></button>
       </div>
+      <div className="password-save-note"><i>✓</i><span><b>Você pode salvar a senha neste aparelho</b><small>Depois de enviar, aceite “Salvar senha” quando o seu celular ou navegador oferecer. A NorteP não lê nem guarda essa senha.</small></span></div>
       <button type="submit" className="primary auth-submit" disabled={busy || !email || password.length < 8 || (modo === "criar" && !name)}>{busy ? "Aguarde…" : modo === "entrar" ? "Entrar com segurança" : invited ? "Criar conta e aceitar convite" : "Criar meu acesso"}</button>
       {message && <div className="auth-message" role="status">{message}</div>}
       {allowSignup && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
