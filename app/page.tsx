@@ -358,7 +358,8 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       <div className="auth-logo">NP</div>
       <small>{adminAccess ? "ADMINISTRAÇÃO RESTRITA" : "ÁREA DO PESQUISADOR"}</small>
       <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (adminAccess ? "Entrar na administração" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
-      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : "Use seu e-mail cadastrado. Se a conta for nova, a coordenação precisa aprovar antes da primeira pesquisa.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
+      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
+      {modo === "criar" && <div className="existing-account-note"><span><b>Já possui uma conta?</b><small>Não faça outro cadastro. Entre para saber se o acesso já está ativo ou se ainda aguarda aprovação.</small></span><button type="button" onClick={() => { setModo("entrar"); setMessage(""); }}>Entrar e verificar</button></div>}
       {modo === "criar" && <><label htmlFor="auth-name">Nome completo</label><input id="auth-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}
       <label htmlFor="auth-email">E-mail</label>
       <input id="auth-email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@exemplo.com" />
@@ -426,7 +427,7 @@ function traduzErro(message: string) {
   if (texto.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
   if (texto.includes("same password") || texto.includes("different from the old")) return "Escolha uma senha diferente da anterior.";
   if ((texto.includes("token") || texto.includes("link")) && (texto.includes("expired") || texto.includes("invalid"))) return "Este link de recuperação expirou. Solicite um novo link na tela de entrada.";
-  if (texto.includes("already registered") || texto.includes("user already exists")) return "Este e-mail já possui uma conta. Use a opção Entrar.";
+  if (texto.includes("already registered") || texto.includes("user already exists")) return "Este e-mail já possui uma conta. Entre para verificar: se estiver ativa, a pesquisa será aberta; se não, aparecerá Aguardando aprovação.";
   if (texto.includes("password") && (texto.includes("least") || texto.includes("weak"))) return "A senha precisa ter pelo menos 8 caracteres.";
   if (texto.includes("invalid") && texto.includes("email")) return "Digite um endereço de e-mail válido.";
   if (texto.includes("signup") && texto.includes("disabled")) return "A criação de novas contas está temporariamente indisponível.";
