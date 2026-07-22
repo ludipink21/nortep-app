@@ -90,6 +90,20 @@ export async function signUp(name: string, email: string, password: string) {
   return { session: null, confirmationRequired: true };
 }
 
+export async function redeemAccessInvite(session: Session, code: string) {
+  return rest<string>(session, "rpc/redeem_access_invite", {
+    method: "POST",
+    body: JSON.stringify({ p_code: code }),
+  });
+}
+
+export async function createAccessInvite(session: Session, email: string, role: "admin" | "coordenador") {
+  return rest<string>(session, "rpc/create_access_invite", {
+    method: "POST",
+    body: JSON.stringify({ p_email: email, p_role: role }),
+  });
+}
+
 export async function refreshSession(session: Session) {
   if (session.expires_at > Math.floor(Date.now() / 1000) + 90) return session;
   const response = await fetch(`${url}/auth/v1/token?grant_type=refresh_token`, {
@@ -178,4 +192,3 @@ export async function saveInterview(session: Session, survey: Survey, responses:
   });
   return saved;
 }
-

@@ -3,10 +3,17 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
-import { configured, loadInterviews, loadProfile, loadProfiles, loadSurveys, Profile, readSession, refreshSession, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey } from "./supabase";
+import { configured, createAccessInvite, loadInterviews, loadProfile, loadProfiles, loadSurveys, Profile, readSession, redeemAccessInvite, refreshSession, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
+type AccessChannel = "publico" | "pesquisador" | "administracao";
 type PendingInterview = { id: string; survey: Survey; responses: Record<string, string>; deviceId: string };
+
+function readAccessChannel(): AccessChannel {
+  if (typeof window === "undefined") return "publico";
+  const value = new URLSearchParams(window.location.search).get("acesso");
+  return value === "pesquisador" || value === "administracao" ? value : "publico";
+}
 
 const pesquisas = [
   { nome: "Betim: território e escolhas 2026", status: "Piloto interno", feitas: 0, meta: 100, equipe: 5 },
@@ -31,8 +38,14 @@ export default function Home() {
   const [pendingCount, setPendingCount] = useState(0);
   const [savedCode, setSavedCode] = useState("");
   const [savedSynced, setSavedSynced] = useState(true);
+  const [accessChannel, setAccessChannel] = useState<AccessChannel>("publico");
+  const [inviteCode, setInviteCode] = useState("");
 
   useEffect(() => {
+    const channel = readAccessChannel();
+    const invitation = new URLSearchParams(window.location.search).get("convite") || "";
+    setAccessChannel(channel);
+    setInviteCode(invitation);
     const rascunho = localStorage.getItem("nortep-rascunho");
     const video = localStorage.getItem("nortep-video-agradecimento");
     if (rascunho) setRespostas(JSON.parse(rascunho));
@@ -46,7 +59,7 @@ export default function Home() {
     const boot = async () => {
       const stored = readSession();
       if (!stored) return setAuthReady(true);
-      try { await autenticar(stored); } catch { saveSession(null); }
+      try { await autenticar(stored, channel); } catch { saveSession(null); }
       setAuthReady(true);
     };
     boot();
@@ -60,10 +73,14 @@ export default function Home() {
     setTeam(await loadProfiles(s));
   }
 
-  async function autenticar(incoming: Session) {
+  async function autenticar(incoming: Session, channel: AccessChannel = accessChannel) {
     const current = await refreshSession(incoming);
     const p = await loadProfile(current);
     if (!p) throw new Error("Perfil não encontrado.");
+    if (channel === "administracao" && p.role === "pesquisador") {
+      saveSession(null);
+      throw new Error("Este acesso é exclusivo para administração e coordenação autorizadas.");
+    }
     setSession(current);
     setProfile(p);
     const surveys = await loadSurveys(current);
@@ -87,6 +104,11 @@ export default function Home() {
     await setProfileActive(session, id, active);
     setTeam(await loadProfiles(session));
     aviso(active ? "Pesquisador aprovado e pesquisa liberada" : "Acesso do pesquisador suspenso");
+  };
+  const gerarConvite = async (email: string, role: "admin" | "coordenador") => {
+    if (!session) throw new Error("Entre novamente para gerar o convite.");
+    const code = await createAccessInvite(session, email, role);
+    return `${window.location.origin}/?acesso=administracao&convite=${encodeURIComponent(code)}`;
   };
   const fila = () => JSON.parse(localStorage.getItem("nortep-pendentes") || "[]") as PendingInterview[];
   const guardarFila = (items: PendingInterview[]) => {
@@ -127,7 +149,10 @@ export default function Home() {
 
   if (!authReady) return <TelaCarregando />;
   if (!configured()) return <TelaConfigErro />;
-  if (!session || !profile) return <Login onAuthenticated={autenticar} />;
+  if (!session || !profile) {
+    if (accessChannel === "publico") return <PublicLanding />;
+    return <Login access={accessChannel} inviteCode={inviteCode} onAuthenticated={autenticar} />;
+  }
   if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} />;
 
   const admin = profile.role === "admin" || profile.role === "coordenador";
@@ -174,7 +199,7 @@ export default function Home() {
       <div className={campo ? "content campo-content" : "content"}>
         {view === "inicio" && <Inicio ir={ir} aviso={aviso} interviews={interviews} pending={pendingCount} />}
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} />}
-        {view === "equipe" && <Equipe aviso={aviso} profiles={team} onToggle={atualizarEquipe} />}
+        {view === "equipe" && <Equipe aviso={aviso} profiles={team} onToggle={atualizarEquipe} onInvite={gerarConvite} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} />}
         {view === "ecossistema" && <Ecossistema />}
         {view === "portal" && <Portal profile={profile} survey={survey} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={() => { setPasso(1); ir("entrevista"); }} />}
@@ -205,8 +230,24 @@ function TelaConfigErro() {
   return <div className="auth-shell"><div className="auth-card"><div className="auth-logo">NP</div><h1>Configuração pendente</h1><p>O banco de dados ainda não foi conectado à publicação.</p></div></div>;
 }
 
-function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => Promise<void> }) {
-  const [modo, setModo] = useState<"entrar" | "criar">("entrar");
+function PublicLanding() {
+  return <div className="public-shell">
+    <section className="public-copy">
+      <small>NORTEP PESQUISA</small>
+      <h1><b>N</b>orte<b>P</b></h1>
+      <h2>Dados de campo protegidos.<br />Decisões mais próximas das pessoas.</h2>
+      <p>Plataforma privada para pesquisas presenciais, organização territorial e acompanhamento de equipes autorizadas.</p>
+      <div className="public-points"><span>✓ Coleta anônima</span><span>✓ Consentimento registrado</span><span>✓ Acesso controlado por função</span></div>
+      <a className="public-contact" href="mailto:pesquisadecamponortep@gmail.com?subject=Acesso%20ou%20demonstra%C3%A7%C3%A3o%20NorteP">Solicitar acesso ou demonstração →</a>
+    </section>
+    <section className="public-shield"><div><i>NP</i><small>AMBIENTE RESTRITO</small><h3>Acesso somente para pessoas autorizadas.</h3><p>Pesquisadores e gestores recebem um link específico da coordenação. Caso tenha recebido um convite, utilize exatamente o endereço enviado.</p><span>Se precisar de ajuda, fale com a equipe NorteP.</span></div></section>
+  </div>;
+}
+
+function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel; inviteCode: string; onAuthenticated: (session: Session, channel?: AccessChannel) => Promise<void> }) {
+  const invited = access === "administracao" && Boolean(inviteCode);
+  const allowSignup = access === "pesquisador" || invited;
+  const [modo, setModo] = useState<"entrar" | "criar">(invited ? "criar" : "entrar");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -215,16 +256,23 @@ function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => Pro
   const enviar = async () => {
     setBusy(true); setMessage("");
     try {
-      if (modo === "entrar") await onAuthenticated(await signIn(email.trim().toLowerCase(), password));
+      if (modo === "entrar") {
+        const newSession = await signIn(email.trim().toLowerCase(), password);
+        if (invited) await redeemAccessInvite(newSession, inviteCode);
+        await onAuthenticated(newSession, access);
+      }
       else {
         const result = await signUp(name.trim(), email.trim().toLowerCase(), password);
-        if (result.session) await onAuthenticated(result.session);
-        else setMessage("Conta criada. Enviamos um e-mail de confirmação. Abra a mensagem e depois volte para entrar.");
+        if (result.session) {
+          if (invited) await redeemAccessInvite(result.session, inviteCode);
+          await onAuthenticated(result.session, access);
+        } else setMessage(invited ? "Conta criada. Confirme o e-mail e volte por este mesmo convite para entrar." : "Conta criada. Enviamos um e-mail de confirmação. Abra a mensagem e depois volte para entrar.");
       }
-    } catch (error) { setMessage(error instanceof Error ? traduzErro(error.message) : "Não foi possível entrar."); }
+    } catch (error) { saveSession(null); setMessage(error instanceof Error ? traduzErro(error.message) : "Não foi possível entrar."); }
     setBusy(false);
   };
-  return <div className="auth-shell"><section className="auth-brand"><small>NORTEP · POLÍTICA, POVO E PESQUISA</small><h1><b>N</b>orte<b>P</b> Pesquisa</h1><p>Dados de campo protegidos, organizados e prontos para aproximar pessoas das decisões.</p><div><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></div></section><section className="auth-card"><div className="auth-logo">NP</div><small>ACESSO DA EQUIPE</small><h2>{modo === "entrar" ? "Entrar no NorteP" : "Criar acesso"}</h2><p>{modo === "entrar" ? "Use o e-mail cadastrado pela coordenação." : "Novos pesquisadores aguardam aprovação da administração."}</p>{modo === "criar" && <><label>Nome completo</label><input value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}<label>E-mail</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@exemplo.com" /><label>Senha</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" /><button className="primary auth-submit" disabled={busy || !email || password.length < 8 || (modo === "criar" && !name)} onClick={enviar}>{busy ? "Aguarde…" : modo === "entrar" ? "Entrar com segurança" : "Criar meu acesso"}</button>{message && <div className="auth-message">{message}</div>}<button className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? "Primeiro acesso? Criar conta" : "Já possui acesso? Entrar"}</button><small className="auth-help">O entrevistado não precisa criar conta.</small></section></div>;
+  const adminAccess = access === "administracao";
+  return <div className="auth-shell"><section className="auth-brand"><small>NORTEP PESQUISA</small><h1><b>N</b>orte<b>P</b> Pesquisa</h1><p>Dados de campo protegidos, organizados e prontos para aproximar pessoas das decisões.</p><div><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></div></section><section className="auth-card"><div className="auth-logo">NP</div><small>{adminAccess ? "ADMINISTRAÇÃO RESTRITA" : "ÁREA DO PESQUISADOR"}</small><h2>{modo === "entrar" ? (adminAccess ? "Entrar na administração" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2><p>{modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : "Use seu e-mail aprovado pela coordenação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "O cadastro ficará aguardando aprovação antes de liberar qualquer pesquisa.")}</p>{modo === "criar" && <><label>Nome completo</label><input value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}<label>E-mail</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@exemplo.com" /><label>Senha</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" /><button className="primary auth-submit" disabled={busy || !email || password.length < 8 || (modo === "criar" && !name)} onClick={enviar}>{busy ? "Aguarde…" : modo === "entrar" ? "Entrar com segurança" : invited ? "Criar conta e aceitar convite" : "Criar meu acesso"}</button>{message && <div className="auth-message">{message}</div>}{allowSignup && <button className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}<small className="auth-help">{adminAccess ? "Convites vencem em 72 horas e funcionam uma única vez." : "O entrevistado não precisa criar conta."}</small></section></div>;
 }
 
 function traduzErro(message: string) {
@@ -238,6 +286,8 @@ function traduzErro(message: string) {
   if (texto.includes("password") && (texto.includes("least") || texto.includes("weak"))) return "A senha precisa ter pelo menos 8 caracteres.";
   if (texto.includes("invalid") && texto.includes("email")) return "Digite um endereço de e-mail válido.";
   if (texto.includes("signup") && texto.includes("disabled")) return "A criação de novas contas está temporariamente indisponível.";
+  if (texto.includes("convite inválido") || texto.includes("expirado") || texto.includes("outro e-mail")) return "Este convite é inválido, expirou ou foi aberto com outro e-mail. Peça um novo convite à administração.";
+  if (texto.includes("exclusivo para administração") || texto.includes("não autorizado")) return "Este e-mail não possui autorização para entrar na administração.";
   if (texto.includes("failed to fetch") || texto.includes("network")) return "Não foi possível conectar. Verifique a internet e tente novamente.";
   return "Não foi possível concluir a operação. Aguarde um momento e tente novamente.";
 }
@@ -281,7 +331,40 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl }: { ir: (v: View) => void
   </>;
 }
 
-function Equipe({ aviso, profiles, onToggle }: { aviso: (t: string) => void; profiles: Profile[]; onToggle: (id: string, active: boolean) => void }) { return <><Cabecalho titulo="Equipe de pesquisadores" sub={`${profiles.length} cadastro(s) · ${profiles.filter(x => x.active).length} ativo(s)`} botao="＋ Orientar cadastro" acao={() => aviso("Peça ao pesquisador para usar Criar conta na tela inicial")} /><div className="painel tabela"><div className="tr cab"><span>Usuário</span><span>Função</span><span>Status</span><span>Ação</span></div>{profiles.map(p => <div className="tr" key={p.id}><span className="pessoa"><i>{p.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{p.name}</b><small>{p.email}</small></span></span><span>{p.role}</span><b className={p.active ? "ok" : "pendente"}>● {p.active ? "Ativo" : "Aguardando"}</b><span>{p.role === "pesquisador" && <button className={p.active ? "suspender" : "aprovar"} onClick={() => onToggle(p.id, !p.active)}>{p.active ? "Suspender" : "Aprovar"}</button>}</span></div>)}{!profiles.length && <div className="vazio-tabela">Nenhum cadastro encontrado.</div>}</div></>; }
+function Equipe({ aviso, profiles, onToggle, onInvite }: { aviso: (t: string) => void; profiles: Profile[]; onToggle: (id: string, active: boolean) => void; onInvite: (email: string, role: "admin" | "coordenador") => Promise<string> }) {
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "coordenador">("coordenador");
+  const [generatedLink, setGeneratedLink] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const researcherLink = typeof window === "undefined" ? "" : `${window.location.origin}/?acesso=pesquisador`;
+  const copy = async (value: string, message: string) => {
+    await navigator.clipboard.writeText(value);
+    aviso(message);
+  };
+  const generate = async () => {
+    if (!inviteEmail.includes("@")) return aviso("Informe o e-mail do seu parceiro");
+    setInviteBusy(true);
+    try {
+      const link = await onInvite(inviteEmail.trim().toLowerCase(), inviteRole);
+      setGeneratedLink(link);
+      await navigator.clipboard.writeText(link);
+      aviso("Convite seguro criado e copiado");
+    } catch (error) {
+      aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível gerar o convite");
+    }
+    setInviteBusy(false);
+  };
+  return <>
+    <Cabecalho titulo="Equipe e acessos" sub={`${profiles.length} cadastro(s) · ${profiles.filter(x => x.active).length} ativo(s)`} botao="＋ Gerar convite" acao={() => setShowInvite(!showInvite)} />
+    <div className="access-grid">
+      <div className="painel access-box"><small>LINK DO PESQUISADOR</small><h3>Cadastro e trabalho de campo</h3><p>Este endereço nunca abre o painel administrativo. Todo novo cadastro aguarda sua aprovação.</p><div className="link-row"><input readOnly value={researcherLink} aria-label="Link oficial do pesquisador" /><button onClick={() => copy(researcherLink, "Link do pesquisador copiado")}>Copiar link</button></div></div>
+      <div className="painel access-box secure"><small>ADMINISTRAÇÃO</small><h3>Convite individual obrigatório</h3><p>Não compartilhe sua senha. Cada parceiro recebe um link de uso único, vinculado ao e-mail e válido por 72 horas.</p><button onClick={() => setShowInvite(true)}>Criar convite para parceiro</button></div>
+    </div>
+    {showInvite && <div className="painel invite-panel"><div><small>NOVO CONVITE SEGURO</small><h3>Autorizar parceiro</h3><p>Coordenador é a opção recomendada para acompanhar o teste. Administrador possui controle total.</p></div><label>E-mail autorizado<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="parceiro@exemplo.com" /></label><label>Permissão<select value={inviteRole} onChange={e => setInviteRole(e.target.value as "admin" | "coordenador")}><option value="coordenador">Coordenador — recomendado</option><option value="admin">Administrador — controle total</option></select></label><button className="primary" disabled={inviteBusy || !inviteEmail} onClick={generate}>{inviteBusy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}. O link já está copiado.</span><div className="link-row"><input readOnly value={generatedLink} aria-label="Convite administrativo gerado" /><button onClick={() => copy(generatedLink, "Convite copiado novamente")}>Copiar</button></div></div>}</div>}
+    <div className="painel tabela"><div className="tr cab"><span>Usuário</span><span>Função</span><span>Status</span><span>Ação</span></div>{profiles.map(p => <div className="tr" key={p.id}><span className="pessoa"><i>{p.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{p.name}</b><small>{p.email}</small></span></span><span>{p.role}</span><b className={p.active ? "ok" : "pendente"}>● {p.active ? "Ativo" : "Aguardando"}</b><span>{p.role === "pesquisador" && <button className={p.active ? "suspender" : "aprovar"} onClick={() => onToggle(p.id, !p.active)}>{p.active ? "Suspender" : "Aprovar"}</button>}</span></div>)}{!profiles.length && <div className="vazio-tabela">Nenhum cadastro encontrado.</div>}</div>
+  </>;
+}
 
 function Resultados({ aviso, interviews }: { aviso: (t: string) => void; interviews: SavedInterview[] }) {
   const exportar = () => {

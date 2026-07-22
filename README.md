@@ -101,3 +101,23 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 
 - Adicionar um botão de olho no campo de senha para mostrar ou ocultar o texto digitado, facilitando o acesso pelo celular.
 - Simplificar a frase da capa para “NorteP Pesquisa”, retirando “Política, Povo e Pesquisa”.
+
+### Acesso blindado e convites
+
+- Não permitir que uma pessoa se cadastre livremente como administradora ou coordenadora.
+- Liberar administração e coordenação somente por convite individual, com código de acesso de uso único, prazo de validade e registro de quem convidou, quem aceitou e quando aceitou.
+- Manter o visitante não autorizado apenas em uma página pública institucional, com explicação do NorteP e direcionamento para suporte ou contratação.
+- Permitir cadastro de pesquisador por um fluxo separado, sempre com aprovação da coordenação antes de acessar qualquer pesquisa.
+- Garantir que o pesquisador veja somente a área de campo e apenas as pesquisas explicitamente liberadas para ele.
+- Impedir que pesquisadores acessem painel administrativo, equipe, resultados gerais, exportações ou configurações.
+- Registrar tentativas de acesso, aprovações, suspensões e alterações de permissão em trilha de auditoria.
+- Possibilitar revogação imediata de convites e acessos.
+
+### Múltiplas pesquisas e segmentação
+
+- Permitir várias pesquisas simultâneas, cada uma com status, metas, perguntas, equipe e resultados próprios.
+- Liberar pesquisas por pesquisador, equipe, grupo, bairro, região ou território.
+- Permitir que uma pessoa participe de mais de uma equipe ou região, conforme autorização.
+- Exibir acompanhamento consolidado de todas as pesquisas e também separado por pesquisa, grupo, pesquisador, bairro, região e período.
+- Manter respostas, metas, exportações e indicadores isolados por pesquisa, evitando mistura de dados.
+- Incluir filtros e comparação entre grupos e regiões sem ampliar as permissões de quem está consultando.
