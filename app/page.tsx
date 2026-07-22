@@ -68,7 +68,7 @@ export default function Home() {
         ["ecossistema", "◇", "Ecossistema NorteP"],
       ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i>{item[1]}</i>{item[2]}</button>)}</nav>
       <div className="coleta"><b>● Coleta em andamento</b><small>798 de 1.200 entrevistas</small><div><i /></div></div>
-      <div className="perfil"><i>AM</i><span><b>Ana Martins</b><small>Administradora</small></span><b>⋮</b></div>
+      <div className="perfil"><i>LR</i><span><b>Ludimila Rodrigues</b><small>Administradora responsável</small></span><b>⋮</b></div>
     </aside>}
 
     <main>
@@ -113,7 +113,7 @@ export default function Home() {
 
 function Inicio({ ir, aviso }: { ir: (v: View) => void; aviso: (t: string) => void }) {
   return <>
-    <div className="boas"><div><small>QUARTA-FEIRA, 22 DE JULHO</small><h2>Bom dia, Ana. <span>O campo está avançando.</span></h2><p>Acompanhe o ritmo das equipes e veja onde sua atenção é mais necessária.</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
+    <div className="boas"><div><small>QUARTA-FEIRA, 22 DE JULHO</small><h2>Bom dia, Ludimila. <span>O campo está avançando.</span></h2><p>Acompanhe o ritmo das equipes e veja onde sua atenção é mais necessária.</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
     <div className="metricas"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v="798" s="+12% nesta semana" /><Metrica c="laranja" i="◎" t="Meta geral" v="66,5%" s="402 entrevistas restantes" /><Metrica c="roxo" i="♙" t="Pesquisadores ativos" v="27" s="de 32 cadastrados" /><Metrica c="azul" i="⌁" t="Pendentes de sincronização" v="14" s="em 6 dispositivos" /></div>
     <div className="duas"><div className="painel"><Topo sup="RITMO DE COLETA" titulo="Entrevistas nos últimos 7 dias" /><div className="grafico">{[58, 43, 72, 55, 84, 94, 68].map((h, i) => <div key={i}><b>{[78, 56, 96, 72, 108, 116, 88][i]}</b><i style={{ height: h + "%" }} /><small>{["QUI", "SEX", "SÁB", "DOM", "SEG", "TER", "HOJE"][i]}</small></div>)}</div></div><div className="painel"><Topo sup="PRECISA DE ATENÇÃO" titulo="Alertas do campo" />{[["5 entrevistas muito rápidas", "Duração abaixo de 3 minutos"], ["14 respostas não sincronizadas", "Há mais de 8 horas"], ["Meta baixa no Jardim União", "Apenas 31% concluída"]].map((a, i) => <div className="alerta" key={a[0]}><i className={"a" + i}>!</i><span><b>{a[0]}</b><small>{a[1]}</small></span><button>Revisar →</button></div>)}</div></div>
     <div className="painel lista"><div className="topo"><div><small>PESQUISAS ATIVAS</small><h3>Acompanhamento por pesquisa</h3></div><button onClick={() => ir("pesquisas")}>Ver todas →</button></div>{pesquisas.slice(0, 2).map(p => <LinhaPesquisa p={p} ir={ir} key={p.nome} />)}</div>
