@@ -9,10 +9,19 @@ export type Profile = {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "coordenador" | "pesquisador";
+  role: "admin" | "coordenador" | "pesquisador" | "observador";
   active: boolean;
   region?: string | null;
   created_at?: string;
+};
+
+export type ObserverSummary = {
+  total_interviews: number;
+  interviews_today: number;
+  active_researchers: number;
+  active_surveys: number;
+  updated_at: string | null;
+  surveys: Array<{ id: string; title: string; status: string; interviews: number; researchers: number }>;
 };
 
 export type Survey = {
@@ -97,10 +106,17 @@ export async function redeemAccessInvite(session: Session, code: string) {
   });
 }
 
-export async function createAccessInvite(session: Session, email: string, role: "admin" | "coordenador") {
+export async function createAccessInvite(session: Session, email: string, role: "admin" | "coordenador" | "observador") {
   return rest<string>(session, "rpc/create_access_invite", {
     method: "POST",
     body: JSON.stringify({ p_email: email, p_role: role }),
+  });
+}
+
+export async function loadObserverSummary(session: Session) {
+  return rest<ObserverSummary>(session, "rpc/observer_summary", {
+    method: "POST",
+    body: "{}",
   });
 }
 

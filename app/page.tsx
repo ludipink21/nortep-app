@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
-import { configured, createAccessInvite, loadInterviews, loadProfile, loadProfiles, loadSurveys, Profile, readSession, redeemAccessInvite, refreshSession, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey } from "./supabase";
+import { configured, createAccessInvite, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveys, ObserverSummary, Profile, readSession, redeemAccessInvite, refreshSession, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "administracao";
@@ -40,6 +40,7 @@ export default function Home() {
   const [savedSynced, setSavedSynced] = useState(true);
   const [accessChannel, setAccessChannel] = useState<AccessChannel>("publico");
   const [inviteCode, setInviteCode] = useState("");
+  const [observerSummary, setObserverSummary] = useState<ObserverSummary | null>(null);
 
   useEffect(() => {
     const channel = readAccessChannel();
@@ -83,6 +84,11 @@ export default function Home() {
     }
     setSession(current);
     setProfile(p);
+    if (p.role === "observador") {
+      setObserverSummary(await loadObserverSummary(current));
+      setView("inicio");
+      return;
+    }
     const surveys = await loadSurveys(current);
     setSurvey(surveys[0] ?? null);
     if (p.active) setInterviews(await loadInterviews(current));
@@ -105,7 +111,7 @@ export default function Home() {
     setTeam(await loadProfiles(session));
     aviso(active ? "Pesquisador aprovado e pesquisa liberada" : "Acesso do pesquisador suspenso");
   };
-  const gerarConvite = async (email: string, role: "admin" | "coordenador") => {
+  const gerarConvite = async (email: string, role: "admin" | "coordenador" | "observador") => {
     if (!session) throw new Error("Entre novamente para gerar o convite.");
     const code = await createAccessInvite(session, email, role);
     return `${window.location.origin}/?acesso=administracao&convite=${encodeURIComponent(code)}`;
@@ -145,7 +151,7 @@ export default function Home() {
     aviso(enviadas ? `${enviadas} entrevista(s) sincronizada(s)` : "Nenhuma entrevista pendente");
     if (profile && profile.role !== "pesquisador") setInterviews(await loadInterviews(session));
   };
-  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setView("inicio"); };
+  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setObserverSummary(null); setView("inicio"); };
 
   if (!authReady) return <TelaCarregando />;
   if (!configured()) return <TelaConfigErro />;
@@ -154,6 +160,7 @@ export default function Home() {
     return <Login access={accessChannel} inviteCode={inviteCode} onAuthenticated={autenticar} />;
   }
   if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} />;
+  if (profile.role === "observador") return <ObserverPanel profile={profile} summary={observerSummary} sair={sair} atualizar={async () => { if (session) setObserverSummary(await loadObserverSummary(session)); }} />;
 
   const admin = profile.role === "admin" || profile.role === "coordenador";
   const campo = view === "portal" || view === "entrevista" || view === "obrigado";
@@ -296,6 +303,16 @@ function AguardandoAprovacao({ profile, sair }: { profile: Profile; sair: () => 
   return <div className="auth-shell"><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO CRIADO</small><h2>Olá, {profile.name}.</h2><p>Seu cadastro chegou à coordenação. Assim que a administração aprovar, a pesquisa aparecerá neste aparelho.</p><div className="pending-shield">◎ <span><b>Conta aguardando aprovação</b><small>Nenhuma resposta pode ser coletada antes da liberação.</small></span></div><button className="auth-switch" onClick={sair}>Sair e voltar depois</button></div></div>;
 }
 
+function ObserverPanel({ profile, summary, sair, atualizar }: { profile: Profile; summary: ObserverSummary | null; sair: () => void; atualizar: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const refresh = async () => { setBusy(true); try { await atualizar(); } finally { setBusy(false); } };
+  const lastUpdate = summary?.updated_at ? new Date(summary.updated_at).toLocaleString("pt-BR") : "Nenhuma entrevista registrada";
+  return <div className="observer-shell">
+    <aside><div className="observer-logo"><i>NP</i><span>NorteP <b>Pesquisa</b></span></div><div className="observer-lock"><b>◉ Somente leitura</b><span>Respostas individuais, contatos e configurações estão protegidos.</span></div><div className="observer-user"><i>{profile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{profile.name}</b><small>Observador autorizado</small></span><button onClick={sair}>Sair</button></div></aside>
+    <main><header><div><small>NORTEP · VISÃO AUTORIZADA</small><h1>Acompanhamento do teste</h1></div><button onClick={refresh} disabled={busy}>{busy ? "Atualizando…" : "↻ Atualizar números"}</button></header><div className="observer-content"><div className="observer-intro"><div><small>ACESSO SEGURO</small><h2>Olá, {profile.name.split(" ")[0]}.</h2><p>Você pode acompanhar somente indicadores agrupados. Nenhum dado pessoal ou resposta individual é exibido.</p></div><span>Última coleta: <b>{lastUpdate}</b></span></div>{summary ? <><div className="observer-metrics"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(summary.total_interviews)} s="somente contagem agrupada" /><Metrica c="laranja" i="◎" t="Realizadas hoje" v={String(summary.interviews_today)} s="ritmo do teste" /><Metrica c="roxo" i="♙" t="Pesquisadores com coleta" v={String(summary.active_researchers)} s="sem identificação pessoal" /><Metrica c="azul" i="▤" t="Pesquisas em andamento" v={String(summary.active_surveys)} s="piloto ou ativa" /></div><div className="painel observer-surveys"><div className="topo"><div><small>PESQUISAS AUTORIZADAS</small><h3>Acompanhamento agrupado</h3></div></div>{summary.surveys.length ? summary.surveys.map(item => <div className="observer-survey-row" key={item.id}><span><b>{item.title}</b><small>{item.status === "pilot" ? "Piloto interno" : "Em campo"}</small></span><div><b>{item.interviews}</b><small>entrevistas</small></div><div><b>{item.researchers}</b><small>pesquisadores</small></div></div>) : <div className="resultado-vazio"><h3>Nenhuma pesquisa em andamento</h3><p>Os indicadores aparecerão quando uma pesquisa for liberada.</p></div>}</div></> : <div className="painel resultado-vazio"><h3>Preparando indicadores</h3><p>Aguarde um momento e atualize os números.</p></div>}<div className="observer-notice"><i>✓</i><span><b>Privacidade preservada</b><small>Este perfil não permite acessar nomes, contatos, localização, respostas, exportações, equipe ou configurações.</small></span></div></div></main>
+  </div>;
+}
+
 function Inicio({ ir, aviso, interviews, pending }: { ir: (v: View) => void; aviso: (t: string) => void; interviews: SavedInterview[]; pending: number }) {
   const hoje = new Date();
   const dias = Array.from({ length: 7 }, (_, i) => { const d = new Date(hoje); d.setDate(d.getDate() - (6 - i)); return d; });
@@ -331,10 +348,10 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl }: { ir: (v: View) => void
   </>;
 }
 
-function Equipe({ aviso, profiles, onToggle, onInvite }: { aviso: (t: string) => void; profiles: Profile[]; onToggle: (id: string, active: boolean) => void; onInvite: (email: string, role: "admin" | "coordenador") => Promise<string> }) {
+function Equipe({ aviso, profiles, onToggle, onInvite }: { aviso: (t: string) => void; profiles: Profile[]; onToggle: (id: string, active: boolean) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador") => Promise<string> }) {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"admin" | "coordenador">("coordenador");
+  const [inviteRole, setInviteRole] = useState<"admin" | "coordenador" | "observador">("observador");
   const [generatedLink, setGeneratedLink] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const researcherLink = typeof window === "undefined" ? "" : `${window.location.origin}/?acesso=pesquisador`;
@@ -361,7 +378,7 @@ function Equipe({ aviso, profiles, onToggle, onInvite }: { aviso: (t: string) =>
       <div className="painel access-box"><small>LINK DO PESQUISADOR</small><h3>Cadastro e trabalho de campo</h3><p>Este endereço nunca abre o painel administrativo. Todo novo cadastro aguarda sua aprovação.</p><div className="link-row"><input readOnly value={researcherLink} aria-label="Link oficial do pesquisador" /><button onClick={() => copy(researcherLink, "Link do pesquisador copiado")}>Copiar link</button></div></div>
       <div className="painel access-box secure"><small>ADMINISTRAÇÃO</small><h3>Convite individual obrigatório</h3><p>Não compartilhe sua senha. Cada parceiro recebe um link de uso único, vinculado ao e-mail e válido por 72 horas.</p><button onClick={() => setShowInvite(true)}>Criar convite para parceiro</button></div>
     </div>
-    {showInvite && <div className="painel invite-panel"><div><small>NOVO CONVITE SEGURO</small><h3>Autorizar parceiro</h3><p>Coordenador é a opção recomendada para acompanhar o teste. Administrador possui controle total.</p></div><label>E-mail autorizado<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="parceiro@exemplo.com" /></label><label>Permissão<select value={inviteRole} onChange={e => setInviteRole(e.target.value as "admin" | "coordenador")}><option value="coordenador">Coordenador — recomendado</option><option value="admin">Administrador — controle total</option></select></label><button className="primary" disabled={inviteBusy || !inviteEmail} onClick={generate}>{inviteBusy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}. O link já está copiado.</span><div className="link-row"><input readOnly value={generatedLink} aria-label="Convite administrativo gerado" /><button onClick={() => copy(generatedLink, "Convite copiado novamente")}>Copiar</button></div></div>}</div>}
+    {showInvite && <div className="painel invite-panel"><div><small>NOVO CONVITE SEGURO</small><h3>Autorizar parceiro</h3><p>Observador é a opção recomendada para acompanhar o teste sem acessar dados individuais. Coordenador administra a coleta; administrador possui controle total.</p></div><label>E-mail autorizado<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="parceiro@exemplo.com" /></label><label>Permissão<select value={inviteRole} onChange={e => setInviteRole(e.target.value as "admin" | "coordenador" | "observador")}><option value="observador">Observador — recomendado</option><option value="coordenador">Coordenador — gerencia a coleta</option><option value="admin">Administrador — controle total</option></select></label><button className="primary" disabled={inviteBusy || !inviteEmail} onClick={generate}>{inviteBusy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}. O link já está copiado.</span><div className="link-row"><input readOnly value={generatedLink} aria-label="Convite administrativo gerado" /><button onClick={() => copy(generatedLink, "Convite copiado novamente")}>Copiar</button></div></div>}</div>}
     <div className="painel tabela"><div className="tr cab"><span>Usuário</span><span>Função</span><span>Status</span><span>Ação</span></div>{profiles.map(p => <div className="tr" key={p.id}><span className="pessoa"><i>{p.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{p.name}</b><small>{p.email}</small></span></span><span>{p.role}</span><b className={p.active ? "ok" : "pendente"}>● {p.active ? "Ativo" : "Aguardando"}</b><span>{p.role === "pesquisador" && <button className={p.active ? "suspender" : "aprovar"} onClick={() => onToggle(p.id, !p.active)}>{p.active ? "Suspender" : "Aprovar"}</button>}</span></div>)}{!profiles.length && <div className="vazio-tabela">Nenhum cadastro encontrado.</div>}</div>
   </>;
 }
