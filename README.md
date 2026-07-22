@@ -97,10 +97,11 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - [vinext Documentation](https://github.com/cloudflare/vinext)
 - [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
 
-## Próximas melhorias do NorteP
+## Melhorias concluídas nesta versão
 
-- Adicionar um botão de olho no campo de senha para mostrar ou ocultar o texto digitado, facilitando o acesso pelo celular.
-- Simplificar a frase da capa para “NorteP Pesquisa”, retirando “Política, Povo e Pesquisa”.
+- Botão para mostrar ou ocultar a senha, com apoio ao preenchimento no celular.
+- Identificação simplificada para “NorteP Pesquisa”.
+- Retorno do e-mail de confirmação para a área correta e verificação da aprovação sem precisar sair da conta.
 
 ### Acesso blindado e convites
 

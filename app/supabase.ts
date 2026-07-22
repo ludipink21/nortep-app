@@ -84,8 +84,11 @@ export async function signIn(email: string, password: string) {
   return session;
 }
 
-export async function signUp(name: string, email: string, password: string) {
-  const response = await fetch(`${url}/auth/v1/signup`, {
+export async function signUp(name: string, email: string, password: string, redirectTo?: string) {
+  const endpoint = redirectTo
+    ? `${url}/auth/v1/signup?redirect_to=${encodeURIComponent(redirectTo)}`
+    : `${url}/auth/v1/signup`;
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: { apikey: key, "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, data: { name } }),

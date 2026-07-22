@@ -159,7 +159,9 @@ export default function Home() {
     if (accessChannel === "publico") return <PublicLanding />;
     return <Login access={accessChannel} inviteCode={inviteCode} onAuthenticated={autenticar} />;
   }
-  if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} />;
+  if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} verificar={async () => {
+    if (session) await autenticar(session, accessChannel);
+  }} />;
   if (profile.role === "observador") return <ObserverPanel profile={profile} summary={observerSummary} sair={sair} atualizar={async () => { if (session) setObserverSummary(await loadObserverSummary(session)); }} />;
 
   const admin = profile.role === "admin" || profile.role === "coordenador";
@@ -245,7 +247,10 @@ function PublicLanding() {
       <h2>Dados de campo protegidos.<br />Decisões mais próximas das pessoas.</h2>
       <p>Plataforma privada para pesquisas presenciais, organização territorial e acompanhamento de equipes autorizadas.</p>
       <div className="public-points"><span>✓ Coleta anônima</span><span>✓ Consentimento registrado</span><span>✓ Acesso controlado por função</span></div>
-      <a className="public-contact" href="mailto:pesquisadecamponortep@gmail.com?subject=Acesso%20ou%20demonstra%C3%A7%C3%A3o%20NorteP">Solicitar acesso ou demonstração →</a>
+      <div className="public-actions">
+        <a className="public-researcher" href="?acesso=pesquisador">Entrar como pesquisador →</a>
+        <a className="public-contact" href="mailto:pesquisadecamponortep@gmail.com?subject=Acesso%20ou%20demonstra%C3%A7%C3%A3o%20NorteP">Falar com a NorteP</a>
+      </div>
     </section>
     <section className="public-shield"><div><i>NP</i><small>AMBIENTE RESTRITO</small><h3>Acesso somente para pessoas autorizadas.</h3><p>Pesquisadores e gestores recebem um link específico da coordenação. Caso tenha recebido um convite, utilize exatamente o endereço enviado.</p><span>Se precisar de ajuda, fale com a equipe NorteP.</span></div></section>
   </div>;
@@ -258,6 +263,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const enviar = async () => {
@@ -269,17 +275,46 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
         await onAuthenticated(newSession, access);
       }
       else {
-        const result = await signUp(name.trim(), email.trim().toLowerCase(), password);
+        const redirect = `${window.location.origin}/?acesso=${access}${inviteCode ? `&convite=${encodeURIComponent(inviteCode)}` : ""}`;
+        const result = await signUp(name.trim(), email.trim().toLowerCase(), password, redirect);
         if (result.session) {
           if (invited) await redeemAccessInvite(result.session, inviteCode);
           await onAuthenticated(result.session, access);
-        } else setMessage(invited ? "Conta criada. Confirme o e-mail e volte por este mesmo convite para entrar." : "Conta criada. Enviamos um e-mail de confirmação. Abra a mensagem e depois volte para entrar.");
+        } else {
+          setModo("entrar");
+          setMessage(invited ? "Conta criada. Confirme o e-mail e volte por este mesmo convite para entrar." : "Conta criada. Confirme o e-mail recebido e volte a esta tela para entrar. Depois, a coordenação libera a pesquisa.");
+        }
       }
     } catch (error) { saveSession(null); setMessage(error instanceof Error ? traduzErro(error.message) : "Não foi possível entrar."); }
     setBusy(false);
   };
   const adminAccess = access === "administracao";
-  return <div className="auth-shell"><section className="auth-brand"><small>NORTEP PESQUISA</small><h1><b>N</b>orte<b>P</b> Pesquisa</h1><p>Dados de campo protegidos, organizados e prontos para aproximar pessoas das decisões.</p><div><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></div></section><section className="auth-card"><div className="auth-logo">NP</div><small>{adminAccess ? "ADMINISTRAÇÃO RESTRITA" : "ÁREA DO PESQUISADOR"}</small><h2>{modo === "entrar" ? (adminAccess ? "Entrar na administração" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2><p>{modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : "Use seu e-mail aprovado pela coordenação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "O cadastro ficará aguardando aprovação antes de liberar qualquer pesquisa.")}</p>{modo === "criar" && <><label>Nome completo</label><input value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}<label>E-mail</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@exemplo.com" /><label>Senha</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" /><button className="primary auth-submit" disabled={busy || !email || password.length < 8 || (modo === "criar" && !name)} onClick={enviar}>{busy ? "Aguarde…" : modo === "entrar" ? "Entrar com segurança" : invited ? "Criar conta e aceitar convite" : "Criar meu acesso"}</button>{message && <div className="auth-message">{message}</div>}{allowSignup && <button className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}<small className="auth-help">{adminAccess ? "Convites vencem em 72 horas e funcionam uma única vez." : "O entrevistado não precisa criar conta."}</small></section></div>;
+  return <div className="auth-shell">
+    <section className="auth-brand">
+      <small>NORTEP PESQUISA</small>
+      <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
+      <p>Dados de campo protegidos, organizados e prontos para aproximar pessoas das decisões.</p>
+      <div><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></div>
+    </section>
+    <form className="auth-card" onSubmit={e => { e.preventDefault(); void enviar(); }}>
+      <div className="auth-logo">NP</div>
+      <small>{adminAccess ? "ADMINISTRAÇÃO RESTRITA" : "ÁREA DO PESQUISADOR"}</small>
+      <h2>{modo === "entrar" ? (adminAccess ? "Entrar na administração" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
+      <p>{modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : "Use seu e-mail cadastrado. Se a conta for nova, a coordenação precisa aprovar antes da primeira pesquisa.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
+      {modo === "criar" && <><label htmlFor="auth-name">Nome completo</label><input id="auth-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}
+      <label htmlFor="auth-email">E-mail</label>
+      <input id="auth-email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@exemplo.com" />
+      <label htmlFor="auth-password">Senha</label>
+      <div className="password-field">
+        <input id="auth-password" type={showPassword ? "text" : "password"} autoComplete={modo === "entrar" ? "current-password" : "new-password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" />
+        <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} title={showPassword ? "Ocultar senha" : "Mostrar senha"}>{showPassword ? "◉" : "◎"}<span>{showPassword ? "Ocultar" : "Mostrar"}</span></button>
+      </div>
+      <button type="submit" className="primary auth-submit" disabled={busy || !email || password.length < 8 || (modo === "criar" && !name)}>{busy ? "Aguarde…" : modo === "entrar" ? "Entrar com segurança" : invited ? "Criar conta e aceitar convite" : "Criar meu acesso"}</button>
+      {message && <div className="auth-message" role="status">{message}</div>}
+      {allowSignup && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
+      <small className="auth-help">{adminAccess ? "Convites vencem em 72 horas e funcionam uma única vez." : "O entrevistado não precisa criar conta."}</small>
+    </form>
+  </div>;
 }
 
 function traduzErro(message: string) {
@@ -299,8 +334,10 @@ function traduzErro(message: string) {
   return "Não foi possível concluir a operação. Aguarde um momento e tente novamente.";
 }
 
-function AguardandoAprovacao({ profile, sair }: { profile: Profile; sair: () => void }) {
-  return <div className="auth-shell"><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO CRIADO</small><h2>Olá, {profile.name}.</h2><p>Seu cadastro chegou à coordenação. Assim que a administração aprovar, a pesquisa aparecerá neste aparelho.</p><div className="pending-shield">◎ <span><b>Conta aguardando aprovação</b><small>Nenhuma resposta pode ser coletada antes da liberação.</small></span></div><button className="auth-switch" onClick={sair}>Sair e voltar depois</button></div></div>;
+function AguardandoAprovacao({ profile, sair, verificar }: { profile: Profile; sair: () => void; verificar: () => Promise<void> }) {
+  const [checking, setChecking] = useState(false);
+  const refresh = async () => { setChecking(true); try { await verificar(); } finally { setChecking(false); } };
+  return <div className="auth-shell"><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO CRIADO COM SUCESSO</small><h2>Olá, {profile.name}.</h2><p>Seu cadastro está correto e chegou à coordenação. Assim que a administração aprovar, toque no botão abaixo para abrir a pesquisa.</p><div className="pending-shield">◎ <span><b>Aguardando apenas a aprovação</b><small>Esta proteção impede que pessoas não autorizadas façam entrevistas.</small></span></div><button className="primary pending-refresh" onClick={refresh} disabled={checking}>{checking ? "Verificando…" : "Verificar liberação da pesquisa"}</button><button className="auth-switch" onClick={sair}>Sair e voltar depois</button></div></div>;
 }
 
 function ObserverPanel({ profile, summary, sair, atualizar }: { profile: Profile; summary: ObserverSummary | null; sair: () => void; atualizar: () => Promise<void> }) {
