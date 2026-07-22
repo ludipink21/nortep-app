@@ -219,7 +219,7 @@ function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => Pro
       else {
         const result = await signUp(name.trim(), email.trim().toLowerCase(), password);
         if (result.session) await onAuthenticated(result.session);
-        else setMessage("Conta criada. Abra o e-mail de confirmação enviado pelo Supabase e depois volte para entrar.");
+        else setMessage("Conta criada. Enviamos um e-mail de confirmação. Abra a mensagem e depois volte para entrar.");
       }
     } catch (error) { setMessage(error instanceof Error ? traduzErro(error.message) : "Não foi possível entrar."); }
     setBusy(false);
@@ -228,10 +228,18 @@ function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => Pro
 }
 
 function traduzErro(message: string) {
-  if (message.toLowerCase().includes("invalid login")) return "E-mail ou senha incorretos.";
-  if (message.toLowerCase().includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
-  if (message.toLowerCase().includes("already registered")) return "Este e-mail já possui uma conta. Use a opção Entrar.";
-  return message;
+  const texto = message.toLowerCase();
+  const espera = message.match(/after\s+(\d+)\s+seconds?/i);
+  if (texto.includes("for security purposes") && espera) return `Por segurança, aguarde ${espera[1]} segundos antes de tentar novamente.`;
+  if (texto.includes("rate limit") || texto.includes("too many requests")) return "Foram feitas muitas tentativas. Aguarde alguns minutos e tente novamente.";
+  if (texto.includes("invalid login")) return "E-mail ou senha incorretos.";
+  if (texto.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
+  if (texto.includes("already registered") || texto.includes("user already exists")) return "Este e-mail já possui uma conta. Use a opção Entrar.";
+  if (texto.includes("password") && (texto.includes("least") || texto.includes("weak"))) return "A senha precisa ter pelo menos 8 caracteres.";
+  if (texto.includes("invalid") && texto.includes("email")) return "Digite um endereço de e-mail válido.";
+  if (texto.includes("signup") && texto.includes("disabled")) return "A criação de novas contas está temporariamente indisponível.";
+  if (texto.includes("failed to fetch") || texto.includes("network")) return "Não foi possível conectar. Verifique a internet e tente novamente.";
+  return "Não foi possível concluir a operação. Aguarde um momento e tente novamente.";
 }
 
 function AguardandoAprovacao({ profile, sair }: { profile: Profile; sair: () => void }) {
