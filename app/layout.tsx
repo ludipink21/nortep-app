@@ -9,17 +9,17 @@ export async function generateMetadata(): Promise<Metadata> {
   const image = `${protocol}://${host}/og.png`;
 
   return {
-    title: "Mobiliza Dados",
-    description: "Pesquisa de campo simples, segura e inteligente.",
+    title: "NorteP Pesquisa",
+    description: "Pesquisa de campo. Dados que aproximam.",
     openGraph: {
-      title: "Mobiliza Dados",
-      description: "Pesquisa de campo simples, segura e inteligente.",
+      title: "NorteP Pesquisa",
+      description: "Pesquisa de campo. Dados que aproximam.",
       images: [{ url: image, width: 1536, height: 1024 }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "Mobiliza Dados",
-      description: "Pesquisa de campo simples, segura e inteligente.",
+      title: "NorteP Pesquisa",
+      description: "Pesquisa de campo. Dados que aproximam.",
       images: [image],
     },
   };
