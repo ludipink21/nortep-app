@@ -1,22 +1,17 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components */
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
+import { configured, loadInterviews, loadProfile, loadProfiles, loadSurveys, Profile, readSession, refreshSession, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
+type PendingInterview = { id: string; survey: Survey; responses: Record<string, string>; deviceId: string };
 
 const pesquisas = [
   { nome: "Betim: território e escolhas 2026", status: "Piloto interno", feitas: 0, meta: 100, equipe: 5 },
-  { nome: "Avaliação dos serviços públicos", status: "Em campo", feitas: 312, meta: 500, equipe: 12 },
+  { nome: "Avaliação dos serviços públicos", status: "Planejada", feitas: 0, meta: 500, equipe: 0 },
   { nome: "Prioridades da comunidade", status: "Rascunho", feitas: 0, meta: 400, equipe: 0 },
-];
-
-const pessoas = [
-  ["Marcos Lima", "Zona Norte", 42, "Sincronizado"],
-  ["Juliana Alves", "Centro", 38, "Sincronizado"],
-  ["Rafael Souza", "Jardim União", 27, "6 pendentes"],
-  ["Camila Rocha", "Zona Sul", 35, "Sincronizado"],
 ];
 
 export default function Home() {
@@ -27,24 +22,115 @@ export default function Home() {
   const [respostas, setRespostas] = useState<Record<string, string>>({});
   const [offline, setOffline] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
+  const [authReady, setAuthReady] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [survey, setSurvey] = useState<Survey | null>(null);
+  const [team, setTeam] = useState<Profile[]>([]);
+  const [interviews, setInterviews] = useState<SavedInterview[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [savedCode, setSavedCode] = useState("");
+  const [savedSynced, setSavedSynced] = useState(true);
 
   useEffect(() => {
     const rascunho = localStorage.getItem("nortep-rascunho");
     const video = localStorage.getItem("nortep-video-agradecimento");
     if (rascunho) setRespostas(JSON.parse(rascunho));
     if (video) setVideoUrl(video);
+    const pendentes: PendingInterview[] = JSON.parse(localStorage.getItem("nortep-pendentes") || "[]");
+    setPendingCount(pendentes.length);
+    const updateOnline = () => setOffline(!navigator.onLine);
+    updateOnline();
+    window.addEventListener("online", updateOnline);
+    window.addEventListener("offline", updateOnline);
+    const boot = async () => {
+      const stored = readSession();
+      if (!stored) return setAuthReady(true);
+      try { await autenticar(stored); } catch { saveSession(null); }
+      setAuthReady(true);
+    };
+    boot();
+    return () => { window.removeEventListener("online", updateOnline); window.removeEventListener("offline", updateOnline); };
   }, []);
   useEffect(() => localStorage.setItem("nortep-rascunho", JSON.stringify(respostas)), [respostas]);
   useEffect(() => localStorage.setItem("nortep-video-agradecimento", videoUrl), [videoUrl]);
+
+  async function carregarAdmin(s: Session, p: Profile) {
+    if (!(["admin", "coordenador"] as string[]).includes(p.role)) return;
+    setTeam(await loadProfiles(s));
+  }
+
+  async function autenticar(incoming: Session) {
+    const current = await refreshSession(incoming);
+    const p = await loadProfile(current);
+    if (!p) throw new Error("Perfil não encontrado.");
+    setSession(current);
+    setProfile(p);
+    const surveys = await loadSurveys(current);
+    setSurvey(surveys[0] ?? null);
+    if (p.active) setInterviews(await loadInterviews(current));
+    await carregarAdmin(current, p);
+    setView(p.role === "pesquisador" ? "portal" : "inicio");
+  }
 
   const aviso = (texto: string) => {
     setToast(texto);
     setTimeout(() => setToast(""), 2600);
   };
   const ir = (destino: View) => {
-    setView(destino);
+    if (profile?.role === "pesquisador" && !(["portal", "entrevista", "obrigado"] as View[]).includes(destino)) setView("portal");
+    else setView(destino);
     setMenu(false);
   };
+  const atualizarEquipe = async (id: string, active: boolean) => {
+    if (!session) return;
+    await setProfileActive(session, id, active);
+    setTeam(await loadProfiles(session));
+    aviso(active ? "Pesquisador aprovado e pesquisa liberada" : "Acesso do pesquisador suspenso");
+  };
+  const fila = () => JSON.parse(localStorage.getItem("nortep-pendentes") || "[]") as PendingInterview[];
+  const guardarFila = (items: PendingInterview[]) => {
+    localStorage.setItem("nortep-pendentes", JSON.stringify(items));
+    setPendingCount(items.length);
+  };
+  const finalizarEntrevista = async () => {
+    if (!session || !survey) return aviso("Pesquisa ainda não foi liberada para este acesso");
+    let deviceId = localStorage.getItem("nortep-dispositivo");
+    if (!deviceId) { deviceId = crypto.randomUUID(); localStorage.setItem("nortep-dispositivo", deviceId); }
+    const item: PendingInterview = { id: crypto.randomUUID(), survey, responses: { ...respostas }, deviceId };
+    try {
+      if (!navigator.onLine) throw new Error("offline");
+      const saved = await saveInterview(session, survey, item.responses, deviceId);
+      setSavedCode(saved.code);
+      setSavedSynced(true);
+      if (profile && profile.role !== "pesquisador") setInterviews(await loadInterviews(session));
+    } catch {
+      guardarFila([...fila(), item]);
+      setSavedCode(`ENT-OFFLINE-${String(Date.now()).slice(-6)}`);
+      setSavedSynced(false);
+    }
+    ir("obrigado");
+  };
+  const sincronizarPendentes = async () => {
+    if (!session || !navigator.onLine) return aviso("Conecte o aparelho à internet para sincronizar");
+    const restantes: PendingInterview[] = [];
+    let enviadas = 0;
+    for (const item of fila()) {
+      try { await saveInterview(session, item.survey, item.responses, item.deviceId); enviadas++; }
+      catch { restantes.push(item); }
+    }
+    guardarFila(restantes);
+    aviso(enviadas ? `${enviadas} entrevista(s) sincronizada(s)` : "Nenhuma entrevista pendente");
+    if (profile && profile.role !== "pesquisador") setInterviews(await loadInterviews(session));
+  };
+  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setView("inicio"); };
+
+  if (!authReady) return <TelaCarregando />;
+  if (!configured()) return <TelaConfigErro />;
+  if (!session || !profile) return <Login onAuthenticated={autenticar} />;
+  if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} />;
+
+  const admin = profile.role === "admin" || profile.role === "coordenador";
   const campo = view === "portal" || view === "entrevista" || view === "obrigado";
   const titulos: Record<View, string> = {
     inicio: "Visão geral",
@@ -67,8 +153,8 @@ export default function Home() {
         ["resultados", "◫", "Resultados"],
         ["ecossistema", "◇", "Ecossistema NorteP"],
       ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i>{item[1]}</i>{item[2]}</button>)}</nav>
-      <div className="coleta"><b>● Coleta em andamento</b><small>798 de 1.200 entrevistas</small><div><i /></div></div>
-      <div className="perfil"><i>LR</i><span><b>Ludimila Rodrigues</b><small>Administradora responsável</small></span><b>⋮</b></div>
+      <div className="coleta"><b>● Piloto conectado</b><small>{interviews.length} de 100 entrevistas</small><div><i style={{ width: `${Math.min(interviews.length, 100)}%` }} /></div></div>
+      <div className="perfil"><i>{profile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{profile.name}</b><small>{profile.role === "admin" ? "Administradora responsável" : "Coordenação"}</small></span><button onClick={sair}>Sair</button></div>
     </aside>}
 
     <main>
@@ -79,30 +165,30 @@ export default function Home() {
           <h1>{titulos[view]}</h1>
         </div>
         <section>
-          {campo && <button className="sync" onClick={() => setOffline(!offline)}>● {offline ? "Modo offline" : "Sincronizado"}</button>}
-          {!campo && <button className="preview-field" onClick={() => ir("portal")}>Ver área do pesquisador →</button>}
-          {campo && <button className="sair-campo" onClick={() => ir("inicio")}>Sair da prévia</button>}
+          {campo && <button className="sync" onClick={sincronizarPendentes}>● {offline ? "Modo offline" : pendingCount ? `${pendingCount} pendente(s)` : "Sincronizado"}</button>}
+          {!campo && admin && <button className="preview-field" onClick={() => ir("portal")}>Ver área do pesquisador →</button>}
+          {campo && <button className="sair-campo" onClick={() => admin ? ir("inicio") : sair()}>{admin ? "Sair da prévia" : "Sair"}</button>}
         </section>
       </header>
 
       <div className={campo ? "content campo-content" : "content"}>
-        {view === "inicio" && <Inicio ir={ir} aviso={aviso} />}
+        {view === "inicio" && <Inicio ir={ir} aviso={aviso} interviews={interviews} pending={pendingCount} />}
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} />}
-        {view === "equipe" && <Equipe aviso={aviso} />}
-        {view === "resultados" && <Resultados aviso={aviso} />}
+        {view === "equipe" && <Equipe aviso={aviso} profiles={team} onToggle={atualizarEquipe} />}
+        {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} />}
         {view === "ecossistema" && <Ecossistema />}
-        {view === "portal" && <Portal iniciar={() => { setPasso(1); ir("entrevista"); }} />}
-        {view === "entrevista" && <Entrevista passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={() => ir("obrigado")} cancelar={() => {
+        {view === "portal" && <Portal profile={profile} survey={survey} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={() => { setPasso(1); ir("entrevista"); }} />}
+        {view === "entrevista" && <Entrevista passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={() => {
           localStorage.removeItem("nortep-rascunho");
           setRespostas({});
           ir("portal");
           aviso("Entrevista encerrada sem registrar respostas");
         }} />}
-        {view === "obrigado" && <Obrigado nome={respostas.nome} videoUrl={videoUrl} concluir={() => {
+        {view === "obrigado" && <Obrigado nome={respostas.nome} videoUrl={videoUrl} codigo={savedCode} sincronizado={savedSynced} concluir={() => {
           localStorage.removeItem("nortep-rascunho");
           setRespostas({});
           ir("portal");
-          aviso("Entrevista ENT-2026-000799 sincronizada");
+          aviso(savedSynced ? `Entrevista ${savedCode} sincronizada` : "Entrevista salva no aparelho para sincronização");
         }} />}
       </div>
     </main>
@@ -111,12 +197,60 @@ export default function Home() {
   </div>;
 }
 
-function Inicio({ ir, aviso }: { ir: (v: View) => void; aviso: (t: string) => void }) {
+function TelaCarregando() {
+  return <div className="auth-shell"><div className="auth-card loading-card"><div className="auth-logo">NP</div><h1>NorteP Pesquisa</h1><p>Preparando seu acesso seguro…</p></div></div>;
+}
+
+function TelaConfigErro() {
+  return <div className="auth-shell"><div className="auth-card"><div className="auth-logo">NP</div><h1>Configuração pendente</h1><p>O banco de dados ainda não foi conectado à publicação.</p></div></div>;
+}
+
+function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => Promise<void> }) {
+  const [modo, setModo] = useState<"entrar" | "criar">("entrar");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const enviar = async () => {
+    setBusy(true); setMessage("");
+    try {
+      if (modo === "entrar") await onAuthenticated(await signIn(email.trim().toLowerCase(), password));
+      else {
+        const result = await signUp(name.trim(), email.trim().toLowerCase(), password);
+        if (result.session) await onAuthenticated(result.session);
+        else setMessage("Conta criada. Abra o e-mail de confirmação enviado pelo Supabase e depois volte para entrar.");
+      }
+    } catch (error) { setMessage(error instanceof Error ? traduzErro(error.message) : "Não foi possível entrar."); }
+    setBusy(false);
+  };
+  return <div className="auth-shell"><section className="auth-brand"><small>NORTEP · POLÍTICA, POVO E PESQUISA</small><h1><b>N</b>orte<b>P</b> Pesquisa</h1><p>Dados de campo protegidos, organizados e prontos para aproximar pessoas das decisões.</p><div><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></div></section><section className="auth-card"><div className="auth-logo">NP</div><small>ACESSO DA EQUIPE</small><h2>{modo === "entrar" ? "Entrar no NorteP" : "Criar acesso"}</h2><p>{modo === "entrar" ? "Use o e-mail cadastrado pela coordenação." : "Novos pesquisadores aguardam aprovação da administração."}</p>{modo === "criar" && <><label>Nome completo</label><input value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}<label>E-mail</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@exemplo.com" /><label>Senha</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" /><button className="primary auth-submit" disabled={busy || !email || password.length < 8 || (modo === "criar" && !name)} onClick={enviar}>{busy ? "Aguarde…" : modo === "entrar" ? "Entrar com segurança" : "Criar meu acesso"}</button>{message && <div className="auth-message">{message}</div>}<button className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? "Primeiro acesso? Criar conta" : "Já possui acesso? Entrar"}</button><small className="auth-help">O entrevistado não precisa criar conta.</small></section></div>;
+}
+
+function traduzErro(message: string) {
+  if (message.toLowerCase().includes("invalid login")) return "E-mail ou senha incorretos.";
+  if (message.toLowerCase().includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
+  if (message.toLowerCase().includes("already registered")) return "Este e-mail já possui uma conta. Use a opção Entrar.";
+  return message;
+}
+
+function AguardandoAprovacao({ profile, sair }: { profile: Profile; sair: () => void }) {
+  return <div className="auth-shell"><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO CRIADO</small><h2>Olá, {profile.name}.</h2><p>Seu cadastro chegou à coordenação. Assim que a administração aprovar, a pesquisa aparecerá neste aparelho.</p><div className="pending-shield">◎ <span><b>Conta aguardando aprovação</b><small>Nenhuma resposta pode ser coletada antes da liberação.</small></span></div><button className="auth-switch" onClick={sair}>Sair e voltar depois</button></div></div>;
+}
+
+function Inicio({ ir, aviso, interviews, pending }: { ir: (v: View) => void; aviso: (t: string) => void; interviews: SavedInterview[]; pending: number }) {
+  const hoje = new Date();
+  const dias = Array.from({ length: 7 }, (_, i) => { const d = new Date(hoje); d.setDate(d.getDate() - (6 - i)); return d; });
+  const contagens = dias.map(d => interviews.filter(x => new Date(x.completed_at || x.created_at).toDateString() === d.toDateString()).length);
+  const max = Math.max(...contagens, 1);
+  const ativos = new Set(interviews.map(x => x.researcher_id)).size;
+  const progresso = Math.min(interviews.length, 100);
+  const pesquisaPiloto = { ...pesquisas[0], feitas: interviews.length, equipe: ativos };
   return <>
     <div className="boas"><div><small>QUARTA-FEIRA, 22 DE JULHO</small><h2>Bom dia, Ludimila. <span>O campo está avançando.</span></h2><p>Acompanhe o ritmo das equipes e veja onde sua atenção é mais necessária.</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
-    <div className="metricas"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v="798" s="+12% nesta semana" /><Metrica c="laranja" i="◎" t="Meta geral" v="66,5%" s="402 entrevistas restantes" /><Metrica c="roxo" i="♙" t="Pesquisadores ativos" v="27" s="de 32 cadastrados" /><Metrica c="azul" i="⌁" t="Pendentes de sincronização" v="14" s="em 6 dispositivos" /></div>
-    <div className="duas"><div className="painel"><Topo sup="RITMO DE COLETA" titulo="Entrevistas nos últimos 7 dias" /><div className="grafico">{[58, 43, 72, 55, 84, 94, 68].map((h, i) => <div key={i}><b>{[78, 56, 96, 72, 108, 116, 88][i]}</b><i style={{ height: h + "%" }} /><small>{["QUI", "SEX", "SÁB", "DOM", "SEG", "TER", "HOJE"][i]}</small></div>)}</div></div><div className="painel"><Topo sup="PRECISA DE ATENÇÃO" titulo="Alertas do campo" />{[["5 entrevistas muito rápidas", "Duração abaixo de 3 minutos"], ["14 respostas não sincronizadas", "Há mais de 8 horas"], ["Meta baixa no Jardim União", "Apenas 31% concluída"]].map((a, i) => <div className="alerta" key={a[0]}><i className={"a" + i}>!</i><span><b>{a[0]}</b><small>{a[1]}</small></span><button>Revisar →</button></div>)}</div></div>
-    <div className="painel lista"><div className="topo"><div><small>PESQUISAS ATIVAS</small><h3>Acompanhamento por pesquisa</h3></div><button onClick={() => ir("pesquisas")}>Ver todas →</button></div>{pesquisas.slice(0, 2).map(p => <LinhaPesquisa p={p} ir={ir} key={p.nome} />)}</div>
+    <div className="metricas"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(interviews.length)} s="salvas no banco central" /><Metrica c="laranja" i="◎" t="Meta do piloto" v={`${progresso}%`} s={`${Math.max(100 - interviews.length, 0)} entrevistas restantes`} /><Metrica c="roxo" i="♙" t="Pesquisadores com coleta" v={String(ativos)} s="no piloto atual" /><Metrica c="azul" i="⌁" t="Neste aparelho" v={String(pending)} s="pendentes de sincronização" /></div>
+    <div className="duas"><div className="painel"><Topo sup="RITMO DE COLETA" titulo="Entrevistas nos últimos 7 dias" /><div className="grafico">{contagens.map((valor, i) => <div key={dias[i].toISOString()}><b>{valor}</b><i style={{ height: `${Math.max(valor ? valor / max * 90 : 3, 3)}%` }} /><small>{i === 6 ? "HOJE" : dias[i].toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3).toUpperCase()}</small></div>)}</div></div><div className="painel"><Topo sup="SITUAÇÃO DO PILOTO" titulo="Acompanhamento" /><div className="alerta"><i className={pending ? "a1" : "a0"}>{pending ? "!" : "✓"}</i><span><b>{pending ? `${pending} entrevista(s) aguardando internet` : "Todas as respostas sincronizadas"}</b><small>{pending ? "Abra a área do pesquisador e toque em sincronizar" : "Nenhuma pendência neste aparelho"}</small></span></div><div className="alerta"><i className="a2">i</i><span><b>{interviews.length ? "Coleta piloto em andamento" : "Pronto para a primeira entrevista"}</b><small>Resultados eleitorais ainda não devem ser divulgados.</small></span></div></div></div>
+    <div className="painel lista"><div className="topo"><div><small>PESQUISAS ATIVAS</small><h3>Acompanhamento por pesquisa</h3></div><button onClick={() => ir("pesquisas")}>Ver todas →</button></div><LinhaPesquisa p={pesquisaPiloto} ir={ir} /></div>
   </>;
 }
 
@@ -139,9 +273,21 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl }: { ir: (v: View) => void
   </>;
 }
 
-function Equipe({ aviso }: { aviso: (t: string) => void }) { return <><Cabecalho titulo="Equipe de pesquisadores" sub="32 cadastrados · 27 ativos hoje" botao="＋ Cadastrar pesquisador" acao={() => aviso("Convite de pesquisador preparado")} /><div className="painel tabela"><Filtros busca="Buscar por nome ou região..." /><div className="tr cab"><span>Pesquisador</span><span>Região</span><span>Hoje</span><span>Sincronização</span></div>{pessoas.map(p => <div className="tr" key={p[0] as string}><span className="pessoa"><i>{String(p[0]).split(" ").map(x => x[0]).join("")}</i><b>{p[0]}</b></span><span>{p[1]}</span><b>{p[2]}</b><span className={String(p[3]).includes("pendentes") ? "pendente" : "ok"}>● {p[3]}</span></div>)}</div></>; }
+function Equipe({ aviso, profiles, onToggle }: { aviso: (t: string) => void; profiles: Profile[]; onToggle: (id: string, active: boolean) => void }) { return <><Cabecalho titulo="Equipe de pesquisadores" sub={`${profiles.length} cadastro(s) · ${profiles.filter(x => x.active).length} ativo(s)`} botao="＋ Orientar cadastro" acao={() => aviso("Peça ao pesquisador para usar Criar conta na tela inicial")} /><div className="painel tabela"><div className="tr cab"><span>Usuário</span><span>Função</span><span>Status</span><span>Ação</span></div>{profiles.map(p => <div className="tr" key={p.id}><span className="pessoa"><i>{p.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{p.name}</b><small>{p.email}</small></span></span><span>{p.role}</span><b className={p.active ? "ok" : "pendente"}>● {p.active ? "Ativo" : "Aguardando"}</b><span>{p.role === "pesquisador" && <button className={p.active ? "suspender" : "aprovar"} onClick={() => onToggle(p.id, !p.active)}>{p.active ? "Suspender" : "Aprovar"}</button>}</span></div>)}{!profiles.length && <div className="vazio-tabela">Nenhum cadastro encontrado.</div>}</div></>; }
 
-function Resultados({ aviso }: { aviso: (t: string) => void }) { return <><Cabecalho titulo="Resultados" sub="Melhorias para o bairro · 486 entrevistas" botao="⇩ Exportar CSV" acao={() => aviso("Arquivo CSV preparado")} /><Filtros /><div className="duas resultados"><div className="painel"><Topo sup="AVALIAÇÃO GERAL" titulo="Como você avalia os serviços públicos?" /><div className="donut"><div><b>7,4</b><small>média</small></div><section>{[["Ótimo", "22%"], ["Bom", "41%"], ["Regular", "25%"], ["Ruim/Péssimo", "12%"]].map((x, i) => <span key={x[0]}><i className={"l" + i} />{x[0]} <b>{x[1]}</b></span>)}</section></div></div><div className="painel"><Topo sup="PRINCIPAL PRIORIDADE" titulo="O que deveria melhorar primeiro?" />{[["Saúde", 78], ["Segurança", 64], ["Transporte", 48], ["Educação", 35]].map(x => <div className="barra" key={x[0] as string}><span>{x[0]}</span><em><i style={{ width: x[1] + "%" }} /></em><b>{x[1]}%</b></div>)}</div></div></>; }
+function Resultados({ aviso, interviews }: { aviso: (t: string) => void; interviews: SavedInterview[] }) {
+  const exportar = () => {
+    if (!interviews.length) return aviso("Ainda não há entrevistas para exportar");
+    const keys = Array.from(new Set(interviews.flatMap(x => Object.keys(x.responses))));
+    const headers = ["codigo", "data", "pesquisador_id", ...keys];
+    const cell = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const csv = [headers.map(cell).join(","), ...interviews.map(x => [x.code, x.completed_at, x.researcher_id, ...keys.map(k => x.responses[k] ?? "")].map(cell).join(","))].join("\n");
+    const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); link.download = `nortep-resultados-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(link.href);
+    aviso("Arquivo CSV exportado");
+  };
+  const prioridades = Object.entries(interviews.reduce<Record<string, number>>((acc, x) => { const p = x.responses.prioridadeCidade; if (p) acc[p] = (acc[p] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  return <><Cabecalho titulo="Resultados" sub={`Betim: território e escolhas 2026 · ${interviews.length} entrevista(s)`} botao="⇩ Exportar CSV" acao={exportar} /><Filtros />{!interviews.length ? <div className="painel resultado-vazio"><i>◎</i><h3>Aguardando a primeira entrevista</h3><p>Quando uma resposta for sincronizada, os resultados aparecerão aqui.</p></div> : <div className="duas resultados"><div className="painel"><Topo sup="PRIORIDADE DA CIDADE" titulo="O que deveria melhorar primeiro?" />{prioridades.map(([nome, valor]) => <div className="barra" key={nome}><span>{nome}</span><em><i style={{ width: `${valor / interviews.length * 100}%` }} /></em><b>{Math.round(valor / interviews.length * 100)}%</b></div>)}</div><div className="painel recentes"><Topo sup="ÚLTIMAS RESPOSTAS" titulo="Entrevistas sincronizadas" />{interviews.slice(0, 6).map(x => <div key={x.id}><span><b>{x.code}</b><small>{x.responses.bairro || "Bairro não informado"}</small></span><time>{new Date(x.completed_at).toLocaleDateString("pt-BR")}</time></div>)}</div></div>}</>;
+}
 
 function Ecossistema() {
   const produtos = [
@@ -154,8 +300,9 @@ function Ecossistema() {
   return <><Cabecalho titulo="Ecossistema NorteP" sub="Política, povo e pesquisa em uma operação integrada." botao="Dados que aproximam" acao={() => undefined} /><div className="ecos-grid">{produtos.map((p, i) => <article className={i === 0 ? "eco ativo" : "eco"} key={p[0]}><i>{i === 0 ? "NP" : "◇"}</i><label>{p[1]}</label><h3>{p[0]}</h3><p>{p[2]}</p>{i === 0 ? <button>Produto atual</button> : <button disabled>Planejado</button>}</article>)}</div></>;
 }
 
-function Portal({ iniciar }: { iniciar: () => void }) {
-  return <div className="portal"><div className="portal-boas"><span><small>OLÁ, MARCOS</small><h2>Pronto para testar o novo questionário?</h2><p>Você vê somente a pesquisa liberada pela coordenação.</p></span><div className="campo-metricas"><i><b>0</b><small>hoje</small></i><i><b>0</b><small>no piloto</small></i><i><b>0</b><small>pendentes</small></i></div></div><article className="pesquisa-atribuida"><div className="pesquisa-capa"><span>PILOTO INTERNO</span><i><b>N</b>P</i></div><div className="pesquisa-info"><small>RASCUNHO PROFISSIONAL · BETIM</small><h3>Território e escolhas 2026</h3><p>39 perguntas com desvios · duração estimada de 10 a 12 minutos</p><div className="instrucoes"><span>✓ Leia exatamente como está escrito</span><span>✓ Não sugira respostas</span><span>✓ Consentimento antes da coleta</span></div><div className="nota-eleitoral"><b>Uso de teste</b><span>A lista oficial de candidaturas e a metodologia amostral ainda precisam de validação antes do campo real.</span></div><button className="primary" onClick={iniciar}>＋ Iniciar entrevista de teste</button></div></article><div className="painel ajuda-campo"><span><b>Dúvida durante o teste?</b><small>Não improvise a pergunta. Anote a ocorrência e fale com a coordenação.</small></span><button>Falar com a equipe</button></div></div>;
+function Portal({ iniciar, profile, survey, interviews, pending, sincronizar }: { iniciar: () => void; profile: Profile; survey: Survey | null; interviews: SavedInterview[]; pending: number; sincronizar: () => void }) {
+  const hoje = interviews.filter(x => new Date(x.completed_at || x.created_at).toDateString() === new Date().toDateString()).length;
+  return <div className="portal"><div className="portal-boas"><span><small>OLÁ, {profile.name.split(" ")[0].toUpperCase()}</small><h2>Pronto para continuar o trabalho de campo?</h2><p>Você vê somente a pesquisa liberada pela coordenação.</p></span><div className="campo-metricas"><i><b>{hoje}</b><small>hoje</small></i><i><b>{interviews.length}</b><small>no total</small></i><i><b>{pending}</b><small>pendentes</small></i></div></div>{survey ? <article className="pesquisa-atribuida"><div className="pesquisa-capa"><span>{survey.status === "pilot" ? "PILOTO INTERNO" : "EM CAMPO"}</span><i><b>N</b>P</i></div><div className="pesquisa-info"><small>PESQUISA LIBERADA · BETIM</small><h3>{survey.title.replace("Betim: ", "")}</h3><p>39 perguntas com desvios · duração estimada de {survey.estimated_minutes} minutos</p><div className="instrucoes"><span>✓ Leia exatamente como está escrito</span><span>✓ Não sugira respostas</span><span>✓ Consentimento antes da coleta</span></div><div className="nota-eleitoral"><b>Uso de teste</b><span>A lista oficial de candidaturas e a metodologia amostral ainda precisam de validação antes do campo real.</span></div>{pending > 0 && <button className="sync-pending" onClick={sincronizar}>↻ Sincronizar {pending} pendente(s)</button>}<button className="primary" onClick={iniciar}>＋ Iniciar nova entrevista</button></div></article> : <div className="painel resultado-vazio"><i>◎</i><h3>Nenhuma pesquisa liberada</h3><p>Fale com a coordenação para receber uma pesquisa.</p></div>}<div className="painel ajuda-campo"><span><b>Dúvida durante o teste?</b><small>Não improvise a pergunta. Anote a ocorrência e fale com a coordenação.</small></span><button>Falar com a equipe</button></div></div>;
 }
 
 function Cabecalho({ titulo, sub, botao, acao }: { titulo: string; sub: string; botao: string; acao: () => void }) { return <div className="cabecalho"><div><h2>{titulo}</h2><p>{sub}</p></div><button className="primary" onClick={acao}>{botao}</button></div>; }
@@ -218,7 +365,7 @@ function getYoutubeId(url: string) {
   return match?.[1] ?? "";
 }
 
-function Obrigado({ nome, videoUrl, concluir }: { nome?: string; videoUrl: string; concluir: () => void }) {
+function Obrigado({ nome, videoUrl, codigo, sincronizado, concluir }: { nome?: string; videoUrl: string; codigo: string; sincronizado: boolean; concluir: () => void }) {
   const videoId = getYoutubeId(videoUrl);
-  return <div className="obrigado"><div className="check-final">✓</div><small>ENTREVISTA CONCLUÍDA</small><h2>Obrigado{nome ? `, ${nome}` : ""} por participar.</h2><p>Sua opinião ajuda a compreender as prioridades do bairro e a aproximar pessoas das decisões.</p>{videoId ? <div className="video-frame"><iframe src={`https://www.youtube-nocookie.com/embed/${videoId}`} title="Vídeo de agradecimento" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div> : <div className="video-vazio"><i>▶</i><span><b>Vídeo de agradecimento</b><small>A coordenação pode adicionar um único link do YouTube nesta pesquisa.</small></span></div>}<div className="codigo-final"><small>CÓDIGO DA ENTREVISTA</small><b>ENT-2026-000799</b><span>✓ Resposta salva e pronta para sincronização</span></div><button className="primary" onClick={concluir}>Concluir e voltar às pesquisas</button></div>;
+  return <div className="obrigado"><div className="check-final">✓</div><small>ENTREVISTA CONCLUÍDA</small><h2>Obrigado{nome ? `, ${nome}` : ""} por participar.</h2><p>Sua opinião ajuda a compreender as prioridades do bairro e a aproximar pessoas das decisões.</p>{videoId ? <div className="video-frame"><iframe src={`https://www.youtube-nocookie.com/embed/${videoId}`} title="Vídeo de agradecimento" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div> : <div className="video-vazio"><i>▶</i><span><b>Vídeo de agradecimento</b><small>A coordenação pode adicionar um único link do YouTube nesta pesquisa.</small></span></div>}<div className="codigo-final"><small>CÓDIGO DA ENTREVISTA</small><b>{codigo || "ENT-PENDENTE"}</b><span className={sincronizado ? "salvo-central" : "salvo-local"}>{sincronizado ? "✓ Resposta salva no banco central" : "⌁ Salva neste aparelho · sincronização pendente"}</span></div><button className="primary" onClick={concluir}>Concluir e voltar às pesquisas</button></div>;
 }
