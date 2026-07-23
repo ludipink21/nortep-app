@@ -224,7 +224,7 @@ export async function redeemAccessInvite(session: Session, code: string) {
   });
 }
 
-export async function createAccessInvite(session: Session, email: string, role: "admin" | "coordenador" | "observador") {
+export async function createAccessInvite(session: Session, email: string, role: "admin" | "coordenador" | "observador" | "pesquisador") {
   return rest<string>(session, "rpc/create_access_invite", {
     method: "POST",
     body: JSON.stringify({ p_email: email, p_role: role }),

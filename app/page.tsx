@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, signIn, signUp, Survey, SurveyQuestion, updatePassword } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "mapa" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
@@ -10,6 +10,10 @@ type AccessChannel = "publico" | "pesquisador" | "observador" | "administracao";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
   | { kind: "field_event"; id: string; survey: Survey; event: Omit<FieldEvent, "id" | "survey_id" | "researcher_id" | "occurred_at">; deviceId: string; savedAt: string; attempts: number };
+type RespostasSetter = Dispatch<SetStateAction<Record<string, string>>>;
+type InterviewDraft = { survey: Survey; step: number; responses: Record<string, string>; startedAt: number; savedAt: string };
+type AttemptLog = { action: "inicio" | "retomada" | "recomeco" | "finalizada" | "recusa" | "interrompida"; surveyId: string; at: string; step: number };
+const draftKey = (surveyId: string) => `nortep-rascunho-${surveyId}`;
 
 function readAccessChannel(): AccessChannel {
   if (typeof window === "undefined") return "publico";
@@ -49,15 +53,14 @@ export default function Home() {
   const [observerSummary, setObserverSummary] = useState<ObserverSummary | null>(null);
   const [passwordRecoverySession, setPasswordRecoverySession] = useState<Session | null>(null);
   const [interviewStartedAt, setInterviewStartedAt] = useState<number>(0);
+  const [resumeDraft, setResumeDraft] = useState<InterviewDraft | null>(null);
 
   useEffect(() => {
     const channel = readAccessChannel();
     const invitation = new URLSearchParams(window.location.search).get("convite") || "";
     setAccessChannel(channel);
     setInviteCode(invitation);
-    const rascunho = localStorage.getItem("nortep-rascunho");
     const video = localStorage.getItem("nortep-video-agradecimento");
-    if (rascunho) setRespostas(JSON.parse(rascunho));
     if (video) setVideoUrl(video);
     const pendentes: PendingItem[] = JSON.parse(localStorage.getItem("nortep-pendentes") || "[]");
     setPendingCount(pendentes.length);
@@ -83,7 +86,11 @@ export default function Home() {
     boot();
     return () => { window.removeEventListener("online", updateOnline); window.removeEventListener("offline", updateOnline); };
   }, []);
-  useEffect(() => localStorage.setItem("nortep-rascunho", JSON.stringify(respostas)), [respostas]);
+  useEffect(() => {
+    if (view !== "entrevista" || !survey || !interviewStartedAt) return;
+    const draft: InterviewDraft = { survey, step: passo, responses: respostas, startedAt: interviewStartedAt, savedAt: new Date().toISOString() };
+    try { localStorage.setItem(draftKey(survey.id), JSON.stringify(draft)); } catch { aviso("Não foi possível salvar o rascunho neste aparelho."); }
+  }, [view, survey, passo, respostas, interviewStartedAt]);
   useEffect(() => localStorage.setItem("nortep-video-agradecimento", videoUrl), [videoUrl]);
 
   async function carregarAdmin(s: Session, p: Profile) {
@@ -150,10 +157,10 @@ export default function Home() {
       aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível apagar o acesso");
     }
   };
-  const gerarConvite = async (email: string, role: "admin" | "coordenador" | "observador") => {
+  const gerarConvite = async (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador") => {
     if (!session) throw new Error("Entre novamente para gerar o convite.");
     const code = await createAccessInvite(session, email, role);
-    const channel = role === "observador" ? "observador" : "administracao";
+    const channel = role === "observador" ? "observador" : role === "pesquisador" ? "pesquisador" : "administracao";
     return `${window.location.origin}/?acesso=${channel}&convite=${encodeURIComponent(code)}`;
   };
   const fila = () => {
@@ -185,6 +192,8 @@ export default function Home() {
       setSavedCode(`ENT-OFFLINE-${String(Date.now()).slice(-6)}`);
       setSavedSynced(false);
     }
+    registrarTentativa("finalizada", survey);
+    localStorage.removeItem(draftKey(survey.id));
     ir("obrigado");
   };
   const sincronizarPendentes = async () => {
@@ -217,19 +226,38 @@ export default function Home() {
       aviso("Ocorrência salva no aparelho para sincronização");
     }
   };
+  const registrarTentativa = (action: AttemptLog["action"], currentSurvey: Survey | null = survey) => {
+    if (!currentSurvey) return;
+    try {
+      const raw = JSON.parse(localStorage.getItem("nortep-tentativas") || "[]") as AttemptLog[];
+      localStorage.setItem("nortep-tentativas", JSON.stringify([...raw.slice(-199), { action, surveyId: currentSurvey.id, at: new Date().toISOString(), step: passo }]));
+    } catch { /* O registro principal de recusa/interrupção continua na fila de sincronização. */ }
+  };
   const atualizarDadosAdmin = async () => {
     if (!session || !profile || !admin) return;
     const [everySurvey, saved, events, profiles] = await Promise.all([loadAllSurveys(session), loadInterviews(session), loadFieldEvents(session), loadProfiles(session)]);
     setAdminSurveys(everySurvey); setInterviews(saved); setFieldEvents(events); setTeam(profiles);
   };
-  const iniciarPesquisa = async (selected: Survey) => {
+  const abrirPesquisa = async (selected: Survey, draft?: InterviewDraft, action: AttemptLog["action"] = "inicio") => {
     if (!session) return;
     setSurvey(selected);
     setSurveyQuestions(await loadSurveyQuestions(session, selected.id));
-    setPasso(1);
-    setRespostas({});
-    setInterviewStartedAt(Date.now());
+    setPasso(draft?.step || 1);
+    setRespostas(draft?.responses || {});
+    setInterviewStartedAt(draft?.startedAt || Date.now());
+    registrarTentativa(action, selected);
+    setResumeDraft(null);
     ir("entrevista");
+  };
+  const iniciarPesquisa = async (selected: Survey) => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(draftKey(selected.id)) || "null") as InterviewDraft | null;
+      if (saved?.survey?.id === selected.id && (saved.step > 1 || Object.keys(saved.responses || {}).length > 0)) {
+        setResumeDraft({ ...saved, survey: selected });
+        return;
+      }
+    } catch { localStorage.removeItem(draftKey(selected.id)); }
+    await abrirPesquisa(selected);
   };
   useEffect(() => {
     if (!session) return;
@@ -316,15 +344,17 @@ export default function Home() {
         {view === "entrevista" && survey && (survey.slug === "betim-territorio-escolhas-2026" ? <Entrevista extraQuestions={surveyQuestions} passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={() => {
           const motivo = respostas.consentirPesquisa === "Não aceito participar" ? "Consentimento recusado" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "Pessoa fora do público da pesquisa" : "Entrevista encerrada";
           void registrarOcorrencia(respostas.consentirPesquisa === "Não aceito participar" ? "refused" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "ineligible" : "interrupted", motivo, survey);
-          localStorage.removeItem("nortep-rascunho");
+          registrarTentativa(respostas.consentirPesquisa === "NÃ£o aceito participar" ? "recusa" : "interrompida", survey);
+          localStorage.removeItem(draftKey(survey.id));
           setRespostas({});
           ir("portal");
         }} /> : <EntrevistaDinamica survey={survey} questions={surveyQuestions} passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={(outcome, reason) => {
           void registrarOcorrencia(outcome, reason, survey);
-          localStorage.removeItem("nortep-rascunho"); setRespostas({}); ir("portal");
+          registrarTentativa(outcome === "refused" ? "recusa" : "interrompida", survey);
+          localStorage.removeItem(draftKey(survey.id)); setRespostas({}); ir("portal");
         }} />)}
         {view === "obrigado" && <Obrigado nome={respostas.nome} videoUrl="" codigo={savedCode} sincronizado={savedSynced} concluir={() => {
-          localStorage.removeItem("nortep-rascunho");
+          if (survey) localStorage.removeItem(draftKey(survey.id));
           setRespostas({});
           ir("portal");
           aviso(savedSynced ? `Entrevista ${savedCode} sincronizada` : "Entrevista salva no aparelho para sincronização");
@@ -332,8 +362,14 @@ export default function Home() {
       </div>
     </main>
     {menu && <div className="scrim" onClick={() => setMenu(false)} />}
+    {resumeDraft && <RetomarEntrevista draft={resumeDraft} continuar={() => void abrirPesquisa(resumeDraft.survey, resumeDraft, "retomada")} recomecar={() => { localStorage.removeItem(draftKey(resumeDraft.survey.id)); void abrirPesquisa(resumeDraft.survey, undefined, "recomeco"); }} cancelar={() => setResumeDraft(null)} />}
     {toast && <div className="toast">✓ {toast}</div>}
   </div>;
+}
+
+function RetomarEntrevista({ draft, continuar, recomecar, cancelar }: { draft: InterviewDraft; continuar: () => void; recomecar: () => void; cancelar: () => void }) {
+  const quando = new Date(draft.savedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Entrevista em andamento"><div className="resume-modal"><small>ENTREVISTA EM ANDAMENTO</small><h2>Continuar de onde parou?</h2><p>Encontramos um rascunho salvo neste aparelho em {quando}. Escolha continuar para manter as respostas ou recomeçar para abrir uma nova entrevista.</p><div><button onClick={cancelar}>Voltar</button><button onClick={recomecar}>Recomeçar</button><button className="primary" onClick={continuar}>Continuar entrevista</button></div></div></div>;
 }
 
 function TelaCarregando() {
@@ -709,10 +745,10 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, sessio
   </>;
 }
 
-function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite }: { aviso: (t: string) => void; profiles: Profile[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador") => Promise<string> }) {
+function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite }: { aviso: (t: string) => void; profiles: Profile[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador") => Promise<string> }) {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"admin" | "coordenador" | "observador">("observador");
+  const [inviteRole, setInviteRole] = useState<"admin" | "coordenador" | "observador" | "pesquisador">("observador");
   const [generatedLink, setGeneratedLink] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const researcherLink = typeof window === "undefined" ? "" : `${window.location.origin}/?acesso=pesquisador`;
@@ -802,8 +838,8 @@ function Portal({ iniciar, profile, surveys, interviews, pending, sincronizar, r
 }
 
 function Cabecalho({ titulo, sub, botao, acao }: { titulo: string; sub: string; botao: string; acao: () => void }) { return <div className="cabecalho"><div><h2>{titulo}</h2><p>{sub}</p></div><button className="primary" onClick={acao}>{botao}</button></div>; }
-function EntrevistaDinamica({ survey, questions, passo, setPasso, r, setR, fim, cancelar }: { survey: Survey; questions: SurveyQuestion[]; passo: number; setPasso: (n: number) => void; r: Record<string, string>; setR: (v: Record<string, string>) => void; fim: () => void; cancelar: (outcome: FieldEvent["outcome"], reason: string) => void }) {
-  const set = (key: string, value: string) => setR({ ...r, [key]: value });
+function EntrevistaDinamica({ survey, questions, passo, setPasso, r, setR, fim, cancelar }: { survey: Survey; questions: SurveyQuestion[]; passo: number; setPasso: (n: number) => void; r: Record<string, string>; setR: RespostasSetter; fim: () => void; cancelar: (outcome: FieldEvent["outcome"], reason: string) => void }) {
+  const set = (key: string, value: string) => setR(previous => ({ ...previous, [key]: value }));
   const visible = questions.filter(q => !q.condition?.field || r[q.condition.field] === q.condition.equals);
   const sections = Array.from(new Set(visible.map(q => q.section || "Perguntas")));
   const currentSection = sections[Math.min(passo - 1, Math.max(sections.length - 1, 0))];
@@ -818,8 +854,8 @@ function EntrevistaDinamica({ survey, questions, passo, setPasso, r, setR, fim, 
   return <div className="entrevista dynamic-interview"><div className="entrevista-topo"><div><small>{survey.survey_type.toUpperCase()} · {survey.is_test ? "MODO TESTE" : "COLETA OFICIAL"}</small><h2>{survey.title}</h2></div><label>✓ Rascunho salvo no aparelho</label></div><div className="passos">{sections.map((section, index) => <div className={index + 1 <= passo ? "feito" : ""} key={section}><i>{index + 1 < passo ? "✓" : index + 1}</i><span>{section}</span></div>)}</div><div className="questao"><small>ETAPA {passo} DE {sections.length} · COLETA EM CAMPO</small><h3>{currentSection}</h3>{passo === 1 && survey.consent_text && <div className="leitura"><b>LEIA AO ENTREVISTADO</b><p>{survey.consent_text}</p></div>}{currentQuestions.map(renderQuestion)}{consentRefused && <div className="encerrar"><b>Respeite a decisão da pessoa.</b><span>Agradeça pela atenção e registre a recusa sem guardar respostas da pesquisa.</span><button onClick={() => cancelar("refused", "Consentimento recusado")}>Registrar recusa e encerrar</button></div>}<footer><button onClick={() => passo > 1 ? setPasso(passo - 1) : cancelar("interrupted", "Entrevista encerrada pelo pesquisador")}>{passo > 1 ? "← Voltar" : "Encerrar"}</button>{passo < sections.length ? <button className="primary" disabled={!valid || consentRefused} onClick={() => setPasso(passo + 1)}>Continuar →</button> : <button className="primary" disabled={!valid || consentRefused} onClick={fim}>✓ Finalizar entrevista</button>}</footer>{!valid && !consentRefused && <div className="faltam">Preencha os campos marcados com * para continuar.</div>}</div></div>;
 }
 
-function Entrevista({ passo, setPasso, r, setR, fim, cancelar, extraQuestions }: { passo: number; setPasso: (n: number) => void; r: Record<string, string>; setR: (v: Record<string, string>) => void; fim: () => void; cancelar: () => void; extraQuestions: SurveyQuestion[] }) {
-  const set = (k: string, v: string) => setR({ ...r, [k]: v });
+function Entrevista({ passo, setPasso, r, setR, fim, cancelar, extraQuestions }: { passo: number; setPasso: (n: number) => void; r: Record<string, string>; setR: RespostasSetter; fim: () => void; cancelar: () => void; extraQuestions: SurveyQuestion[] }) {
+  const set = (k: string, v: string) => setR(previous => ({ ...previous, [k]: v }));
   const [geoStatus, setGeoStatus] = useState("");
   const Opcoes = ({ itens, campo, compacta = false }: { itens: string[]; campo: string; compacta?: boolean }) => <div className={compacta ? "opcoes compactas" : "opcoes"}>{itens.map(x => <button type="button" aria-pressed={r[campo] === x} className={r[campo] === x ? "selecionado" : ""} onClick={() => set(campo, x)} key={x}>{x}</button>)}</div>;
   const Multiplas = ({ itens, campo, max = 3 }: { itens: string[]; campo: string; max?: number }) => {
@@ -835,7 +871,7 @@ function Entrevista({ passo, setPasso, r, setR, fim, cancelar, extraQuestions }:
     if (!navigator.geolocation) return setGeoStatus("Localização indisponível neste aparelho.");
     setGeoStatus("Aguardando autorização do aparelho…");
     navigator.geolocation.getCurrentPosition(pos => {
-      setR({ ...r, latitude: pos.coords.latitude.toFixed(3), longitude: pos.coords.longitude.toFixed(3), geoHorario: new Date().toISOString() });
+      setR(previous => ({ ...previous, latitude: pos.coords.latitude.toFixed(3), longitude: pos.coords.longitude.toFixed(3), geoHorario: new Date().toISOString() }));
       setGeoStatus("Ponto aproximado registrado com sucesso.");
     }, () => setGeoStatus("Não foi possível registrar. Continue pelo bairro informado."), { enableHighAccuracy: false, timeout: 10000 });
   };
