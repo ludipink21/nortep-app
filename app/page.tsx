@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
-import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, signIn, signUp, Survey, SurveyQuestion, updatePassword } from "./supabase";
+import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, signIn, signUp, Survey, SurveyQuestion, updatePassword } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "mapa" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "administracao";
@@ -66,16 +66,19 @@ export default function Home() {
     window.addEventListener("online", updateOnline);
     window.addEventListener("offline", updateOnline);
     const boot = async () => {
-      const callback = await readSessionFromUrl();
-      if (callback?.type === "recovery") {
-        setPasswordRecoverySession(callback.session);
+      try {
+        await loadRuntimeConfig();
+        const callback = await readSessionFromUrl();
+        if (callback?.type === "recovery") {
+          setPasswordRecoverySession(callback.session);
+          return;
+        }
+        const stored = callback?.session ?? readSession();
+        if (!stored) return;
+        try { await autenticar(stored, channel); } catch { saveSession(null); }
+      } finally {
         setAuthReady(true);
-        return;
       }
-      const stored = callback?.session ?? readSession();
-      if (!stored) return setAuthReady(true);
-      try { await autenticar(stored, channel); } catch { saveSession(null); }
-      setAuthReady(true);
     };
     boot();
     return () => { window.removeEventListener("online", updateOnline); window.removeEventListener("offline", updateOnline); };

@@ -99,9 +99,24 @@ export type FieldEvent = {
   occurred_at: string;
 };
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+let url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+let key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 const sessionKey = "nortep-sessao";
+
+export async function loadRuntimeConfig() {
+  if (url && key) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    const response = await fetch("/api/runtime-config", { cache: "no-store" });
+    if (!response.ok) return false;
+    const config = await response.json();
+    url = typeof config?.url === "string" ? config.url.trim() : "";
+    key = typeof config?.key === "string" ? config.key.trim() : "";
+  } catch {
+    return false;
+  }
+  return Boolean(url && key);
+}
 
 async function parseResponse(response: Response) {
   const body = await response.json().catch(() => ({}));
