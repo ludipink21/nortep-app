@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, signIn, signUp, Survey, SurveyQuestion, updatePassword } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "mapa" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
-type AccessChannel = "publico" | "pesquisador" | "administracao";
+type AccessChannel = "publico" | "pesquisador" | "observador" | "administracao";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
   | { kind: "field_event"; id: string; survey: Survey; event: Omit<FieldEvent, "id" | "survey_id" | "researcher_id" | "occurred_at">; deviceId: string; savedAt: string; attempts: number };
@@ -14,7 +14,7 @@ type PendingItem =
 function readAccessChannel(): AccessChannel {
   if (typeof window === "undefined") return "publico";
   const value = new URLSearchParams(window.location.search).get("acesso");
-  return value === "pesquisador" || value === "administracao" ? value : "publico";
+  return value === "pesquisador" || value === "observador" || value === "administracao" ? value : "publico";
 }
 
 const pesquisas = [
@@ -98,9 +98,13 @@ export default function Home() {
     const current = await refreshSession(incoming);
     const p = await loadProfile(current);
     if (!p) throw new Error("Perfil não encontrado.");
-    if (channel === "administracao" && p.role === "pesquisador") {
+    if (channel === "administracao" && (p.role === "pesquisador" || p.role === "observador")) {
       saveSession(null);
       throw new Error("Este acesso é exclusivo para administração e coordenação autorizadas.");
+    }
+    if (channel === "observador" && p.role !== "observador") {
+      saveSession(null);
+      throw new Error("Este link é exclusivo para observadores autorizados.");
     }
     setSession(current);
     setProfile(p);
@@ -149,7 +153,8 @@ export default function Home() {
   const gerarConvite = async (email: string, role: "admin" | "coordenador" | "observador") => {
     if (!session) throw new Error("Entre novamente para gerar o convite.");
     const code = await createAccessInvite(session, email, role);
-    return `${window.location.origin}/?acesso=administracao&convite=${encodeURIComponent(code)}`;
+    const channel = role === "observador" ? "observador" : "administracao";
+    return `${window.location.origin}/?acesso=${channel}&convite=${encodeURIComponent(code)}`;
   };
   const fila = () => {
     const raw = JSON.parse(localStorage.getItem("nortep-pendentes") || "[]") as Array<PendingItem | Record<string, unknown>>;
@@ -373,7 +378,7 @@ function PublicLanding() {
 }
 
 function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel; inviteCode: string; onAuthenticated: (session: Session, channel?: AccessChannel) => Promise<void> }) {
-  const invited = access === "administracao" && Boolean(inviteCode);
+  const invited = (access === "administracao" || access === "observador") && Boolean(inviteCode);
   const allowSignup = access === "pesquisador" || invited;
   const [modo, setModo] = useState<"entrar" | "criar" | "recuperar">(invited ? "criar" : "entrar");
   const [name, setName] = useState("");
@@ -411,6 +416,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     setBusy(false);
   };
   const adminAccess = access === "administracao";
+  const observerAccess = access === "observador";
   if (confirmationEmail) return <div className="auth-shell"><ControleFonte />
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
@@ -459,9 +465,9 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     </section>
     <form className="auth-card" onSubmit={e => { e.preventDefault(); void enviar(); }}>
       <div className="auth-logo">NP</div>
-      <small>{adminAccess ? "ADMINISTRAÇÃO RESTRITA" : "ÁREA DO PESQUISADOR"}</small>
-      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (adminAccess ? "Entrar na administração" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
-      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
+      <small>{adminAccess ? "ADMINISTRAÇÃO RESTRITA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
+      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (adminAccess ? "Entrar na administração" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
+      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : observerAccess ? "Este acesso mostra somente indicadores agrupados da coleta, sem respostas individuais." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
       {modo === "criar" && <div className="existing-account-note"><span><b>Já possui uma conta?</b><small>Não faça outro cadastro. Entre para saber se o acesso já está ativo ou se ainda aguarda aprovação.</small></span><button type="button" onClick={() => { setModo("entrar"); setMessage(""); }}>Entrar e verificar</button></div>}
       {modo === "criar" && <><label htmlFor="auth-name">Nome completo</label><input id="auth-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}
       <label htmlFor="auth-email">E-mail</label>
@@ -477,7 +483,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess ? "Convites vencem em 72 horas e funcionam uma única vez." : "O entrevistado não precisa criar conta."}</small>
+      <small className="auth-help">{adminAccess || observerAccess ? "Convites vencem em 72 horas e funcionam uma única vez." : "O entrevistado não precisa criar conta."}</small>
     </form>
   </div>;
 }
