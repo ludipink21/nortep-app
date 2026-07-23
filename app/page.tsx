@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { configured, createAccessInvite, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey, updatePassword } from "./supabase";
 
-type View = "inicio" | "pesquisas" | "equipe" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
+type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "administracao";
 type PendingInterview = { id: string; survey: Survey; responses: Record<string, string>; deviceId: string };
 
@@ -198,6 +198,7 @@ export default function Home() {
     inicio: "Visão geral",
     pesquisas: "Pesquisas",
     equipe: "Pesquisadores",
+    rankings: "Rankings",
     resultados: "Resultados",
     ecossistema: "Ecossistema NorteP",
     portal: "Minhas pesquisas",
@@ -213,6 +214,7 @@ export default function Home() {
         ["inicio", "⌂", "Visão geral"],
         ["pesquisas", "▤", "Pesquisas"],
         ["equipe", "♙", "Pesquisadores"],
+        ["rankings", "★", "Rankings"],
         ["resultados", "◫", "Resultados"],
         ["ecossistema", "◇", "Ecossistema NorteP"],
       ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i>{item[1]}</i>{item[2]}</button>)}</nav>
@@ -238,6 +240,7 @@ export default function Home() {
         {view === "inicio" && <Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} />}
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} />}
         {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} />}
+        {view === "rankings" && <Rankings interviews={interviews} profiles={team} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} />}
         {view === "ecossistema" && <Ecossistema />}
         {view === "portal" && <Portal profile={profile} survey={survey} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={() => { setPasso(1); ir("entrevista"); }} />}
@@ -515,6 +518,39 @@ function Inicio({ ir, aviso, interviews, profiles, pending }: { ir: (v: View) =>
     <div className="duas"><div className="painel"><Topo sup="RITMO DE COLETA" titulo="Entrevistas nos últimos 7 dias" /><div className="grafico">{contagens.map((valor, i) => <div key={dias[i].toISOString()}><b>{valor}</b><i style={{ height: `${Math.max(valor ? valor / max * 90 : 3, 3)}%` }} /><small>{i === 6 ? "HOJE" : dias[i].toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3).toUpperCase()}</small></div>)}</div></div><div className="painel"><Topo sup="SITUAÇÃO DA COLETA" titulo="Acompanhamento" /><div className="alerta"><i className={pending ? "a1" : "a0"}>{pending ? "!" : "✓"}</i><span><b>{pending ? `${pending} entrevista(s) aguardando internet` : "Todas as respostas sincronizadas"}</b><small>{pending ? "Abra a área do pesquisador e toque em sincronizar" : "Nenhuma pendência neste aparelho"}</small></span></div><div className="alerta"><i className="a2">i</i><span><b>{interviews.length ? "Coleta em andamento" : "Pronto para a primeira entrevista"}</b><small>Acompanhe aqui a evolução da pesquisa.</small></span></div></div></div>
     <div className="ranking-grid"><div className="painel"><Topo sup="EQUIPE DE CAMPO" titulo="Entrevistas concluídas por pesquisador" />{rankingPesquisadores.length ? rankingPesquisadores.map(([id, total], index) => <div className="ranking-row" key={id}><i>{index + 1}</i><span><b>{nomesPesquisadores[id] || "Pesquisador"}</b><small>Entrevistas sincronizadas</small></span><strong>{total}</strong></div>) : <div className="ranking-empty">O ranking aparecerá após a primeira entrevista.</div>}</div><div className="painel"><Topo sup="CIDADES E BAIRROS" titulo="Entrevistas concluídas por território" />{rankingTerritorios.length ? rankingTerritorios.map(([local, total], index) => <div className="ranking-row" key={local}><i>{index + 1}</i><span><b>{local}</b><small>Entrevistas sincronizadas</small></span><strong>{total}</strong></div>) : <div className="ranking-empty">Os territórios aparecerão após a primeira entrevista.</div>}</div></div>
     <div className="painel lista"><div className="topo"><div><small>PESQUISAS ATIVAS</small><h3>Acompanhamento por pesquisa</h3></div><button onClick={() => ir("pesquisas")}>Ver todas →</button></div><LinhaPesquisa p={pesquisaPiloto} ir={ir} /></div>
+  </>;
+}
+
+function Rankings({ interviews, profiles }: { interviews: SavedInterview[]; profiles: Profile[] }) {
+  const nomesPesquisadores = Object.fromEntries(profiles.map(p => [p.id, p.name]));
+  const pesquisadores = Object.entries(interviews.reduce<Record<string, number>>((acc, item) => {
+    acc[item.researcher_id] = (acc[item.researcher_id] || 0) + 1;
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1]);
+  const territorios = Object.entries(interviews.reduce<Record<string, number>>((acc, item) => {
+    const cidade = item.responses.cidade || "Betim";
+    const regiao = item.responses.regiao || item.responses.bairro || "Região não informada";
+    const local = `${cidade} · ${regiao}`;
+    acc[local] = (acc[local] || 0) + 1;
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1]);
+  const maiorPesquisador = Math.max(...pesquisadores.map(([, total]) => total), 1);
+  const maiorTerritorio = Math.max(...territorios.map(([, total]) => total), 1);
+  const liderPesquisador = pesquisadores[0] ? nomesPesquisadores[pesquisadores[0][0]] || "Pesquisador" : "Aguardando coleta";
+  const liderTerritorio = territorios[0]?.[0] || "Aguardando coleta";
+
+  return <>
+    <div className="cabecalho ranking-cabecalho"><div><h2>Rankings da coleta</h2><p>Classificação atualizada pelas entrevistas concluídas e sincronizadas.</p></div><span>● Dados sincronizados</span></div>
+    <div className="ranking-resumo">
+      <article><small>LÍDER DE CAMPO</small><b>{liderPesquisador}</b><span>{pesquisadores[0]?.[1] || 0} entrevista(s)</span></article>
+      <article><small>TERRITÓRIO COM MAIS COLETA</small><b>{liderTerritorio}</b><span>{territorios[0]?.[1] || 0} entrevista(s)</span></article>
+      <article><small>TOTAL CONSIDERADO</small><b>{interviews.length}</b><span>entrevistas sincronizadas</span></article>
+    </div>
+    <div className="ranking-page-grid">
+      <section className="painel ranking-lista"><Topo sup="DESEMPENHO DA EQUIPE" titulo="Ranking de pesquisadores" />{pesquisadores.length ? pesquisadores.map(([id, total], index) => <div className="ranking-detalhe" key={id}><i>{index + 1}</i><span><b>{nomesPesquisadores[id] || "Pesquisador sem acesso ativo"}</b><small>{total} entrevista(s) concluída(s)</small><em><u style={{ width: `${total / maiorPesquisador * 100}%` }} /></em></span><strong>{total}</strong></div>) : <div className="ranking-empty">O ranking aparecerá assim que a primeira entrevista for sincronizada.</div>}</section>
+      <section className="painel ranking-lista"><Topo sup="CIDADES, REGIÕES E BAIRROS" titulo="Ranking de territórios" />{territorios.length ? territorios.map(([local, total], index) => <div className="ranking-detalhe" key={local}><i>{index + 1}</i><span><b>{local}</b><small>{total} entrevista(s) concluída(s)</small><em><u style={{ width: `${total / maiorTerritorio * 100}%` }} /></em></span><strong>{total}</strong></div>) : <div className="ranking-empty">Os territórios aparecerão assim que a primeira entrevista for sincronizada.</div>}</section>
+    </div>
+    <div className="ranking-nota"><i>i</i><span><b>Este ranking mostra volume de entrevistas.</b><small>A taxa de adesão será calculada futuramente quando o aplicativo também registrar abordagens, recusas e entrevistas interrompidas.</small></span></div>
   </>;
 }
 
