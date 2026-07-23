@@ -247,7 +247,7 @@ export default function Home() {
     setSurvey(selected);
     setSurveyQuestions(await loadSurveyQuestions(session, selected.id));
     setPasso(draft?.step || 1);
-    setRespostas(draft?.responses || {});
+    setRespostas(draft?.responses || { codigo: `ENT-${new Date().getFullYear()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}` });
     setInterviewStartedAt(draft?.startedAt || Date.now());
     registrarTentativa(action, selected);
     setResumeDraft(null);
@@ -891,6 +891,9 @@ function Entrevista({ passo, setPasso, r, setR, fim, cancelar, extraQuestions }:
     }, () => setGeoStatus("Não foi possível registrar. Continue pelo bairro informado."), { enableHighAccuracy: false, timeout: 10000 });
   };
   const recebeContato = r.interesse && r.interesse !== "Não desejo receber contato";
+  useEffect(() => {
+    if (r.autorizaGeo === "Sim, autoriza" && !r.latitude && !geoStatus) capturarLocalizacao();
+  }, [r.autorizaGeo, r.latitude, geoStatus]);
   const inelegivel = r.consentirPesquisa === "Não aceito participar" || r.idadeMinima === "Não";
   const visibleExtras = extraQuestions.filter(q => !q.condition?.field || r[q.condition.field] === q.condition.equals);
   const extrasValid = visibleExtras.filter(q => q.required).every(q => Boolean(r[q.code]));

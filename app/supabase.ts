@@ -317,7 +317,7 @@ export async function loadFieldEvents(session: Session) {
 }
 
 export async function saveInterview(session: Session, survey: Survey, responses: Record<string, string>, deviceId: string, durationSeconds?: number) {
-  const { nome, whatsapp, email, interesse, consentimentoContato, autorizaGeo, latitude, longitude, ...researchResponses } = responses;
+  const { nome, whatsapp, email, interesse, consentimentoContato, autorizaGeo, latitude, longitude, codigo, ...researchResponses } = responses;
   const rows = await rest<Array<{ id: string; code: string }>>(session, "interviews?select=id,code", {
     method: "POST",
     headers: { Prefer: "return=representation" },
