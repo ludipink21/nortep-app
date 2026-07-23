@@ -11,6 +11,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "NorteP Pesquisa",
     description: "Pesquisa de campo. Dados que aproximam.",
+    icons: {
+      icon: "/favicon.svg",
+      shortcut: "/favicon.svg",
+    },
     openGraph: {
       title: "NorteP Pesquisa",
       description: "Pesquisa de campo. Dados que aproximam.",

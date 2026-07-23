@@ -42,3 +42,5 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+# Documento interno de continuidade; não deve seguir para a publicação pública.
+CONTINUAR_NORTEP.md
