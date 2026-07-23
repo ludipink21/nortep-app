@@ -3,11 +3,13 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
-import { configured, createAccessInvite, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey, updatePassword } from "./supabase";
+import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, signIn, signUp, Survey, SurveyQuestion, updatePassword } from "./supabase";
 
-type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
+type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "mapa" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "administracao";
-type PendingInterview = { id: string; survey: Survey; responses: Record<string, string>; deviceId: string };
+type PendingItem =
+  | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
+  | { kind: "field_event"; id: string; survey: Survey; event: Omit<FieldEvent, "id" | "survey_id" | "researcher_id" | "occurred_at">; deviceId: string; savedAt: string; attempts: number };
 
 function readAccessChannel(): AccessChannel {
   if (typeof window === "undefined") return "publico";
@@ -33,8 +35,12 @@ export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [survey, setSurvey] = useState<Survey | null>(null);
+  const [surveys, setSurveys] = useState<Survey[]>([]);
+  const [adminSurveys, setAdminSurveys] = useState<Survey[]>([]);
+  const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>([]);
   const [team, setTeam] = useState<Profile[]>([]);
   const [interviews, setInterviews] = useState<SavedInterview[]>([]);
+  const [fieldEvents, setFieldEvents] = useState<FieldEvent[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [savedCode, setSavedCode] = useState("");
   const [savedSynced, setSavedSynced] = useState(true);
@@ -42,6 +48,7 @@ export default function Home() {
   const [inviteCode, setInviteCode] = useState("");
   const [observerSummary, setObserverSummary] = useState<ObserverSummary | null>(null);
   const [passwordRecoverySession, setPasswordRecoverySession] = useState<Session | null>(null);
+  const [interviewStartedAt, setInterviewStartedAt] = useState<number>(0);
 
   useEffect(() => {
     const channel = readAccessChannel();
@@ -52,7 +59,7 @@ export default function Home() {
     const video = localStorage.getItem("nortep-video-agradecimento");
     if (rascunho) setRespostas(JSON.parse(rascunho));
     if (video) setVideoUrl(video);
-    const pendentes: PendingInterview[] = JSON.parse(localStorage.getItem("nortep-pendentes") || "[]");
+    const pendentes: PendingItem[] = JSON.parse(localStorage.getItem("nortep-pendentes") || "[]");
     setPendingCount(pendentes.length);
     const updateOnline = () => setOffline(!navigator.onLine);
     updateOnline();
@@ -78,7 +85,10 @@ export default function Home() {
 
   async function carregarAdmin(s: Session, p: Profile) {
     if (!(["admin", "coordenador"] as string[]).includes(p.role)) return;
-    setTeam(await loadProfiles(s));
+    const [profiles, everySurvey, events] = await Promise.all([loadProfiles(s), loadAllSurveys(s), loadFieldEvents(s)]);
+    setTeam(profiles);
+    setAdminSurveys(everySurvey);
+    setFieldEvents(events);
   }
 
   async function autenticar(incoming: Session, channel: AccessChannel = accessChannel) {
@@ -96,8 +106,9 @@ export default function Home() {
       setView("inicio");
       return;
     }
-    const surveys = await loadSurveys(current);
-    setSurvey(surveys[0] ?? null);
+    const visibleSurveys = await loadSurveys(current);
+    setSurveys(visibleSurveys);
+    setSurvey(visibleSurveys[0] ?? null);
     if (p.active) setInterviews(await loadInterviews(current));
     await carregarAdmin(current, p);
     setView(p.role === "pesquisador" ? "portal" : "inicio");
@@ -137,19 +148,27 @@ export default function Home() {
     const code = await createAccessInvite(session, email, role);
     return `${window.location.origin}/?acesso=administracao&convite=${encodeURIComponent(code)}`;
   };
-  const fila = () => JSON.parse(localStorage.getItem("nortep-pendentes") || "[]") as PendingInterview[];
-  const guardarFila = (items: PendingInterview[]) => {
-    localStorage.setItem("nortep-pendentes", JSON.stringify(items));
-    setPendingCount(items.length);
+  const fila = () => {
+    const raw = JSON.parse(localStorage.getItem("nortep-pendentes") || "[]") as Array<PendingItem | Record<string, unknown>>;
+    return raw.map(item => item.kind ? item as PendingItem : ({ ...item, kind: "interview", durationSeconds: 0, savedAt: new Date().toISOString(), attempts: 0 } as PendingItem));
+  };
+  const guardarFila = (items: PendingItem[]) => {
+    try {
+      localStorage.setItem("nortep-pendentes", JSON.stringify(items));
+      setPendingCount(items.length);
+    } catch {
+      aviso("O aparelho está com pouco espaço. Sincronize antes de continuar.");
+    }
   };
   const finalizarEntrevista = async () => {
     if (!session || !survey) return aviso("Pesquisa ainda não foi liberada para este acesso");
     let deviceId = localStorage.getItem("nortep-dispositivo");
     if (!deviceId) { deviceId = crypto.randomUUID(); localStorage.setItem("nortep-dispositivo", deviceId); }
-    const item: PendingInterview = { id: crypto.randomUUID(), survey, responses: { ...respostas }, deviceId };
+    const durationSeconds = interviewStartedAt ? Math.max(1, Math.round((Date.now() - interviewStartedAt) / 1000)) : 0;
+    const item: PendingItem = { kind: "interview", id: crypto.randomUUID(), survey, responses: { ...respostas }, deviceId, durationSeconds, savedAt: new Date().toISOString(), attempts: 0 };
     try {
       if (!navigator.onLine) throw new Error("offline");
-      const saved = await saveInterview(session, survey, item.responses, deviceId);
+      const saved = await saveInterview(session, survey, item.responses, deviceId, durationSeconds);
       setSavedCode(saved.code);
       setSavedSynced(true);
       if (profile && profile.role !== "pesquisador") setInterviews(await loadInterviews(session));
@@ -162,17 +181,56 @@ export default function Home() {
   };
   const sincronizarPendentes = async () => {
     if (!session || !navigator.onLine) return aviso("Conecte o aparelho à internet para sincronizar");
-    const restantes: PendingInterview[] = [];
+    const restantes: PendingItem[] = [];
     let enviadas = 0;
     for (const item of fila()) {
-      try { await saveInterview(session, item.survey, item.responses, item.deviceId); enviadas++; }
-      catch { restantes.push(item); }
+      try {
+        if (item.kind === "field_event") await saveFieldEvent(session, item.survey, item.event, item.deviceId);
+        else await saveInterview(session, item.survey, item.responses, item.deviceId, item.durationSeconds);
+        enviadas++;
+      } catch { restantes.push({ ...item, attempts: item.attempts + 1 }); }
     }
     guardarFila(restantes);
     aviso(enviadas ? `${enviadas} entrevista(s) sincronizada(s)` : "Nenhuma entrevista pendente");
     if (profile && profile.role !== "pesquisador") setInterviews(await loadInterviews(session));
   };
-  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setObserverSummary(null); setView("inicio"); };
+  const registrarOcorrencia = async (outcome: FieldEvent["outcome"], reason = "", currentSurvey: Survey | null = survey) => {
+    if (!session || !currentSurvey) return aviso("Selecione uma pesquisa antes de registrar a ocorrência");
+    let deviceId = localStorage.getItem("nortep-dispositivo");
+    if (!deviceId) { deviceId = crypto.randomUUID(); localStorage.setItem("nortep-dispositivo", deviceId); }
+    const event = { outcome, reason, city: currentSurvey.target_cities?.[0] || "", region: currentSurvey.target_regions?.[0] || "", neighborhood: currentSurvey.target_neighborhoods?.[0] || "" };
+    try {
+      if (!navigator.onLine) throw new Error("offline");
+      await saveFieldEvent(session, currentSurvey, event, deviceId);
+      if (admin) setFieldEvents(await loadFieldEvents(session));
+      aviso("Ocorrência registrada com segurança");
+    } catch {
+      guardarFila([...fila(), { kind: "field_event", id: crypto.randomUUID(), survey: currentSurvey, event, deviceId, savedAt: new Date().toISOString(), attempts: 0 }]);
+      aviso("Ocorrência salva no aparelho para sincronização");
+    }
+  };
+  const atualizarDadosAdmin = async () => {
+    if (!session || !profile || !admin) return;
+    const [everySurvey, saved, events, profiles] = await Promise.all([loadAllSurveys(session), loadInterviews(session), loadFieldEvents(session), loadProfiles(session)]);
+    setAdminSurveys(everySurvey); setInterviews(saved); setFieldEvents(events); setTeam(profiles);
+  };
+  const iniciarPesquisa = async (selected: Survey) => {
+    if (!session) return;
+    setSurvey(selected);
+    setSurveyQuestions(await loadSurveyQuestions(session, selected.id));
+    setPasso(1);
+    setRespostas({});
+    setInterviewStartedAt(Date.now());
+    ir("entrevista");
+  };
+  useEffect(() => {
+    if (!session) return;
+    const autoSync = () => { if (navigator.onLine && fila().length) void sincronizarPendentes(); };
+    window.addEventListener("online", autoSync);
+    const timer = navigator.onLine && pendingCount ? window.setTimeout(autoSync, 1200) : 0;
+    return () => { window.removeEventListener("online", autoSync); if (timer) window.clearTimeout(timer); };
+  }, [session, pendingCount]);
+  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setObserverSummary(null); setView("inicio"); };
 
   if (!authReady) return <TelaCarregando />;
   if (!configured()) return <TelaConfigErro />;
@@ -199,6 +257,7 @@ export default function Home() {
     pesquisas: "Pesquisas",
     equipe: "Pesquisadores",
     rankings: "Rankings",
+    mapa: "Mapa territorial",
     resultados: "Resultados",
     ecossistema: "Ecossistema NorteP",
     portal: "Minhas pesquisas",
@@ -215,6 +274,7 @@ export default function Home() {
         ["pesquisas", "▤", "Pesquisas"],
         ["equipe", "♙", "Pesquisadores"],
         ["rankings", "★", "Rankings"],
+        ["mapa", "◎", "Mapa territorial"],
         ["resultados", "◫", "Resultados"],
         ["ecossistema", "◇", "Ecossistema NorteP"],
       ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i>{item[1]}</i>{item[2]}</button>)}</nav>
@@ -237,19 +297,24 @@ export default function Home() {
       </header>
 
       <div className={campo ? "content campo-content" : "content"}>
-        {view === "inicio" && <Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} />}
-        {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} />}
+        {view === "inicio" && <Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} fieldEvents={fieldEvents} />}
+        {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} surveys={adminSurveys} profiles={team} session={session} currentProfile={profile} atualizar={atualizarDadosAdmin} />}
         {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} />}
-        {view === "rankings" && <Rankings interviews={interviews} profiles={team} />}
-        {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} />}
+        {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
+        {view === "mapa" && <MapaTerritorial interviews={interviews} fieldEvents={fieldEvents} />}
+        {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "ecossistema" && <Ecossistema />}
-        {view === "portal" && <Portal profile={profile} survey={survey} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={() => { setPasso(1); ir("entrevista"); }} />}
-        {view === "entrevista" && <Entrevista passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={() => {
+        {view === "portal" && <Portal profile={profile} surveys={surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
+        {view === "entrevista" && survey && (survey.slug === "betim-territorio-escolhas-2026" ? <Entrevista passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={() => {
+          const motivo = respostas.consentirPesquisa === "Não aceito participar" ? "Consentimento recusado" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "Pessoa fora do público da pesquisa" : "Entrevista encerrada";
+          void registrarOcorrencia(respostas.consentirPesquisa === "Não aceito participar" ? "refused" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "ineligible" : "interrupted", motivo, survey);
           localStorage.removeItem("nortep-rascunho");
           setRespostas({});
           ir("portal");
-          aviso("Entrevista encerrada sem registrar respostas");
-        }} />}
+        }} /> : <EntrevistaDinamica survey={survey} questions={surveyQuestions} passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={(outcome, reason) => {
+          void registrarOcorrencia(outcome, reason, survey);
+          localStorage.removeItem("nortep-rascunho"); setRespostas({}); ir("portal");
+        }} />)}
         {view === "obrigado" && <Obrigado nome={respostas.nome} videoUrl="" codigo={savedCode} sincronizado={savedSynced} concluir={() => {
           localStorage.removeItem("nortep-rascunho");
           setRespostas({});
@@ -492,7 +557,7 @@ function ObserverPanel({ profile, summary, sair, atualizar }: { profile: Profile
   </div>;
 }
 
-function Inicio({ ir, aviso, interviews, profiles, pending }: { ir: (v: View) => void; aviso: (t: string) => void; interviews: SavedInterview[]; profiles: Profile[]; pending: number }) {
+function Inicio({ ir, aviso, interviews, profiles, pending, fieldEvents }: { ir: (v: View) => void; aviso: (t: string) => void; interviews: SavedInterview[]; profiles: Profile[]; pending: number; fieldEvents: FieldEvent[] }) {
   const hoje = new Date();
   const dias = Array.from({ length: 7 }, (_, i) => { const d = new Date(hoje); d.setDate(d.getDate() - (6 - i)); return d; });
   const contagens = dias.map(d => interviews.filter(x => new Date(x.completed_at || x.created_at).toDateString() === d.toDateString()).length);
@@ -500,6 +565,11 @@ function Inicio({ ir, aviso, interviews, profiles, pending }: { ir: (v: View) =>
   const ativos = new Set(interviews.map(x => x.researcher_id)).size;
   const progresso = Math.min(interviews.length, 100);
   const pesquisaPiloto = { ...pesquisas[0], feitas: interviews.length, equipe: ativos };
+  const abordagens = interviews.length + fieldEvents.length;
+  const adesao = abordagens ? Math.round(interviews.length / abordagens * 100) : 0;
+  const recusas = fieldEvents.filter(x => x.outcome === "refused").length;
+  const interrompidas = fieldEvents.filter(x => x.outcome === "interrupted").length;
+  const alertasQualidade = interviews.filter(x => (x.quality_flags || []).length).length;
   const nomesPesquisadores = Object.fromEntries(profiles.map(p => [p.id, p.name]));
   const rankingPesquisadores = Object.entries(interviews.reduce<Record<string, number>>((acc, item) => {
     acc[item.researcher_id] = (acc[item.researcher_id] || 0) + 1;
@@ -515,19 +585,28 @@ function Inicio({ ir, aviso, interviews, profiles, pending }: { ir: (v: View) =>
   return <>
     <div className="boas"><div><small>QUARTA-FEIRA, 22 DE JULHO</small><h2>Bom dia, Ludimila. <span>O campo está avançando.</span></h2><p>Acompanhe o ritmo das equipes e veja onde sua atenção é mais necessária.</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
     <div className="metricas"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(interviews.length)} s="salvas com segurança" /><Metrica c="laranja" i="◎" t="Meta da pesquisa" v={`${progresso}%`} s={`${Math.max(100 - interviews.length, 0)} entrevistas restantes`} /><Metrica c="roxo" i="♙" t="Pesquisadores com coleta" v={String(ativos)} s="na pesquisa atual" /><Metrica c="azul" i="⌁" t="Neste aparelho" v={String(pending)} s="pendentes de sincronização" /></div>
+    <div className="operacao-piloto"><article><small>ABORDAGENS REGISTRADAS</small><b>{abordagens}</b><span>entrevistas e ocorrências</span></article><article><small>TAXA DE CONCLUSÃO</small><b>{adesao}%</b><span>concluídas sobre abordagens</span></article><article><small>RECUSAS E INTERRUPÇÕES</small><b>{recusas + interrompidas}</b><span>{recusas} recusas · {interrompidas} interrompidas</span></article><article className={alertasQualidade ? "com-alerta" : ""}><small>ALERTAS DE QUALIDADE</small><b>{alertasQualidade}</b><span>{alertasQualidade ? "verificar antes da análise" : "nenhum alerta atual"}</span></article></div>
     <div className="duas"><div className="painel"><Topo sup="RITMO DE COLETA" titulo="Entrevistas nos últimos 7 dias" /><div className="grafico">{contagens.map((valor, i) => <div key={dias[i].toISOString()}><b>{valor}</b><i style={{ height: `${Math.max(valor ? valor / max * 90 : 3, 3)}%` }} /><small>{i === 6 ? "HOJE" : dias[i].toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3).toUpperCase()}</small></div>)}</div></div><div className="painel"><Topo sup="SITUAÇÃO DA COLETA" titulo="Acompanhamento" /><div className="alerta"><i className={pending ? "a1" : "a0"}>{pending ? "!" : "✓"}</i><span><b>{pending ? `${pending} entrevista(s) aguardando internet` : "Todas as respostas sincronizadas"}</b><small>{pending ? "Abra a área do pesquisador e toque em sincronizar" : "Nenhuma pendência neste aparelho"}</small></span></div><div className="alerta"><i className="a2">i</i><span><b>{interviews.length ? "Coleta em andamento" : "Pronto para a primeira entrevista"}</b><small>Acompanhe aqui a evolução da pesquisa.</small></span></div></div></div>
     <div className="ranking-grid"><div className="painel"><Topo sup="EQUIPE DE CAMPO" titulo="Entrevistas concluídas por pesquisador" />{rankingPesquisadores.length ? rankingPesquisadores.map(([id, total], index) => <div className="ranking-row" key={id}><i>{index + 1}</i><span><b>{nomesPesquisadores[id] || "Pesquisador"}</b><small>Entrevistas sincronizadas</small></span><strong>{total}</strong></div>) : <div className="ranking-empty">O ranking aparecerá após a primeira entrevista.</div>}</div><div className="painel"><Topo sup="CIDADES E BAIRROS" titulo="Entrevistas concluídas por território" />{rankingTerritorios.length ? rankingTerritorios.map(([local, total], index) => <div className="ranking-row" key={local}><i>{index + 1}</i><span><b>{local}</b><small>Entrevistas sincronizadas</small></span><strong>{total}</strong></div>) : <div className="ranking-empty">Os territórios aparecerão após a primeira entrevista.</div>}</div></div>
     <div className="painel lista"><div className="topo"><div><small>PESQUISAS ATIVAS</small><h3>Acompanhamento por pesquisa</h3></div><button onClick={() => ir("pesquisas")}>Ver todas →</button></div><LinhaPesquisa p={pesquisaPiloto} ir={ir} /></div>
   </>;
 }
 
-function Rankings({ interviews, profiles }: { interviews: SavedInterview[]; profiles: Profile[] }) {
+function Rankings({ interviews, profiles, surveys, fieldEvents }: { interviews: SavedInterview[]; profiles: Profile[]; surveys: Survey[]; fieldEvents: FieldEvent[] }) {
+  const [referenceTime] = useState(() => Date.now());
+  const [surveyFilter, setSurveyFilter] = useState("todos");
+  const [periodFilter, setPeriodFilter] = useState("30");
+  const [territoryFilter, setTerritoryFilter] = useState("");
+  const inPeriod = (date: string) => periodFilter === "todos" || new Date(date).getTime() >= referenceTime - Number(periodFilter) * 86400000;
+  const term = territoryFilter.trim().toLowerCase();
+  const filteredInterviews = interviews.filter(item => (surveyFilter === "todos" || item.survey_id === surveyFilter) && inPeriod(item.completed_at || item.created_at) && (!term || `${item.responses.cidade || "Betim"} ${item.responses.regiao || ""} ${item.responses.bairro || ""}`.toLowerCase().includes(term)));
+  const filteredEvents = fieldEvents.filter(item => (surveyFilter === "todos" || item.survey_id === surveyFilter) && inPeriod(item.occurred_at) && (!term || `${item.city || ""} ${item.region || ""} ${item.neighborhood || ""}`.toLowerCase().includes(term)));
   const nomesPesquisadores = Object.fromEntries(profiles.map(p => [p.id, p.name]));
-  const pesquisadores = Object.entries(interviews.reduce<Record<string, number>>((acc, item) => {
+  const pesquisadores = Object.entries(filteredInterviews.reduce<Record<string, number>>((acc, item) => {
     acc[item.researcher_id] = (acc[item.researcher_id] || 0) + 1;
     return acc;
   }, {})).sort((a, b) => b[1] - a[1]);
-  const territorios = Object.entries(interviews.reduce<Record<string, number>>((acc, item) => {
+  const territorios = Object.entries(filteredInterviews.reduce<Record<string, number>>((acc, item) => {
     const cidade = item.responses.cidade || "Betim";
     const regiao = item.responses.regiao || item.responses.bairro || "Região não informada";
     const local = `${cidade} · ${regiao}`;
@@ -538,19 +617,38 @@ function Rankings({ interviews, profiles }: { interviews: SavedInterview[]; prof
   const maiorTerritorio = Math.max(...territorios.map(([, total]) => total), 1);
   const liderPesquisador = pesquisadores[0] ? nomesPesquisadores[pesquisadores[0][0]] || "Pesquisador" : "Aguardando coleta";
   const liderTerritorio = territorios[0]?.[0] || "Aguardando coleta";
+  const abordagens = filteredInterviews.length + filteredEvents.length;
+  const adesao = abordagens ? Math.round(filteredInterviews.length / abordagens * 100) : 0;
 
   return <>
     <div className="cabecalho ranking-cabecalho"><div><h2>Rankings da coleta</h2><p>Classificação atualizada pelas entrevistas concluídas e sincronizadas.</p></div><span>● Dados sincronizados</span></div>
+    <div className="filtros ranking-filtros"><select value={surveyFilter} onChange={e => setSurveyFilter(e.target.value)} aria-label="Filtrar por pesquisa"><option value="todos">Todas as pesquisas</option>{surveys.map(s => <option value={s.id} key={s.id}>{s.title}</option>)}</select><select value={periodFilter} onChange={e => setPeriodFilter(e.target.value)} aria-label="Filtrar por período"><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="todos">Todo o período</option></select><input value={territoryFilter} onChange={e => setTerritoryFilter(e.target.value)} placeholder="Buscar cidade, região ou bairro" aria-label="Filtrar por território" /></div>
     <div className="ranking-resumo">
       <article><small>LÍDER DE CAMPO</small><b>{liderPesquisador}</b><span>{pesquisadores[0]?.[1] || 0} entrevista(s)</span></article>
       <article><small>TERRITÓRIO COM MAIS COLETA</small><b>{liderTerritorio}</b><span>{territorios[0]?.[1] || 0} entrevista(s)</span></article>
-      <article><small>TOTAL CONSIDERADO</small><b>{interviews.length}</b><span>entrevistas sincronizadas</span></article>
+      <article><small>TAXA DE CONCLUSÃO</small><b>{adesao}%</b><span>{filteredInterviews.length} de {abordagens} abordagens</span></article>
     </div>
     <div className="ranking-page-grid">
       <section className="painel ranking-lista"><Topo sup="DESEMPENHO DA EQUIPE" titulo="Ranking de pesquisadores" />{pesquisadores.length ? pesquisadores.map(([id, total], index) => <div className="ranking-detalhe" key={id}><i>{index + 1}</i><span><b>{nomesPesquisadores[id] || "Pesquisador sem acesso ativo"}</b><small>{total} entrevista(s) concluída(s)</small><em><u style={{ width: `${total / maiorPesquisador * 100}%` }} /></em></span><strong>{total}</strong></div>) : <div className="ranking-empty">O ranking aparecerá assim que a primeira entrevista for sincronizada.</div>}</section>
       <section className="painel ranking-lista"><Topo sup="CIDADES, REGIÕES E BAIRROS" titulo="Ranking de territórios" />{territorios.length ? territorios.map(([local, total], index) => <div className="ranking-detalhe" key={local}><i>{index + 1}</i><span><b>{local}</b><small>{total} entrevista(s) concluída(s)</small><em><u style={{ width: `${total / maiorTerritorio * 100}%` }} /></em></span><strong>{total}</strong></div>) : <div className="ranking-empty">Os territórios aparecerão assim que a primeira entrevista for sincronizada.</div>}</section>
     </div>
-    <div className="ranking-nota"><i>i</i><span><b>Este ranking mostra volume de entrevistas.</b><small>A taxa de adesão será calculada futuramente quando o aplicativo também registrar abordagens, recusas e entrevistas interrompidas.</small></span></div>
+    <div className="ranking-nota"><i>i</i><span><b>Volume e taxa são medidas diferentes.</b><small>O ranking ordena entrevistas concluídas. A taxa considera também recusas, pessoas fora do público, interrupções e locais sem resposta registrados pela equipe.</small></span></div>
+  </>;
+}
+
+function MapaTerritorial({ interviews, fieldEvents }: { interviews: SavedInterview[]; fieldEvents: FieldEvent[] }) {
+  const points = [
+    ...interviews.filter(x => x.latitude != null && x.longitude != null).map(x => ({ id: x.id, lat: Number(x.latitude), lng: Number(x.longitude), kind: "Entrevista concluída", territory: `${x.responses.cidade || "Betim"} · ${x.responses.bairro || "Bairro não informado"}` })),
+    ...fieldEvents.filter(x => x.latitude != null && x.longitude != null).map(x => ({ id: x.id, lat: Number(x.latitude), lng: Number(x.longitude), kind: "Ocorrência de campo", territory: `${x.city || "Cidade não informada"} · ${x.neighborhood || x.region || "Região não informada"}` })),
+  ];
+  const latitudes = points.map(p => p.lat), longitudes = points.map(p => p.lng);
+  const minLat = Math.min(...latitudes, -19.99), maxLat = Math.max(...latitudes, -19.85);
+  const minLng = Math.min(...longitudes, -44.28), maxLng = Math.max(...longitudes, -44.12);
+  const territories = Object.entries(interviews.reduce<Record<string, number>>((acc, item) => { const name = `${item.responses.cidade || "Betim"} · ${item.responses.bairro || "Bairro não informado"}`; acc[name] = (acc[name] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]);
+  return <>
+    <div className="cabecalho"><div><h2>Mapa territorial</h2><p>Visualização aproximada somente dos pontos autorizados pelo entrevistado.</p></div><span className="mapa-privacidade">◎ Localização com consentimento</span></div>
+    <div className="mapa-grid"><section className="painel mapa-painel"><div className="mapa-canvas" aria-label="Mapa aproximado das entrevistas autorizadas"><span className="mapa-rio" /><b className="mapa-label l1">BETIM</b><b className="mapa-label l2">REGIÕES DE CAMPO</b>{points.map((point, index) => { const left = 8 + ((point.lng - minLng) / Math.max(maxLng - minLng, .001)) * 84; const top = 8 + (1 - (point.lat - minLat) / Math.max(maxLat - minLat, .001)) * 84; return <i className={point.kind.startsWith("Entrevista") ? "map-point completed" : "map-point event"} style={{ left: `${left}%`, top: `${top}%` }} title={`${point.kind} · ${point.territory}`} key={point.id}>{index + 1}</i>; })}{!points.length && <div className="mapa-vazio"><b>Nenhum ponto autorizado ainda</b><span>O mapa será preenchido somente quando a pessoa permitir o registro aproximado.</span></div>}</div><div className="mapa-legenda"><span><i className="completed" /> Entrevista concluída</span><span><i className="event" /> Ocorrência de campo</span></div></section><section className="painel mapa-territorios"><Topo sup="COBERTURA DA COLETA" titulo="Entrevistas por território" />{territories.length ? territories.slice(0, 12).map(([name, count]) => <div key={name}><span><b>{name}</b><small>entrevistas sincronizadas</small></span><strong>{count}</strong></div>) : <div className="ranking-empty">Os territórios aparecerão após a primeira entrevista.</div>}</section></div>
+    <div className="ranking-nota"><i>✓</i><span><b>Privacidade territorial preservada.</b><small>A tela usa coordenadas aproximadas e não exibe nome ou contato do entrevistado.</small></span></div>
   </>;
 }
 
@@ -558,18 +656,47 @@ function Metrica({ c, i, t, v, s }: { c: string; i: string; t: string; v: string
 function Topo({ sup, titulo }: { sup: string; titulo: string }) { return <div className="topo"><div><small>{sup}</small><h3>{titulo}</h3></div><button>•••</button></div>; }
 function LinhaPesquisa({ p, ir }: { p: typeof pesquisas[0]; ir: (v: View) => void }) { return <div className="linha-pesquisa"><i>▤</i><span><b>{p.nome}</b><small>● {p.status} · {p.equipe} pesquisadores</small></span><div><small>{p.feitas} de {p.meta}</small><em><i style={{ width: (p.feitas / p.meta * 100) + "%" }} /></em></div><strong>{Math.round(p.feitas / p.meta * 100)}%</strong><button onClick={() => ir("resultados")}>Ver detalhes</button></div>; }
 
-function Pesquisas({ ir, aviso, videoUrl, setVideoUrl }: { ir: (v: View) => void; aviso: (t: string) => void; videoUrl: string; setVideoUrl: (v: string) => void }) {
-  const configurarVideo = () => {
-    const valor = window.prompt("Cole o link do YouTube usado após uma pesquisa direcional. Não use vídeo em pesquisa qualitativa ou eleitoral. Deixe vazio para remover.", videoUrl);
-    if (valor !== null) {
-      setVideoUrl(valor.trim());
-      aviso(valor.trim() ? "Vídeo de agradecimento configurado" : "Vídeo removido desta pesquisa");
-    }
+function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, session, currentProfile, atualizar }: { ir: (v: View) => void; aviso: (t: string) => void; videoUrl: string; setVideoUrl: (v: string) => void; surveys: Survey[]; profiles: Profile[]; session: Session; currentProfile: Profile; atualizar: () => Promise<void> }) {
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [draft, setDraft] = useState<Partial<Survey>>({});
+  const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [assignmentSurvey, setAssignmentSurvey] = useState<Survey | null>(null);
+  const [selectedResearchers, setSelectedResearchers] = useState<string[]>([]);
+  const [territory, setTerritory] = useState({ team: "", city: "", region: "", neighborhood: "" });
+  const canEdit = currentProfile.role === "admin";
+  const typeLabels: Record<Survey["survey_type"], string> = { quantitative: "Quantitativa", qualitative: "Qualitativa", directional: "Direcional", electoral: "Eleitoral", data_collection: "Coleta de dados" };
+  const statusLabels: Record<Survey["status"], string> = { draft: "Rascunho", pilot: "Teste", active: "Em campo", closed: "Arquivada" };
+  const questionTypeLabels: Record<SurveyQuestion["type"], string> = { short_text: "Texto curto", long_text: "Texto longo", yes_no: "Sim ou não", single: "Escolha única", multiple: "Várias escolhas", scale: "Escala de 0 a 10", rating: "Péssimo a ótimo", region: "Bairro ou região", internal_note: "Observação interna" };
+  const splitList = (value: string) => value.split(",").map(x => x.trim()).filter(Boolean);
+  const newQuestion = (): SurveyQuestion => ({ code: `q${Date.now()}`, section: "Perguntas", type: "single", prompt: "", required: false, options: ["Sim", "Não"], condition: null });
+  const openNew = () => { setDraft({ title: "", description: "", status: "draft", survey_type: "quantitative", estimated_minutes: 10, consent_text: "A participação é voluntária. Você pode deixar de responder qualquer pergunta ou encerrar quando quiser.", target_cities: [], target_regions: [], target_neighborhoods: [], is_test: true }); setQuestions([{ ...newQuestion(), code: "consentirPesquisa", prompt: "Você aceita participar desta pesquisa?", type: "yes_no", required: true }]); setEditorOpen(true); };
+  const openEdit = async (item: Survey) => { setBusy(true); try { setDraft(item); setQuestions(await loadSurveyQuestions(session, item.id)); setEditorOpen(true); } finally { setBusy(false); } };
+  const changeQuestion = (index: number, next: Partial<SurveyQuestion>) => setQuestions(questions.map((item, i) => i === index ? { ...item, ...next } : item));
+  const moveQuestion = (index: number, direction: -1 | 1) => { const target = index + direction; if (target < 0 || target >= questions.length) return; const next = [...questions]; [next[index], next[target]] = [next[target], next[index]]; setQuestions(next); };
+  const saveSurvey = async () => {
+    if (!draft.title?.trim()) return aviso("Informe o nome da pesquisa");
+    if (!questions.filter(q => q.prompt.trim()).length && draft.slug !== "betim-territorio-escolhas-2026") return aviso("Adicione pelo menos uma pergunta");
+    setBusy(true);
+    try { await saveSurveyAdmin(session, draft as Partial<Survey> & { title: string }, questions.filter(q => q.prompt.trim())); await atualizar(); setEditorOpen(false); aviso(draft.id ? "Pesquisa atualizada" : "Pesquisa criada como teste"); }
+    catch (error) { aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível salvar a pesquisa"); }
+    finally { setBusy(false); }
   };
+  const openAssignments = async (item: Survey) => { setBusy(true); try { const assigned = await loadSurveyAssignments(session, item.id); setSelectedResearchers(assigned.filter(x => x.active).map(x => x.researcher_id)); const first = assigned.find(x => x.active); setTerritory({ team: first?.team_name || "", city: first?.city || item.target_cities?.[0] || "", region: first?.region || item.target_regions?.[0] || "", neighborhood: first?.neighborhood || item.target_neighborhoods?.[0] || "" }); setAssignmentSurvey(item); } finally { setBusy(false); } };
+  const saveAssignments = async () => { if (!assignmentSurvey) return; setBusy(true); try { await setSurveyAssignments(session, assignmentSurvey.id, selectedResearchers, territory); await atualizar(); setAssignmentSurvey(null); aviso("Pesquisa liberada para a equipe selecionada"); } catch (error) { aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível liberar a pesquisa"); } finally { setBusy(false); } };
+  const removeSurvey = async (item: Survey) => { if (!window.confirm(`Apagar a pesquisa “${item.title}”?\n\nSem entrevistas: será excluída. Com dados: será arquivada e o histórico permanecerá protegido.`)) return; setBusy(true); try { const result = await deleteOrArchiveSurvey(session, item.id); await atualizar(); aviso(result.action === "deleted" ? "Pesquisa excluída" : "Pesquisa arquivada para preservar os dados"); } catch (error) { aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível apagar a pesquisa"); } finally { setBusy(false); } };
+  const clearTest = async (item: Survey) => { if (!window.confirm(`Limpar somente as respostas e ocorrências de TESTE da pesquisa “${item.title}”?\n\nDados reais não serão apagados.`)) return; setBusy(true); try { const result = await clearSurveyTestData(session, item.id); await atualizar(); aviso(`${result.interviews_removed} entrevista(s) e ${result.field_events_removed} ocorrência(s) de teste removidas`); } catch (error) { aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível limpar os testes"); } finally { setBusy(false); } };
+  const configurarVideo = () => { const valor = window.prompt("Cole o link do YouTube usado após uma pesquisa direcional. Não use vídeo em pesquisa qualitativa ou eleitoral. Deixe vazio para remover.", videoUrl); if (valor !== null) { setVideoUrl(valor.trim()); aviso(valor.trim() ? "Vídeo de agradecimento configurado" : "Vídeo removido desta pesquisa"); } };
+
   return <>
-    <Cabecalho titulo="Pesquisas de campo" sub="Crie, edite e acompanhe todos os questionários." botao="＋ Criar pesquisa" acao={() => aviso("Novo questionário criado como rascunho")} />
-    <Filtros busca="Buscar pesquisa..." />
-    <div className="cards">{pesquisas.map((p, i) => <article key={p.nome}><div><label className={p.status === "Liberada" ? "status" : "rascunho"}>{p.status}</label><button>•••</button></div><small className="survey-kind">{p.tipo}</small><h3>{p.nome}</h3><p>{i === 0 ? "Diagnóstico territorial, serviços públicos, lideranças e intenção de voto nas seis escolhas de 2026." : i === 1 ? "Avaliação da saúde, educação, limpeza e transporte público." : "Mapeamento das principais demandas dos moradores."}</p>{p.videoPermitido && <div className="video-status"><i>▶</i><span><b>Vídeo de agradecimento permitido</b><small>{videoUrl ? "Link do YouTube configurado" : "Somente para pesquisa direcional"}</small></span></div>}<section><span><b>{p.feitas}</b> respostas</span><span><b>{p.equipe}</b> pesquisadores</span><span><b>{i === 0 ? 39 : i === 2 ? 18 : 24}</b> perguntas</span></section><div className="progresso"><small>{p.feitas} de {p.meta}</small><em><i style={{ width: (p.feitas / p.meta * 100) + "%" }} /></em></div><footer>{p.videoPermitido && <button onClick={configurarVideo}>▶ Vídeo</button>}<button onClick={() => aviso("Editor de perguntas aberto")}>Editar</button><button onClick={() => i === 0 ? ir("portal") : i === 2 ? aviso("Pesquisa liberada para a equipe") : ir("resultados")}>{i === 0 ? "Aplicar" : i === 2 ? "Liberar" : "Acompanhar"}</button></footer></article>)}</div>
+    <Cabecalho titulo="Pesquisas de campo" sub="Crie questionários, defina territórios e libere para equipes específicas." botao={canEdit ? "＋ Criar pesquisa" : "Acompanhar resultados"} acao={canEdit ? openNew : () => ir("resultados")} />
+    <div className="admin-guidance"><i>✓</i><span><b>Ambiente preparado para testes</b><small>Pesquisas marcadas como teste podem ter seus dados de teste limpos pela administradora antes do início oficial.</small></span></div>
+    <div className="cards survey-admin-cards">{surveys.map(item => <article className={item.archived_at ? "survey-archived" : ""} key={item.id}><div><label className={item.status === "active" || item.status === "pilot" ? "status" : "rascunho"}>{statusLabels[item.status]}</label>{item.is_test && <label className="test-badge">TESTE</label>}</div><small className="survey-kind">{typeLabels[item.survey_type]}</small><h3>{item.title}</h3><p>{item.description || "Pesquisa sem descrição."}</p><div className="survey-target"><b>Território</b><span>{[...(item.target_cities || []), ...(item.target_regions || []), ...(item.target_neighborhoods || [])].join(" · ") || "Definido na liberação"}</span></div>{item.survey_type === "directional" && <div className="video-status"><i>▶</i><span><b>Vídeo permitido</b><small>{videoUrl ? "Link configurado" : "Somente após a conclusão"}</small></span></div>}<footer>{item.survey_type === "directional" && canEdit && <button onClick={configurarVideo}>▶ Vídeo</button>}<button onClick={() => openAssignments(item)} disabled={Boolean(item.archived_at)}>Liberar</button>{canEdit && <button onClick={() => openEdit(item)}>Editar</button>}{canEdit && item.is_test && <button className="clear-test" onClick={() => clearTest(item)}>Limpar testes</button>}{canEdit && <button className="delete-survey" onClick={() => removeSurvey(item)}>Apagar</button>}</footer></article>)}</div>
+    {!surveys.length && <div className="painel resultado-vazio"><i>◎</i><h3>Nenhuma pesquisa cadastrada</h3><p>Crie a primeira pesquisa para iniciar os testes.</p></div>}
+
+    {editorOpen && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Editor de pesquisa"><div className="survey-editor"><header><div><small>EDITOR ADMINISTRATIVO</small><h2>{draft.id ? "Editar pesquisa" : "Criar pesquisa"}</h2></div><button onClick={() => setEditorOpen(false)} aria-label="Fechar editor">×</button></header>{draft.slug === "betim-territorio-escolhas-2026" && <div className="editor-warning"><b>Roteiro eleitoral protegido para o teste de amanhã</b><span>Você pode editar informações e acrescentar perguntas. As sete etapas já preparadas continuarão funcionando.</span></div>}<div className="editor-grid"><label>Nome da pesquisa<input value={draft.title || ""} onChange={e => setDraft({ ...draft, title: e.target.value })} /></label><label>Tipo<select value={draft.survey_type || "quantitative"} onChange={e => setDraft({ ...draft, survey_type: e.target.value as Survey["survey_type"] })}>{Object.entries(typeLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label>Situação<select value={draft.status || "draft"} onChange={e => setDraft({ ...draft, status: e.target.value as Survey["status"] })}><option value="draft">Rascunho</option><option value="pilot">Teste</option><option value="active">Em campo</option><option value="closed">Arquivada</option></select></label><label>Duração estimada<input type="number" min="1" max="180" value={draft.estimated_minutes || 10} onChange={e => setDraft({ ...draft, estimated_minutes: Number(e.target.value) })} /></label><label className="wide">Descrição<textarea value={draft.description || ""} onChange={e => setDraft({ ...draft, description: e.target.value })} /></label><label>Cidades<input value={(draft.target_cities || []).join(", ")} onChange={e => setDraft({ ...draft, target_cities: splitList(e.target.value) })} placeholder="Betim, Contagem" /></label><label>Regiões<input value={(draft.target_regions || []).join(", ")} onChange={e => setDraft({ ...draft, target_regions: splitList(e.target.value) })} placeholder="Norte, Centro" /></label><label className="wide">Bairros<input value={(draft.target_neighborhoods || []).join(", ")} onChange={e => setDraft({ ...draft, target_neighborhoods: splitList(e.target.value) })} placeholder="Digite separados por vírgula" /></label><label className="wide">Texto de consentimento<textarea value={draft.consent_text || ""} onChange={e => setDraft({ ...draft, consent_text: e.target.value })} /></label><label className="test-toggle"><input type="checkbox" checked={Boolean(draft.is_test)} onChange={e => setDraft({ ...draft, is_test: e.target.checked })} /><span><b>Pesquisa em modo de teste</b><small>Permite limpar somente as respostas de teste antes do uso oficial.</small></span></label></div><div className="question-editor-head"><div><small>PERGUNTAS</small><h3>{questions.length} pergunta(s)</h3></div><button onClick={() => setQuestions([...questions, newQuestion()])}>＋ Adicionar pergunta</button></div><div className="question-editor-list">{questions.map((question, index) => <article key={question.code}><div className="question-number">{index + 1}</div><div className="question-fields"><label>Pergunta<input value={question.prompt} onChange={e => changeQuestion(index, { prompt: e.target.value })} placeholder="Escreva de forma simples e neutra" /></label><div><label>Tipo<select value={question.type} onChange={e => changeQuestion(index, { type: e.target.value as SurveyQuestion["type"] })}>{Object.entries(questionTypeLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label>Seção<input value={question.section} onChange={e => changeQuestion(index, { section: e.target.value })} /></label></div>{(["single", "multiple", "rating", "region"] as SurveyQuestion["type"][]).includes(question.type) && <label>Alternativas<input value={(question.options || []).join(", ")} onChange={e => changeQuestion(index, { options: splitList(e.target.value) })} placeholder="Separe por vírgula" /></label>}<div className="condition-row"><label><input type="checkbox" checked={question.required} onChange={e => changeQuestion(index, { required: e.target.checked })} /> Obrigatória</label><label>Mostrar se a pergunta<input value={question.condition?.field || ""} onChange={e => changeQuestion(index, { condition: e.target.value ? { field: e.target.value, equals: question.condition?.equals || "" } : null })} placeholder="código anterior" /></label><label>for igual a<input value={question.condition?.equals || ""} onChange={e => changeQuestion(index, { condition: question.condition?.field ? { field: question.condition.field, equals: e.target.value } : null })} placeholder="resposta" /></label></div></div><div className="question-actions"><button onClick={() => moveQuestion(index, -1)} disabled={index === 0}>↑</button><button onClick={() => moveQuestion(index, 1)} disabled={index === questions.length - 1}>↓</button><button className="danger" onClick={() => setQuestions(questions.filter((_, i) => i !== index))}>×</button></div></article>)}</div><footer><button onClick={() => setEditorOpen(false)}>Cancelar</button><button className="primary" onClick={saveSurvey} disabled={busy}>{busy ? "Salvando…" : "Salvar pesquisa"}</button></footer></div></div>}
+
+    {assignmentSurvey && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Liberar pesquisa"><div className="assignment-editor"><header><div><small>LIBERAÇÃO SEGURA</small><h2>{assignmentSurvey.title}</h2></div><button onClick={() => setAssignmentSurvey(null)}>×</button></header><p>Marque quem poderá aplicar esta pesquisa. Os demais pesquisadores não verão o questionário.</p><div className="assignment-territory"><label>Equipe<input value={territory.team} onChange={e => setTerritory({ ...territory, team: e.target.value })} placeholder="Ex.: Equipe Norte" /></label><label>Cidade<input value={territory.city} onChange={e => setTerritory({ ...territory, city: e.target.value })} /></label><label>Região<input value={territory.region} onChange={e => setTerritory({ ...territory, region: e.target.value })} /></label><label>Bairro<input value={territory.neighborhood} onChange={e => setTerritory({ ...territory, neighborhood: e.target.value })} /></label></div><div className="researcher-checks">{profiles.filter(p => p.role === "pesquisador" && p.active).map(person => <label key={person.id}><input type="checkbox" checked={selectedResearchers.includes(person.id)} onChange={e => setSelectedResearchers(e.target.checked ? [...selectedResearchers, person.id] : selectedResearchers.filter(id => id !== person.id))} /><span><b>{person.name}</b><small>{person.email}</small></span></label>)}{!profiles.some(p => p.role === "pesquisador" && p.active) && <p>Nenhum pesquisador ativo. Aprove os acessos antes de liberar a pesquisa.</p>}</div><footer><button onClick={() => setAssignmentSurvey(null)}>Cancelar</button><button className="primary" onClick={saveAssignments} disabled={busy}>{busy ? "Salvando…" : "Confirmar liberação"}</button></footer></div></div>}
   </>;
 }
 
@@ -618,18 +745,29 @@ function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite 
   </>;
 }
 
-function Resultados({ aviso, interviews }: { aviso: (t: string) => void; interviews: SavedInterview[] }) {
+function Resultados({ aviso, interviews, surveys, fieldEvents }: { aviso: (t: string) => void; interviews: SavedInterview[]; surveys: Survey[]; fieldEvents: FieldEvent[] }) {
+  const [referenceTime] = useState(() => Date.now());
+  const [surveyFilter, setSurveyFilter] = useState("todos");
+  const [periodFilter, setPeriodFilter] = useState("30");
+  const [territoryFilter, setTerritoryFilter] = useState("");
+  const [dataMode, setDataMode] = useState("todos");
+  const inPeriod = (date: string) => periodFilter === "todos" || new Date(date).getTime() >= referenceTime - Number(periodFilter) * 86400000;
+  const term = territoryFilter.trim().toLowerCase();
+  const filtered = interviews.filter(item => (surveyFilter === "todos" || item.survey_id === surveyFilter) && inPeriod(item.completed_at || item.created_at) && (dataMode === "todos" || (dataMode === "teste" ? item.is_test : !item.is_test)) && (!term || `${item.responses.cidade || "Betim"} ${item.responses.regiao || ""} ${item.responses.bairro || ""}`.toLowerCase().includes(term)));
+  const filteredEvents = fieldEvents.filter(item => (surveyFilter === "todos" || item.survey_id === surveyFilter) && inPeriod(item.occurred_at) && (dataMode === "todos" || (dataMode === "teste" ? item.is_test : !item.is_test)) && (!term || `${item.city || ""} ${item.region || ""} ${item.neighborhood || ""}`.toLowerCase().includes(term)));
   const exportar = () => {
-    if (!interviews.length) return aviso("Ainda não há entrevistas para exportar");
-    const keys = Array.from(new Set(interviews.flatMap(x => Object.keys(x.responses))));
-    const headers = ["codigo", "data", "pesquisador_id", ...keys];
+    if (!filtered.length) return aviso("Não há entrevistas nos filtros escolhidos");
+    const keys = Array.from(new Set(filtered.flatMap(x => Object.keys(x.responses))));
+    const headers = ["codigo", "data", "pesquisa_id", "pesquisador_id", "duracao_segundos", "alertas_qualidade", "modo_teste", ...keys];
     const cell = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
-    const csv = [headers.map(cell).join(","), ...interviews.map(x => [x.code, x.completed_at, x.researcher_id, ...keys.map(k => x.responses[k] ?? "")].map(cell).join(","))].join("\n");
+    const csv = [headers.map(cell).join(","), ...filtered.map(x => [x.code, x.completed_at, x.survey_id, x.researcher_id, x.duration_seconds, (x.quality_flags || []).join("|"), x.is_test ? "sim" : "não", ...keys.map(k => x.responses[k] ?? "")].map(cell).join(","))].join("\n");
     const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); link.download = `nortep-resultados-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(link.href);
     aviso("Arquivo CSV exportado");
   };
-  const prioridades = Object.entries(interviews.reduce<Record<string, number>>((acc, x) => { const p = x.responses.prioridadeCidade; if (p) acc[p] = (acc[p] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  return <><Cabecalho titulo="Resultados" sub={`Betim: território e escolhas 2026 · ${interviews.length} entrevista(s)`} botao="⇩ Exportar CSV" acao={exportar} /><Filtros />{!interviews.length ? <div className="painel resultado-vazio"><i>◎</i><h3>Aguardando a primeira entrevista</h3><p>Quando uma resposta for sincronizada, os resultados aparecerão aqui.</p></div> : <div className="duas resultados"><div className="painel"><Topo sup="PRIORIDADE DA CIDADE" titulo="O que deveria melhorar primeiro?" />{prioridades.map(([nome, valor]) => <div className="barra" key={nome}><span>{nome}</span><em><i style={{ width: `${valor / interviews.length * 100}%` }} /></em><b>{Math.round(valor / interviews.length * 100)}%</b></div>)}</div><div className="painel recentes"><Topo sup="ÚLTIMAS RESPOSTAS" titulo="Entrevistas sincronizadas" />{interviews.slice(0, 6).map(x => <div key={x.id}><span><b>{x.code}</b><small>{x.responses.bairro || "Bairro não informado"}</small></span><time>{new Date(x.completed_at).toLocaleDateString("pt-BR")}</time></div>)}</div></div>}</>;
+  const prioridades = Object.entries(filtered.reduce<Record<string, number>>((acc, x) => { const p = x.responses.prioridadeCidade; if (p) acc[p] = (acc[p] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const alerts = filtered.filter(x => (x.quality_flags || []).length);
+  const outcomes = { refused: filteredEvents.filter(x => x.outcome === "refused").length, ineligible: filteredEvents.filter(x => x.outcome === "ineligible").length, interrupted: filteredEvents.filter(x => x.outcome === "interrupted").length, no_answer: filteredEvents.filter(x => x.outcome === "no_answer").length };
+  return <><Cabecalho titulo="Resultados" sub={`${filtered.length} entrevista(s) nos filtros selecionados`} botao="⇩ Exportar CSV" acao={exportar} /><div className="filtros result-filters"><select value={surveyFilter} onChange={e => setSurveyFilter(e.target.value)}><option value="todos">Todas as pesquisas</option>{surveys.map(s => <option value={s.id} key={s.id}>{s.title}</option>)}</select><select value={periodFilter} onChange={e => setPeriodFilter(e.target.value)}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="todos">Todo o período</option></select><select value={dataMode} onChange={e => setDataMode(e.target.value)}><option value="todos">Testes e oficiais</option><option value="teste">Somente testes</option><option value="oficial">Somente oficiais</option></select><input value={territoryFilter} onChange={e => setTerritoryFilter(e.target.value)} placeholder="Cidade, região ou bairro" /></div>{!filtered.length && !filteredEvents.length ? <div className="painel resultado-vazio"><i>◎</i><h3>Nenhum dado encontrado</h3><p>Ajuste os filtros ou aguarde a próxima sincronização.</p></div> : <><div className="result-summary"><article><small>ENTREVISTAS</small><b>{filtered.length}</b></article><article><small>ABORDAGENS SEM ENTREVISTA</small><b>{filteredEvents.length}</b></article><article className={alerts.length ? "alert" : ""}><small>ALERTAS DE QUALIDADE</small><b>{alerts.length}</b></article><article><small>TAXA DE CONCLUSÃO</small><b>{filtered.length + filteredEvents.length ? Math.round(filtered.length / (filtered.length + filteredEvents.length) * 100) : 0}%</b></article></div><div className="duas resultados"><div className="painel"><Topo sup="PRIORIDADE DA CIDADE" titulo="O que deveria melhorar primeiro?" />{prioridades.length ? prioridades.map(([nome, valor]) => <div className="barra" key={nome}><span>{nome}</span><em><i style={{ width: `${valor / Math.max(filtered.length, 1) * 100}%` }} /></em><b>{Math.round(valor / Math.max(filtered.length, 1) * 100)}%</b></div>) : <div className="ranking-empty">Esta pergunta não existe nas pesquisas filtradas.</div>}</div><div className="painel outcome-panel"><Topo sup="RESULTADO DAS ABORDAGENS" titulo="Ocorrências de campo" /><div><span>Recusas</span><b>{outcomes.refused}</b></div><div><span>Fora do público</span><b>{outcomes.ineligible}</b></div><div><span>Interrompidas</span><b>{outcomes.interrupted}</b></div><div><span>Ninguém atendeu</span><b>{outcomes.no_answer}</b></div></div></div><div className="duas resultados"><div className="painel recentes"><Topo sup="ÚLTIMAS RESPOSTAS" titulo="Entrevistas sincronizadas" />{filtered.slice(0, 8).map(x => <div key={x.id}><span><b>{x.code} {x.is_test && <mark>TESTE</mark>}</b><small>{x.responses.bairro || "Bairro não informado"}</small></span><time>{new Date(x.completed_at).toLocaleDateString("pt-BR")}</time></div>)}</div><div className="painel quality-panel"><Topo sup="AUDITORIA AUTOMÁTICA" titulo="Entrevistas para conferir" />{alerts.length ? alerts.slice(0, 8).map(item => <div key={item.id}><span><b>{item.code}</b><small>{(item.quality_flags || []).map(flag => flag === "muito_rapida" ? "Entrevista muito rápida" : "Possível resposta repetida").join(" · ")}</small></span><strong>{item.duration_seconds ? `${Math.round(item.duration_seconds / 60)} min` : "—"}</strong></div>) : <div className="ranking-empty">Nenhum alerta automático nos filtros atuais.</div>}</div></div></>}</>;
 }
 
 function Ecossistema() {
@@ -643,13 +781,33 @@ function Ecossistema() {
   return <><Cabecalho titulo="Ecossistema NorteP" sub="Política, povo e pesquisa em uma operação integrada." botao="Dados que aproximam" acao={() => undefined} /><div className="ecos-grid">{produtos.map((p, i) => <article className={i === 0 ? "eco ativo" : "eco"} key={p[0]}><i>{i === 0 ? "NP" : "◇"}</i><label>{p[1]}</label><h3>{p[0]}</h3><p>{p[2]}</p>{i === 0 ? <button>Produto atual</button> : <button disabled>Planejado</button>}</article>)}</div></>;
 }
 
-function Portal({ iniciar, profile, survey, interviews, pending, sincronizar }: { iniciar: () => void; profile: Profile; survey: Survey | null; interviews: SavedInterview[]; pending: number; sincronizar: () => void }) {
+function Portal({ iniciar, profile, surveys, interviews, pending, sincronizar, registrar }: { iniciar: (survey: Survey) => void; profile: Profile; surveys: Survey[]; interviews: SavedInterview[]; pending: number; sincronizar: () => void; registrar: (outcome: FieldEvent["outcome"], reason?: string, survey?: Survey | null) => void }) {
   const hoje = interviews.filter(x => new Date(x.completed_at || x.created_at).toDateString() === new Date().toDateString()).length;
-  return <div className="portal"><div className="portal-boas"><span><small>OLÁ, {profile.name.split(" ")[0].toUpperCase()}</small><h2>Pronto para continuar o trabalho de campo?</h2><p>Você vê somente a pesquisa liberada pela coordenação.</p></span><div className="campo-metricas"><i><b>{hoje}</b><small>hoje</small></i><i><b>{interviews.length}</b><small>no total</small></i><i><b>{pending}</b><small>pendentes</small></i></div></div>{survey ? <article className="pesquisa-atribuida"><div className="pesquisa-capa"><span>EM CAMPO</span><i><b>N</b>P</i></div><div className="pesquisa-info"><small>PESQUISA LIBERADA · BETIM</small><h3>{survey.title.replace("Betim: ", "")}</h3><p>39 perguntas · duração estimada de {survey.estimated_minutes} minutos</p><div className="instrucoes"><span>✓ Leia exatamente como está escrito</span><span>✓ Não sugira respostas</span><span>✓ Consentimento antes da coleta</span></div>{pending > 0 && <button className="sync-pending" onClick={sincronizar}>↻ Sincronizar {pending} pendente(s)</button>}<button className="primary" onClick={iniciar}>＋ Iniciar nova entrevista</button></div></article> : <div className="painel resultado-vazio"><i>◎</i><h3>Nenhuma pesquisa liberada</h3><p>Fale com a coordenação para receber uma pesquisa.</p></div>}<div className="painel ajuda-campo"><span><b>Dúvida durante a entrevista?</b><small>Não improvise a pergunta. Anote a ocorrência e fale com a coordenação.</small></span><button>Falar com a equipe</button></div></div>;
+  const [eventOpen, setEventOpen] = useState(false);
+  const [eventSurveyId, setEventSurveyId] = useState(surveys[0]?.id || "");
+  const [outcome, setOutcome] = useState<FieldEvent["outcome"]>("no_answer");
+  const [reason, setReason] = useState("");
+  const typeName = (type: Survey["survey_type"]) => ({ quantitative: "Quantitativa", qualitative: "Qualitativa", directional: "Direcional", electoral: "Eleitoral", data_collection: "Coleta de dados" })[type];
+  const sendEvent = () => { const selected = surveys.find(s => s.id === eventSurveyId); if (!selected) return; registrar(outcome, reason, selected); setEventOpen(false); setReason(""); };
+  return <div className="portal"><div className="portal-boas"><span><small>OLÁ, {profile.name.split(" ")[0].toUpperCase()}</small><h2>Pronto para continuar o trabalho de campo?</h2><p>Você vê somente as pesquisas liberadas pela coordenação.</p></span><div className="campo-metricas"><i><b>{hoje}</b><small>hoje</small></i><i><b>{interviews.length}</b><small>no total</small></i><i><b>{pending}</b><small>pendentes</small></i></div></div>{pending > 0 && <button className="sync-pending" onClick={sincronizar}>↻ Sincronizar {pending} item(ns) pendente(s)</button>}<div className="portal-surveys">{surveys.map(item => <article className="pesquisa-atribuida" key={item.id}><div className="pesquisa-capa"><span>{item.is_test ? "MODO TESTE" : "EM CAMPO"}</span><i><b>N</b>P</i></div><div className="pesquisa-info"><small>PESQUISA LIBERADA · {typeName(item.survey_type).toUpperCase()}</small><h3>{item.title}</h3><p>Duração estimada de {item.estimated_minutes} minutos · {[...(item.target_cities || []), ...(item.target_regions || []), ...(item.target_neighborhoods || [])].join(" · ") || "território definido pela coordenação"}</p><div className="instrucoes"><span>✓ Leia exatamente como está escrito</span><span>✓ Não sugira respostas</span><span>✓ Consentimento antes da coleta</span></div><button className="primary" onClick={() => void iniciar(item)}>＋ Iniciar nova entrevista</button></div></article>)}</div>{!surveys.length && <div className="painel resultado-vazio"><i>◎</i><h3>Nenhuma pesquisa liberada</h3><p>Fale com a coordenação para receber uma pesquisa.</p></div>}{surveys.length > 0 && <div className="painel field-event-call"><span><b>A abordagem não virou entrevista?</b><small>Registre recusa, pessoa fora do público, interrupção ou local sem resposta. Isso permite calcular a taxa real da coleta.</small></span><button onClick={() => { setEventSurveyId(surveys[0]?.id || ""); setEventOpen(true); }}>Registrar ocorrência</button></div>}<div className="painel ajuda-campo"><span><b>Dúvida durante a entrevista?</b><small>Não improvise a pergunta. Anote a ocorrência e fale com a coordenação.</small></span><button>Falar com a equipe</button></div>{eventOpen && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Registrar ocorrência de campo"><div className="field-event-modal"><header><div><small>OCORRÊNCIA DE CAMPO</small><h2>O que aconteceu?</h2></div><button onClick={() => setEventOpen(false)}>×</button></header><label>Pesquisa<select value={eventSurveyId} onChange={e => setEventSurveyId(e.target.value)}>{surveys.map(item => <option value={item.id} key={item.id}>{item.title}</option>)}</select></label><label>Resultado da abordagem<select value={outcome} onChange={e => setOutcome(e.target.value as FieldEvent["outcome"])}><option value="no_answer">Ninguém atendeu</option><option value="refused">Pessoa não quis participar</option><option value="ineligible">Pessoa fora do público da pesquisa</option><option value="interrupted">Entrevista interrompida</option></select></label><label>Observação opcional<textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Não registre opinião política nem dados pessoais" /></label><footer><button onClick={() => setEventOpen(false)}>Cancelar</button><button className="primary" onClick={sendEvent}>Salvar ocorrência</button></footer></div></div>}</div>;
 }
 
 function Cabecalho({ titulo, sub, botao, acao }: { titulo: string; sub: string; botao: string; acao: () => void }) { return <div className="cabecalho"><div><h2>{titulo}</h2><p>{sub}</p></div><button className="primary" onClick={acao}>{botao}</button></div>; }
-function Filtros({ busca }: { busca?: string }) { return <div className="filtros">{busca && <input placeholder={"⌕  " + busca} />}<button>Todos os status⌄</button><button>Mais recentes⌄</button></div>; }
+function EntrevistaDinamica({ survey, questions, passo, setPasso, r, setR, fim, cancelar }: { survey: Survey; questions: SurveyQuestion[]; passo: number; setPasso: (n: number) => void; r: Record<string, string>; setR: (v: Record<string, string>) => void; fim: () => void; cancelar: (outcome: FieldEvent["outcome"], reason: string) => void }) {
+  const set = (key: string, value: string) => setR({ ...r, [key]: value });
+  const visible = questions.filter(q => !q.condition?.field || r[q.condition.field] === q.condition.equals);
+  const sections = Array.from(new Set(visible.map(q => q.section || "Perguntas")));
+  const currentSection = sections[Math.min(passo - 1, Math.max(sections.length - 1, 0))];
+  const currentQuestions = visible.filter(q => (q.section || "Perguntas") === currentSection);
+  const valid = currentQuestions.filter(q => q.required).every(q => Boolean(r[q.code]));
+  const consentRefused = questions.some(q => q.code === "consentirPesquisa" && /não/i.test(r[q.code] || ""));
+  const choose = (question: SurveyQuestion, values: string[]) => <div className="opcoes">{values.map(value => <button type="button" aria-pressed={r[question.code] === value} className={r[question.code] === value ? "selecionado" : ""} onClick={() => set(question.code, value)} key={value}>{value}</button>)}</div>;
+  const multiple = (question: SurveyQuestion) => { const selected = (r[question.code] || "").split("||").filter(Boolean); return <div className="opcoes multipla">{question.options.map(value => <button type="button" aria-pressed={selected.includes(value)} className={selected.includes(value) ? "selecionado" : ""} onClick={() => set(question.code, (selected.includes(value) ? selected.filter(x => x !== value) : [...selected, value]).join("||"))} key={value}><i>{selected.includes(value) ? "✓" : "+"}</i>{value}</button>)}</div>; };
+  const renderQuestion = (question: SurveyQuestion) => <div className={question.type === "internal_note" ? "dynamic-question internal" : "dynamic-question"} key={question.code}><label>{question.prompt} {question.required && <b>*</b>}</label>{question.help_text && <p>{question.help_text}</p>}{question.type === "short_text" && <input value={r[question.code] || ""} onChange={e => set(question.code, e.target.value)} />}{(question.type === "long_text" || question.type === "internal_note") && <textarea value={r[question.code] || ""} onChange={e => set(question.code, e.target.value)} placeholder={question.type === "internal_note" ? "Somente para a equipe; não leia ao entrevistado" : "Registre com as palavras da pessoa"} />}{question.type === "yes_no" && choose(question, ["Sim", "Não"])}{question.type === "single" && choose(question, question.options)}{question.type === "multiple" && multiple(question)}{question.type === "scale" && <div className="escala">{Array.from({ length: 11 }, (_, index) => String(index)).map(value => <button type="button" className={r[question.code] === value ? "selecionado" : ""} onClick={() => set(question.code, value)} key={value}>{value}</button>)}</div>}{question.type === "rating" && choose(question, question.options.length ? question.options : ["Péssimo", "Ruim", "Regular", "Bom", "Ótimo"])}{question.type === "region" && (question.options.length ? choose(question, question.options) : <input value={r[question.code] || ""} onChange={e => set(question.code, e.target.value)} placeholder="Informe o bairro ou a região" />)}</div>;
+
+  if (!questions.length) return <div className="entrevista"><div className="questao resultado-vazio"><i>◎</i><h3>Questionário ainda sem perguntas</h3><p>Peça à administração para concluir o editor antes de iniciar a coleta.</p><button onClick={() => cancelar("interrupted", "Pesquisa sem perguntas disponíveis")}>Voltar às pesquisas</button></div></div>;
+  return <div className="entrevista dynamic-interview"><div className="entrevista-topo"><div><small>{survey.survey_type.toUpperCase()} · {survey.is_test ? "MODO TESTE" : "COLETA OFICIAL"}</small><h2>{survey.title}</h2></div><label>✓ Rascunho salvo no aparelho</label></div><div className="passos">{sections.map((section, index) => <div className={index + 1 <= passo ? "feito" : ""} key={section}><i>{index + 1 < passo ? "✓" : index + 1}</i><span>{section}</span></div>)}</div><div className="questao"><small>ETAPA {passo} DE {sections.length} · COLETA EM CAMPO</small><h3>{currentSection}</h3>{passo === 1 && survey.consent_text && <div className="leitura"><b>LEIA AO ENTREVISTADO</b><p>{survey.consent_text}</p></div>}{currentQuestions.map(renderQuestion)}{consentRefused && <div className="encerrar"><b>Respeite a decisão da pessoa.</b><span>Agradeça pela atenção e registre a recusa sem guardar respostas da pesquisa.</span><button onClick={() => cancelar("refused", "Consentimento recusado")}>Registrar recusa e encerrar</button></div>}<footer><button onClick={() => passo > 1 ? setPasso(passo - 1) : cancelar("interrupted", "Entrevista encerrada pelo pesquisador")}>{passo > 1 ? "← Voltar" : "Encerrar"}</button>{passo < sections.length ? <button className="primary" disabled={!valid || consentRefused} onClick={() => setPasso(passo + 1)}>Continuar →</button> : <button className="primary" disabled={!valid || consentRefused} onClick={fim}>✓ Finalizar entrevista</button>}</footer>{!valid && !consentRefused && <div className="faltam">Preencha os campos marcados com * para continuar.</div>}</div></div>;
+}
 
 function Entrevista({ passo, setPasso, r, setR, fim, cancelar }: { passo: number; setPasso: (n: number) => void; r: Record<string, string>; setR: (v: Record<string, string>) => void; fim: () => void; cancelar: () => void }) {
   const set = (k: string, v: string) => setR({ ...r, [k]: v });

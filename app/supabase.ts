@@ -32,8 +32,41 @@ export type Survey = {
   title: string;
   description?: string;
   status: "draft" | "pilot" | "active" | "closed";
+  survey_type: "quantitative" | "qualitative" | "directional" | "electoral" | "data_collection";
   estimated_minutes: number;
   consent_version: string;
+  consent_text?: string;
+  thank_you_video_url?: string | null;
+  target_cities: string[];
+  target_regions: string[];
+  target_neighborhoods: string[];
+  is_test: boolean;
+  archived_at?: string | null;
+  created_at?: string;
+};
+
+export type SurveyQuestion = {
+  id?: string;
+  survey_id?: string;
+  code: string;
+  section: string;
+  sort_order?: number;
+  type: "short_text" | "long_text" | "yes_no" | "single" | "multiple" | "scale" | "rating" | "region" | "internal_note";
+  prompt: string;
+  help_text?: string | null;
+  required: boolean;
+  options: string[];
+  condition?: { field?: string; equals?: string } | null;
+};
+
+export type SurveyAssignment = {
+  survey_id: string;
+  researcher_id: string;
+  active: boolean;
+  team_name?: string | null;
+  city?: string | null;
+  region?: string | null;
+  neighborhood?: string | null;
 };
 
 export type SavedInterview = {
@@ -44,6 +77,26 @@ export type SavedInterview = {
   responses: Record<string, string>;
   completed_at: string;
   created_at: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  duration_seconds?: number | null;
+  quality_flags?: string[];
+  is_test?: boolean;
+};
+
+export type FieldEvent = {
+  id: string;
+  survey_id: string;
+  researcher_id: string;
+  outcome: "refused" | "ineligible" | "interrupted" | "no_answer";
+  reason?: string | null;
+  city?: string | null;
+  region?: string | null;
+  neighborhood?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  is_test?: boolean;
+  occurred_at: string;
 };
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -207,7 +260,19 @@ export async function loadProfile(session: Session) {
 }
 
 export async function loadSurveys(session: Session) {
-  return rest<Survey[]>(session, "surveys?select=*&status=in.(pilot,active)&order=created_at.desc");
+  return rest<Survey[]>(session, "surveys?select=*&status=in.(pilot,active)&archived_at=is.null&order=created_at.desc");
+}
+
+export async function loadAllSurveys(session: Session) {
+  return rest<Survey[]>(session, "surveys?select=*&order=created_at.desc");
+}
+
+export async function loadSurveyQuestions(session: Session, surveyId: string) {
+  return rest<SurveyQuestion[]>(session, `survey_questions?survey_id=eq.${surveyId}&select=*&order=sort_order.asc`);
+}
+
+export async function loadSurveyAssignments(session: Session, surveyId: string) {
+  return rest<SurveyAssignment[]>(session, `survey_assignments?survey_id=eq.${surveyId}&select=*&order=created_at.asc`);
 }
 
 export async function loadProfiles(session: Session) {
@@ -229,10 +294,14 @@ export async function removeProfileAccess(session: Session, profileId: string) {
 }
 
 export async function loadInterviews(session: Session) {
-  return rest<SavedInterview[]>(session, "interviews?select=id,code,survey_id,researcher_id,responses,completed_at,created_at&status=eq.completed&order=completed_at.desc");
+  return rest<SavedInterview[]>(session, "interviews?select=id,code,survey_id,researcher_id,responses,completed_at,created_at,latitude,longitude,duration_seconds,quality_flags,is_test&status=eq.completed&order=completed_at.desc");
 }
 
-export async function saveInterview(session: Session, survey: Survey, responses: Record<string, string>, deviceId: string) {
+export async function loadFieldEvents(session: Session) {
+  return rest<FieldEvent[]>(session, "field_events?select=*&order=occurred_at.desc");
+}
+
+export async function saveInterview(session: Session, survey: Survey, responses: Record<string, string>, deviceId: string, durationSeconds?: number) {
   const { nome, whatsapp, email, interesse, consentimentoContato, autorizaGeo, latitude, longitude, ...researchResponses } = responses;
   const rows = await rest<Array<{ id: string; code: string }>>(session, "interviews?select=id,code", {
     method: "POST",
@@ -251,6 +320,7 @@ export async function saveInterview(session: Session, survey: Survey, responses:
       latitude: latitude ? Number(latitude) : null,
       longitude: longitude ? Number(longitude) : null,
       device_id: deviceId,
+      duration_seconds: durationSeconds || null,
       completed_at: new Date().toISOString(),
     }),
   });
@@ -267,4 +337,73 @@ export async function saveInterview(session: Session, survey: Survey, responses:
     }),
   });
   return saved;
+}
+
+export async function saveFieldEvent(session: Session, survey: Survey, event: Omit<FieldEvent, "id" | "survey_id" | "researcher_id" | "occurred_at">, deviceId: string) {
+  const rows = await rest<FieldEvent[]>(session, "field_events?select=*", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      survey_id: survey.id,
+      researcher_id: session.user.id,
+      outcome: event.outcome,
+      reason: event.reason || null,
+      city: event.city || null,
+      region: event.region || null,
+      neighborhood: event.neighborhood || null,
+      geo_consent: false,
+      latitude: event.latitude ?? null,
+      longitude: event.longitude ?? null,
+      device_id: deviceId,
+    }),
+  });
+  return rows[0];
+}
+
+export async function saveSurveyAdmin(session: Session, survey: Partial<Survey> & { title: string }, questions: SurveyQuestion[]) {
+  return rest<string>(session, "rpc/upsert_survey_admin", {
+    method: "POST",
+    body: JSON.stringify({
+      p_id: survey.id || null,
+      p_title: survey.title,
+      p_description: survey.description || "",
+      p_status: survey.status || "draft",
+      p_survey_type: survey.survey_type || "quantitative",
+      p_estimated_minutes: survey.estimated_minutes || 10,
+      p_consent_text: survey.consent_text || "A participação é voluntária. Você pode deixar de responder ou encerrar quando quiser.",
+      p_is_test: Boolean(survey.is_test),
+      p_target_cities: survey.target_cities || [],
+      p_target_regions: survey.target_regions || [],
+      p_target_neighborhoods: survey.target_neighborhoods || [],
+      p_questions: questions,
+    }),
+  });
+}
+
+export async function setSurveyAssignments(session: Session, surveyId: string, researcherIds: string[], territory: { team?: string; city?: string; region?: string; neighborhood?: string }) {
+  return rest<number>(session, "rpc/set_survey_assignments_admin", {
+    method: "POST",
+    body: JSON.stringify({
+      p_survey_id: surveyId,
+      p_researcher_ids: researcherIds,
+      p_team_name: territory.team || "",
+      p_city: territory.city || "",
+      p_region: territory.region || "",
+      p_neighborhood: territory.neighborhood || "",
+    }),
+  });
+}
+
+export async function deleteOrArchiveSurvey(session: Session, surveyId: string) {
+  return rest<{ action: "deleted" | "archived"; title: string; interviews?: number; field_events?: number }>(session, "rpc/delete_or_archive_survey_admin", {
+    method: "POST",
+    body: JSON.stringify({ p_survey_id: surveyId }),
+  });
+}
+
+export async function clearSurveyTestData(session: Session, surveyId: string) {
+  return rest<{ interviews_removed: number; field_events_removed: number }>(session, "rpc/clear_test_data_admin", {
+    method: "POST",
+    body: JSON.stringify({ p_survey_id: surveyId }),
+  });
 }
