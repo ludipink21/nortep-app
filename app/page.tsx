@@ -91,6 +91,10 @@ export default function Home() {
     const draft: InterviewDraft = { survey, step: passo, responses: respostas, startedAt: interviewStartedAt, savedAt: new Date().toISOString() };
     try { localStorage.setItem(draftKey(survey.id), JSON.stringify(draft)); } catch { aviso("Não foi possível salvar o rascunho neste aparelho."); }
   }, [view, survey, passo, respostas, interviewStartedAt]);
+  useEffect(() => {
+    if (view !== "entrevista") return;
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  }, [view, passo]);
   useEffect(() => localStorage.setItem("nortep-video-agradecimento", videoUrl), [videoUrl]);
 
   async function carregarAdmin(s: Session, p: Profile) {
@@ -326,7 +330,8 @@ export default function Home() {
           <h1>{titulos[view]}</h1>
         </div>
         <section>
-          {campo && <button className="sync" onClick={sincronizarPendentes}>● {offline ? "Modo offline" : pendingCount ? `${pendingCount} pendente(s)` : "Sincronizado"}</button>}
+          {view === "entrevista" && interviewStartedAt > 0 && <Cronometro inicio={interviewStartedAt} />}
+          {campo && <button className="sync" onClick={sincronizarPendentes}>● {offline ? "Sem conexão" : pendingCount ? `${pendingCount} pendente(s)` : "Sincronizado"}</button>}
           {!campo && admin && <button className="preview-field" onClick={() => ir("portal")}>Ver área do pesquisador →</button>}
           {campo && <button className="sair-campo" onClick={() => admin ? ir("inicio") : sair()}>{admin ? "Sair da prévia" : "Sair"}</button>}
         </section>
@@ -370,6 +375,13 @@ export default function Home() {
 function RetomarEntrevista({ draft, continuar, recomecar, cancelar }: { draft: InterviewDraft; continuar: () => void; recomecar: () => void; cancelar: () => void }) {
   const quando = new Date(draft.savedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
   return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Entrevista em andamento"><div className="resume-modal"><small>ENTREVISTA EM ANDAMENTO</small><h2>Continuar de onde parou?</h2><p>Encontramos um rascunho salvo neste aparelho em {quando}. Escolha continuar para manter as respostas ou recomeçar para abrir uma nova entrevista.</p><div><button onClick={cancelar}>Voltar</button><button onClick={recomecar}>Recomeçar</button><button className="primary" onClick={continuar}>Continuar entrevista</button></div></div></div>;
+}
+
+function Cronometro({ inicio }: { inicio: number }) {
+  const [agora, setAgora] = useState(Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setAgora(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
+  const total = Math.max(0, Math.floor((agora - inicio) / 1000));
+  return <span className="cronometro" aria-label="Tempo de entrevista">⏱ {String(Math.floor(total / 60)).padStart(2, "0")}:{String(total % 60).padStart(2, "0")}</span>;
 }
 
 function TelaCarregando() {
@@ -866,7 +878,10 @@ function Entrevista({ passo, setPasso, r, setR, fim, cancelar, extraQuestions }:
     };
     return <div className="opcoes multipla">{itens.map(x => <button type="button" aria-pressed={atuais.includes(x)} className={atuais.includes(x) ? "selecionado" : ""} onClick={() => alternar(x)} key={x}><i>{atuais.includes(x) ? "✓" : "+"}</i>{x}</button>)}</div>;
   };
-  const Intencao = ({ campo, titulo, ajuda }: { campo: string; titulo: string; ajuda?: string }) => <div className="intencao"><label>{titulo} *</label>{ajuda && <small>{ajuda}</small>}<input value={r[campo] || ""} onChange={e => set(campo, e.target.value)} placeholder="Registre a resposta espontânea" /><Opcoes campo={campo} compacta itens={["Não sabe", "Branco/nulo", "Não pretende votar"]} /></div>;
+  const Intencao = ({ campo, titulo, ajuda }: { campo: string; titulo: string; ajuda?: string }) => {
+    const escolha = r[`${campo}Opcao`] || "";
+    return <div className="intencao"><label>{titulo} *</label>{ajuda && <small>{ajuda}</small>}<input value={r[campo] || ""} onChange={e => set(campo, e.target.value)} placeholder="Digite o nome citado, se houver" inputMode="text" />{escolha && <button type="button" className="limpar-intencao" onClick={() => set(`${campo}Opcao`, "")}>Limpar: {escolha}</button>}<div className="opcoes compactas">{["Não sabe", "Branco/nulo", "Não pretende votar"].map(item => <button type="button" className={escolha === item ? "selecionado" : ""} aria-pressed={escolha === item} onMouseDown={event => event.preventDefault()} onClick={() => set(`${campo}Opcao`, escolha === item ? "" : item)} key={item}>{item}</button>)}</div></div>;
+  };
   const capturarLocalizacao = () => {
     if (!navigator.geolocation) return setGeoStatus("Localização indisponível neste aparelho.");
     setGeoStatus("Aguardando autorização do aparelho…");
@@ -876,16 +891,16 @@ function Entrevista({ passo, setPasso, r, setR, fim, cancelar, extraQuestions }:
     }, () => setGeoStatus("Não foi possível registrar. Continue pelo bairro informado."), { enableHighAccuracy: false, timeout: 10000 });
   };
   const recebeContato = r.interesse && r.interesse !== "Não desejo receber contato";
-  const inelegivel = r.consentirPesquisa === "Não aceito participar" || r.eleitorBetim === "Não" || r.idadeMinima === "Não";
+  const inelegivel = r.consentirPesquisa === "Não aceito participar" || r.idadeMinima === "Não";
   const visibleExtras = extraQuestions.filter(q => !q.condition?.field || r[q.condition.field] === q.condition.equals);
   const extrasValid = visibleExtras.filter(q => q.required).every(q => Boolean(r[q.code]));
   const totalPassos = visibleExtras.length ? 8 : 7;
   const obrigatorios: Record<number, boolean> = {
-    1: r.consentirPesquisa === "Sim, aceito participar" && r.idadeMinima === "Sim" && r.eleitorBetim === "Sim",
+    1: r.consentirPesquisa === "Sim, aceito participar" && r.idadeMinima === "Sim" && Boolean(r.eleitorBetim),
     2: Boolean(r.bairro && r.tempoMoradia && r.prioridadesBairro),
     3: Boolean(r.direcaoCidade && r.avaliacaoPrefeitura && r.prioridadeCidade),
     4: Boolean(r.reconhecimentoVinicius && r.reconhecimentoOlavo),
-    5: ["votoFederal", "votoEstadual", "votoSenador1", "votoSenador2", "votoGovernador", "votoPresidente"].every(k => Boolean(r[k])),
+    5: ["votoFederal", "votoEstadual", "votoSenador1", "votoSenador2", "votoGovernador", "votoPresidente"].every(k => Boolean(r[k] || r[`${k}Opcao`])),
     6: Boolean(r.idade && r.genero && r.escolaridade && r.renda),
     7: Boolean(r.interesse) && (!recebeContato || Boolean(r.canal && r.consentimentoContato === "sim" && (r.whatsapp || r.email))),
     8: extrasValid,

@@ -15,6 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
       icon: "/favicon.svg",
       shortcut: "/favicon.svg",
     },
+    manifest: "/manifest.webmanifest",
     openGraph: {
       title: "NorteP Pesquisa",
       description: "Pesquisa de campo. Dados que aproximam.",
@@ -30,5 +31,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body>{children}</body></html>;
+  return <html lang="pt-BR"><body>{children}<script dangerouslySetInnerHTML={{ __html: "if ('serviceWorker' in navigator) window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})" }} /></body></html>;
 }
