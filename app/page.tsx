@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
-import { configured, createAccessInvite, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, requestPasswordReset, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey, updatePassword } from "./supabase";
+import { configured, createAccessInvite, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveInterview, saveSession, SavedInterview, Session, setProfileActive, signIn, signUp, Survey, updatePassword } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "administracao";
@@ -114,9 +114,23 @@ export default function Home() {
   };
   const atualizarEquipe = async (id: string, active: boolean) => {
     if (!session) return;
-    await setProfileActive(session, id, active);
-    setTeam(await loadProfiles(session));
-    aviso(active ? "Pesquisador aprovado e pesquisa liberada" : "Acesso do pesquisador suspenso");
+    try {
+      await setProfileActive(session, id, active);
+      setTeam(await loadProfiles(session));
+      aviso(active ? "Acesso reativado com segurança" : "Acesso suspenso com segurança");
+    } catch (error) {
+      aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível alterar o acesso");
+    }
+  };
+  const removerAcessoEquipe = async (id: string) => {
+    if (!session) return;
+    try {
+      await removeProfileAccess(session, id);
+      setTeam(await loadProfiles(session));
+      aviso("Acesso apagado. O histórico de entrevistas foi preservado.");
+    } catch (error) {
+      aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível apagar o acesso");
+    }
   };
   const gerarConvite = async (email: string, role: "admin" | "coordenador" | "observador") => {
     if (!session) throw new Error("Entre novamente para gerar o convite.");
@@ -172,6 +186,7 @@ export default function Home() {
     if (accessChannel === "publico") return <PublicLanding />;
     return <Login access={accessChannel} inviteCode={inviteCode} onAuthenticated={autenticar} />;
   }
+  if (profile.access_removed_at) return <AcessoRemovido profile={profile} sair={sair} />;
   if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} verificar={async () => {
     if (session) await autenticar(session, accessChannel);
   }} />;
@@ -221,7 +236,7 @@ export default function Home() {
       <div className={campo ? "content campo-content" : "content"}>
         {view === "inicio" && <Inicio ir={ir} aviso={aviso} interviews={interviews} pending={pendingCount} />}
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} />}
-        {view === "equipe" && <Equipe aviso={aviso} profiles={team} onToggle={atualizarEquipe} onInvite={gerarConvite} />}
+        {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} />}
         {view === "ecossistema" && <Ecossistema />}
         {view === "portal" && <Portal profile={profile} survey={survey} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={() => { setPasso(1); ir("entrevista"); }} />}
@@ -443,6 +458,10 @@ function AguardandoAprovacao({ profile, sair, verificar }: { profile: Profile; s
   return <div className="auth-shell"><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO CRIADO COM SUCESSO</small><h2>Olá, {profile.name}.</h2><p>Seu cadastro está correto e chegou à coordenação. Assim que a administração aprovar, toque no botão abaixo para abrir a pesquisa.</p><div className="pending-shield">◎ <span><b>Aguardando apenas a aprovação</b><small>Esta proteção impede que pessoas não autorizadas façam entrevistas.</small></span></div><button className="primary pending-refresh" onClick={refresh} disabled={checking}>{checking ? "Verificando…" : "Verificar liberação da pesquisa"}</button><button className="auth-switch" onClick={sair}>Sair e voltar depois</button></div></div>;
 }
 
+function AcessoRemovido({ profile, sair }: { profile: Profile; sair: () => void }) {
+  return <div className="auth-shell"><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO ENCERRADO</small><h2>Olá, {profile.name}.</h2><p>Este acesso foi removido pela administração e não pode abrir pesquisas ou painéis.</p><div className="pending-shield"><i>×</i><span><b>Acesso indisponível</b><small>Se acreditar que houve um engano, fale com a coordenação da NorteP.</small></span></div><button className="auth-switch" onClick={sair}>Sair</button></div></div>;
+}
+
 function ObserverPanel({ profile, summary, sair, atualizar }: { profile: Profile; summary: ObserverSummary | null; sair: () => void; atualizar: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const refresh = async () => { setBusy(true); try { await atualizar(); } finally { setBusy(false); } };
@@ -488,7 +507,7 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl }: { ir: (v: View) => void
   </>;
 }
 
-function Equipe({ aviso, profiles, onToggle, onInvite }: { aviso: (t: string) => void; profiles: Profile[]; onToggle: (id: string, active: boolean) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador") => Promise<string> }) {
+function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite }: { aviso: (t: string) => void; profiles: Profile[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador") => Promise<string> }) {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "coordenador" | "observador">("observador");
@@ -512,6 +531,16 @@ function Equipe({ aviso, profiles, onToggle, onInvite }: { aviso: (t: string) =>
     }
     setInviteBusy(false);
   };
+  const roleLabel = (role: Profile["role"]) => ({ admin: "Administrador", coordenador: "Coordenador", pesquisador: "Pesquisador", observador: "Observador" })[role];
+  const canManage = (target: Profile) => {
+    if (target.id === currentProfile.id || target.is_primary_admin) return false;
+    if (currentProfile.role === "admin") return true;
+    return currentProfile.role === "coordenador" && (target.role === "pesquisador" || target.role === "observador");
+  };
+  const confirmDelete = (target: Profile) => {
+    if (!window.confirm(`Apagar o acesso de ${target.name}?\n\nA pessoa será removida da equipe e não poderá entrar no aplicativo. As entrevistas já realizadas serão preservadas para auditoria.`)) return;
+    onDelete(target.id);
+  };
   return <>
     <Cabecalho titulo="Equipe e acessos" sub={`${profiles.length} cadastro(s) · ${profiles.filter(x => x.active).length} ativo(s)`} botao="＋ Gerar convite" acao={() => setShowInvite(!showInvite)} />
     <div className="access-grid">
@@ -519,7 +548,7 @@ function Equipe({ aviso, profiles, onToggle, onInvite }: { aviso: (t: string) =>
       <div className="painel access-box secure"><small>ADMINISTRAÇÃO</small><h3>Convite individual obrigatório</h3><p>Não compartilhe sua senha. Cada parceiro recebe um link de uso único, vinculado ao e-mail e válido por 72 horas.</p><button onClick={() => setShowInvite(true)}>Criar convite para parceiro</button></div>
     </div>
     {showInvite && <div className="painel invite-panel"><div><small>NOVO CONVITE SEGURO</small><h3>Autorizar parceiro</h3><p>Observador é a opção recomendada para acompanhar o teste sem acessar dados individuais. Coordenador administra a coleta; administrador possui controle total.</p></div><label>E-mail autorizado<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="parceiro@exemplo.com" /></label><label>Permissão<select value={inviteRole} onChange={e => setInviteRole(e.target.value as "admin" | "coordenador" | "observador")}><option value="observador">Observador — recomendado</option><option value="coordenador">Coordenador — gerencia a coleta</option><option value="admin">Administrador — controle total</option></select></label><button className="primary" disabled={inviteBusy || !inviteEmail} onClick={generate}>{inviteBusy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}. O link já está copiado.</span><div className="link-row"><input readOnly value={generatedLink} aria-label="Convite administrativo gerado" /><button onClick={() => copy(generatedLink, "Convite copiado novamente")}>Copiar</button></div></div>}</div>}
-    <div className="painel tabela"><div className="tr cab"><span>Usuário</span><span>Função</span><span>Status</span><span>Ação</span></div>{profiles.map(p => <div className="tr" key={p.id}><span className="pessoa"><i>{p.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{p.name}</b><small>{p.email}</small></span></span><span>{p.role}</span><b className={p.active ? "ok" : "pendente"}>● {p.active ? "Ativo" : "Aguardando"}</b><span>{p.role === "pesquisador" && <button className={p.active ? "suspender" : "aprovar"} onClick={() => onToggle(p.id, !p.active)}>{p.active ? "Suspender" : "Aprovar"}</button>}</span></div>)}{!profiles.length && <div className="vazio-tabela">Nenhum cadastro encontrado.</div>}</div>
+    <div className="painel tabela"><div className="tr cab"><span>Usuário</span><span>Função</span><span>Status</span><span>Ações</span></div>{profiles.map(p => <div className="tr" key={p.id}><span className="pessoa"><i>{p.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{p.name}</b><small>{p.email}</small></span></span><span>{roleLabel(p.role)}{p.is_primary_admin && <small className="primary-admin-label">Conta principal</small>}</span><b className={p.active ? "ok" : "pendente"}>● {p.active ? "Ativo" : "Suspenso"}</b><span className="access-actions">{canManage(p) ? <><button className={p.active ? "suspender" : "aprovar"} onClick={() => onToggle(p.id, !p.active)}>{p.active ? "Suspender" : "Reativar"}</button><button className="apagar-acesso" onClick={() => confirmDelete(p)}>Apagar acesso</button></> : <small className="protected-access">{p.is_primary_admin ? "Protegida" : "Seu acesso"}</small>}</span></div>)}{!profiles.length && <div className="vazio-tabela">Nenhum cadastro encontrado.</div>}</div>
   </>;
 }
 

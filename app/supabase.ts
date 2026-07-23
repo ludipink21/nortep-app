@@ -11,6 +11,8 @@ export type Profile = {
   email: string;
   role: "admin" | "coordenador" | "pesquisador" | "observador";
   active: boolean;
+  is_primary_admin?: boolean;
+  access_removed_at?: string | null;
   region?: string | null;
   created_at?: string;
 };
@@ -209,14 +211,20 @@ export async function loadSurveys(session: Session) {
 }
 
 export async function loadProfiles(session: Session) {
-  return rest<Profile[]>(session, "profiles?select=*&order=created_at.desc");
+  return rest<Profile[]>(session, "profiles?select=*&access_removed_at=is.null&order=created_at.desc");
 }
 
 export async function setProfileActive(session: Session, profileId: string, active: boolean) {
-  return rest<Profile[]>(session, `profiles?id=eq.${profileId}`, {
-    method: "PATCH",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ active }),
+  return rest<Profile>(session, "rpc/manage_profile_access", {
+    method: "POST",
+    body: JSON.stringify({ p_profile_id: profileId, p_active: active }),
+  });
+}
+
+export async function removeProfileAccess(session: Session, profileId: string) {
+  return rest<Profile>(session, "rpc/remove_profile_access", {
+    method: "POST",
+    body: JSON.stringify({ p_profile_id: profileId }),
   });
 }
 
