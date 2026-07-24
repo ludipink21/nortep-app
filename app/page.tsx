@@ -77,6 +77,11 @@ export default function Home() {
           setPasswordRecoverySession(callback.session);
           return;
         }
+        // O convite só promove a conta no primeiro acesso confirmado. Se o mesmo
+        // link for aberto depois, a conta já autorizada continua entrando normalmente.
+        if (callback?.session && invitation) {
+          try { await redeemAccessInvite(callback.session, invitation); } catch { /* O convite pode já ter sido utilizado por esta conta. */ }
+        }
         const stored = callback?.session ?? readSession();
         if (!stored) return;
         try { await autenticar(stored, channel); } catch { saveSession(null); }
@@ -540,7 +545,6 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     try {
       if (modo === "entrar") {
         const newSession = await signIn(email.trim().toLowerCase(), password);
-        if (invited) await redeemAccessInvite(newSession, inviteCode);
         await onAuthenticated(newSession, access);
       }
       else if (modo === "recuperar") {
@@ -570,8 +574,8 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
       <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
-      <p>Seu acesso está protegido por duas confirmações simples.</p>
-      <div><span>1. Confirmação do e-mail</span><span>2. Aprovação da administração</span><span>3. Pesquisa liberada</span></div>
+      <p>{invited ? "Seu convite será ativado depois da confirmação do e-mail." : "Seu acesso está protegido por duas confirmações simples."}</p>
+      <div>{invited ? <><span>1. Confirmação do e-mail</span><span>2. Convite ativado</span><span>3. Entrada liberada</span></> : <><span>1. Confirmação do e-mail</span><span>2. Aprovação da administração</span><span>3. Pesquisa liberada</span></>}</div>
     </section>
     <div className="auth-card confirmation-card">
       <div className="auth-logo">NP</div>
@@ -581,9 +585,9 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       <ol className="confirmation-steps">
         <li><i>1</i><span><b>Abra o e-mail da NorteP</b><small>Confira também as pastas Spam ou Lixo eletrônico.</small></span></li>
         <li><i>2</i><span><b>Toque em “Confirmar cadastro”</b><small>O link abrirá novamente a NorteP Pesquisa.</small></span></li>
-        <li><i>3</i><span><b>Aguarde a aprovação de acesso</b><small>A administração precisa liberar a pesquisa antes da primeira entrevista.</small></span></li>
+        <li><i>3</i><span><b>{invited ? "Entre com seu e-mail e senha" : "Aguarde a aprovação de acesso"}</b><small>{invited ? "O convite já deixa a função autorizada. Nas próximas vezes, basta entrar normalmente." : "A administração precisa liberar a pesquisa antes da primeira entrevista."}</small></span></li>
       </ol>
-      <div className="auth-message success-message" role="status">Cadastro recebido. Depois de confirmar o e-mail, aparecerá a mensagem “Aguardando aprovação”.</div>
+      <div className="auth-message success-message" role="status">{invited ? "Cadastro recebido. Após confirmar o e-mail, seu convite será ativado automaticamente." : "Cadastro recebido. Depois de confirmar o e-mail, aparecerá a mensagem “Aguardando aprovação”."}</div>
       <button type="button" className="primary auth-submit" onClick={() => { setConfirmationEmail(""); setModo("entrar"); setPassword(""); }}>Já confirmei: entrar</button>
       <button type="button" className="auth-switch" onClick={() => setConfirmationEmail("")}>Voltar para corrigir o e-mail</button>
     </div>
