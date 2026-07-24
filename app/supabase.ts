@@ -105,6 +105,9 @@ export type FieldEvent = {
   occurred_at: string;
 };
 
+export type VaultContact = { interview_id: string; respondent_name?: string | null; contact_choice?: string | null; contact_whatsapp?: string | null; contact_email?: string | null; created_at: string };
+export type VaultAudit = { actor_name: string; actor_email: string; action: string; occurred_at: string };
+
 let url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 let key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 const sessionKey = "nortep-sessao";
@@ -114,12 +117,17 @@ export async function loadRuntimeConfig() {
   if (typeof window === "undefined") return false;
   try {
     const response = await fetch("/api/runtime-config", { cache: "no-store" });
-    if (!response.ok) return false;
+    if (!response.ok) throw new Error("Configuração indisponível");
     const config = await response.json();
     url = typeof config?.url === "string" ? config.url.trim() : "";
     key = typeof config?.key === "string" ? config.key.trim() : "";
+    if (url && key) localStorage.setItem("nortep-runtime-config", JSON.stringify({ url, key }));
   } catch {
-    return false;
+    try {
+      const cached = JSON.parse(localStorage.getItem("nortep-runtime-config") || "{}");
+      url = typeof cached.url === "string" ? cached.url : "";
+      key = typeof cached.key === "string" ? cached.key : "";
+    } catch { return false; }
   }
   return Boolean(url && key);
 }
@@ -315,7 +323,7 @@ export async function removeProfileAccess(session: Session, profileId: string) {
 }
 
 export async function loadInterviews(session: Session) {
-  return rest<SavedInterview[]>(session, "interviews?select=id,code,survey_id,researcher_id,responses,completed_at,created_at,latitude,longitude,duration_seconds,quality_flags,is_test,respondent_name,contact_choice,contact_whatsapp,contact_email,contact_consent&status=eq.completed&order=completed_at.desc");
+  return rest<SavedInterview[]>(session, "interviews?select=id,code,survey_id,researcher_id,responses,completed_at,created_at,latitude,longitude,duration_seconds,quality_flags,is_test,contact_consent&status=eq.completed&order=completed_at.desc");
 }
 
 export async function loadFieldEvents(session: Session) {
@@ -336,10 +344,10 @@ export async function saveInterview(session: Session, survey: Survey, responses:
       researcher_id: session.user.id,
       status: "completed",
       responses: researchResponses,
-      respondent_name: dynamicContactConsent ? C04 || null : nome || null,
-      contact_choice: dynamicContactConsent ? C02 || null : interesse || null,
-      contact_whatsapp: dynamicContactConsent && /(WhatsApp|Telefone)/i.test(dynamicContactChannels) ? C05 || null : whatsapp || null,
-      contact_email: dynamicContactConsent && /E-mail/i.test(dynamicContactChannels) ? C05 || null : email || null,
+      respondent_name: null,
+      contact_choice: null,
+      contact_whatsapp: null,
+      contact_email: null,
       contact_consent: dynamicContactConsent || consentimentoContato === "sim",
       geo_consent: geoConsent,
       latitude: latitude ? Number(latitude) : null,
@@ -350,6 +358,17 @@ export async function saveInterview(session: Session, survey: Survey, responses:
     }),
   });
   const saved = rows[0];
+  const contactAllowed = dynamicContactConsent || consentimentoContato === "sim";
+  if (contactAllowed) {
+    await rest(session, "rpc/store_interview_contact", { method: "POST", body: JSON.stringify({
+      p_interview_id: saved.id,
+      p_name: dynamicContactConsent ? C04 || "" : nome || "",
+      p_choice: dynamicContactConsent ? C02 || "" : interesse || "",
+      p_whatsapp: dynamicContactConsent && /(WhatsApp|Telefone)/i.test(dynamicContactChannels) ? C05 || "" : whatsapp || "",
+      p_email: dynamicContactConsent && /E-mail/i.test(dynamicContactChannels) ? C05 || "" : email || "",
+      p_consent: true,
+    }) });
+  }
   await rest(session, "consent_records", {
     method: "POST",
     body: JSON.stringify({
@@ -363,6 +382,12 @@ export async function saveInterview(session: Session, survey: Survey, responses:
   });
   return saved;
 }
+
+export async function setupVaultKey(session: Session, keyValue: string) { return rest<void>(session, "rpc/setup_own_vault_key", { method: "POST", body: JSON.stringify({ p_key: keyValue }) }); }
+export async function unlockVault(session: Session, keyValue: string) { return rest<{ token: string; expires_at: string }>(session, "rpc/unlock_contact_vault", { method: "POST", body: JSON.stringify({ p_key: keyValue }) }); }
+export async function loadVaultContacts(session: Session, token: string) { return rest<VaultContact[]>(session, "rpc/list_vault_contacts", { method: "POST", body: JSON.stringify({ p_token: token, p_limit: 100 }) }); }
+export async function loadVaultAudit(session: Session) { return rest<VaultAudit[]>(session, "rpc/list_vault_audit", { method: "POST", body: "{}" }); }
+export async function grantVaultAccess(session: Session, profileId: string, active: boolean) { return rest<void>(session, "rpc/grant_vault_access", { method: "POST", body: JSON.stringify({ p_profile_id: profileId, p_active: active }) }); }
 
 export async function saveFieldEvent(session: Session, survey: Survey, event: Omit<FieldEvent, "id" | "survey_id" | "researcher_id" | "occurred_at">, deviceId: string) {
   const rows = await rest<FieldEvent[]>(session, "field_events?select=*", {
