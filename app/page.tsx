@@ -374,6 +374,14 @@ export default function Home() {
     return () => { window.removeEventListener("online", autoSync); if (timer) window.clearTimeout(timer); };
   }, [session, pendingCount]);
   const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setObserverSummary(null); setView("inicio"); };
+  const admin = profile?.role === "admin" || profile?.role === "coordenador";
+  useEffect(() => {
+    if (!session || !admin) return;
+    const refresh = () => { void atualizarDadosAdmin(); };
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [session, admin]);
 
   if (!authReady) return <TelaCarregando />;
   if (!configured()) return <TelaConfigErro />;
@@ -393,13 +401,6 @@ export default function Home() {
   }} />;
   if (profile.role === "observador") return <ObserverPanel profile={profile} summary={observerSummary} sair={sair} atualizar={async () => { if (session) setObserverSummary(await loadObserverSummary(session)); }} />;
 
-  const admin = profile.role === "admin" || profile.role === "coordenador";
-  useEffect(() => {
-    const refresh = () => { void atualizarDadosAdmin(); };
-    const timer = window.setInterval(refresh, 30000);
-    window.addEventListener("focus", refresh);
-    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
-  }, [session, profile?.role]);
   const campo = view === "portal" || view === "entrevista" || view === "obrigado";
   const titulos: Record<View, string> = {
     inicio: "Visão geral",

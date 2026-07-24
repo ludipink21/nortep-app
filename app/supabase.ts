@@ -116,7 +116,10 @@ export async function loadRuntimeConfig() {
   if (url && key) return true;
   if (typeof window === "undefined") return false;
   try {
-    const response = await fetch("/api/runtime-config", { cache: "no-store" });
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 12000);
+    const response = await fetch("/api/runtime-config", { cache: "no-store", signal: controller.signal });
+    window.clearTimeout(timer);
     if (!response.ok) throw new Error("Configuração indisponível");
     const config = await response.json();
     url = typeof config?.url === "string" ? config.url.trim() : "";
