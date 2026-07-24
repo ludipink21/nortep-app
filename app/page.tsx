@@ -557,6 +557,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
   const adminAccess = access === "administracao";
   const coordinatorAccess = access === "coordenacao";
   const observerAccess = access === "observador";
+  const accessName = adminAccess ? "administração" : coordinatorAccess ? "coordenação" : observerAccess ? "observação" : "pesquisa de campo";
   if (confirmationEmail) return <div className="auth-shell"><ControleFonte />
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
@@ -600,8 +601,8 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
       <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
-      <p>Dados de campo protegidos, organizados e prontos para aproximar pessoas das decisões.</p>
-      <div><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></div>
+      <p>{adminAccess ? "Acesso administrativo reservado para pessoas autorizadas." : coordinatorAccess ? "Acesso de coordenação reservado para acompanhar equipes autorizadas." : observerAccess ? "Acompanhamento reservado para pessoas autorizadas." : "Dados de campo protegidos, organizados e prontos para aproximar pessoas das decisões."}</p>
+      <div>{adminAccess ? <><span>✓ Administração autorizada</span><span>✓ Controle de acessos</span><span>✓ Auditoria e privacidade</span></> : coordinatorAccess ? <><span>✓ Coordenação autorizada</span><span>✓ Equipes e territórios</span><span>✓ Acompanhamento protegido</span></> : observerAccess ? <><span>✓ Indicadores agrupados</span><span>✓ Sem dados pessoais</span><span>✓ Acesso protegido</span></> : <><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></>}</div>
     </section>
     <form className="auth-card" onSubmit={e => { e.preventDefault(); void enviar(); }}>
       <div className="auth-logo">NP</div>
@@ -623,7 +624,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || observerAccess ? "Convites vencem em 72 horas e funcionam uma única vez." : "O entrevistado não precisa criar conta."}</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."}</small>
     </form>
   </div>;
 }
