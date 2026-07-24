@@ -554,6 +554,9 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     try {
       if (modo === "entrar") {
         const newSession = await signIn(email.trim().toLowerCase(), password);
+        if (invited) {
+          try { await redeemAccessInvite(newSession, inviteCode); } catch { /* Convites já utilizados não impedem a entrada normal. */ }
+        }
         await onAuthenticated(newSession, access);
       }
       else if (modo === "recuperar") {
@@ -630,7 +633,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       <small>{principalAccess ? "ADMINISTRAÇÃO PRINCIPAL" : adminAccess ? "ADMINISTRAÇÃO RESTRITA" : coordinatorAccess ? "COORDENAÇÃO RESTRITA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
       <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (principalAccess ? "Entrar no meu acesso principal" : adminAccess ? "Entrar na administração" : coordinatorAccess ? "Entrar na coordenação" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
       <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (principalAccess ? "Somente a conta marcada como administradora principal poderá entrar por este endereço." : adminAccess ? "Somente a administração responsável possui controle total." : coordinatorAccess ? "Acompanhe equipes e a coleta sem controlar a administração principal." : observerAccess ? "Este acesso mostra somente indicadores agrupados da coleta, sem respostas individuais." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
-      {modo === "criar" && <div className="existing-account-note"><span><b>Já possui uma conta?</b><small>Não faça outro cadastro. Entre para saber se o acesso já está ativo ou se ainda aguarda aprovação.</small></span><button type="button" onClick={() => { setModo("entrar"); setMessage(""); }}>Entrar e verificar</button></div>}
+      {modo === "criar" && <div className="existing-account-note"><span><b>Já possui ou já teve uma conta?</b><small>Não faça outro cadastro com o mesmo e-mail. Entre com sua senha; se o acesso foi removido, este novo convite fará a reativação.</small></span><button type="button" onClick={() => { setModo("entrar"); setMessage(""); }}>Entrar e reativar</button></div>}
       {modo === "criar" && <><label htmlFor="auth-name">Nome completo</label><input id="auth-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}
       <label htmlFor="auth-email">E-mail</label>
       <input id="auth-email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@exemplo.com" />
@@ -810,22 +813,6 @@ function Rankings({ interviews, profiles, surveys, fieldEvents }: { interviews: 
       <section className="painel ranking-lista"><Topo sup="CIDADES, REGIÕES E BAIRROS" titulo="Ranking de territórios" />{territorios.length ? territorios.map(([local, total], index) => <div className="ranking-detalhe" key={local}><i>{index + 1}</i><span><b>{local}</b><small>{total} entrevista(s) concluída(s)</small><em><u style={{ width: `${total / maiorTerritorio * 100}%` }} /></em></span><strong>{total}</strong></div>) : <div className="ranking-empty">Os territórios aparecerão assim que a primeira entrevista for sincronizada.</div>}</section>
     </div>
     <div className="ranking-nota"><i>i</i><span><b>Volume e taxa são medidas diferentes.</b><small>O ranking ordena entrevistas concluídas. A taxa considera também recusas, pessoas fora do público, interrupções e locais sem resposta registrados pela equipe.</small></span></div>
-  </>;
-}
-
-function MapaTerritorial({ interviews, fieldEvents }: { interviews: SavedInterview[]; fieldEvents: FieldEvent[] }) {
-  const points = [
-    ...interviews.filter(x => x.latitude != null && x.longitude != null).map(x => ({ id: x.id, lat: Number(x.latitude), lng: Number(x.longitude), kind: "Entrevista concluída", territory: `${x.responses.cidade || "Betim"} · ${x.responses.bairro || "Bairro não informado"}` })),
-    ...fieldEvents.filter(x => x.latitude != null && x.longitude != null).map(x => ({ id: x.id, lat: Number(x.latitude), lng: Number(x.longitude), kind: "Ocorrência de campo", territory: `${x.city || "Cidade não informada"} · ${x.neighborhood || x.region || "Região não informada"}` })),
-  ];
-  const latitudes = points.map(p => p.lat), longitudes = points.map(p => p.lng);
-  const minLat = Math.min(...latitudes, -19.99), maxLat = Math.max(...latitudes, -19.85);
-  const minLng = Math.min(...longitudes, -44.28), maxLng = Math.max(...longitudes, -44.12);
-  const territories = Object.entries(interviews.reduce<Record<string, number>>((acc, item) => { const name = `${item.responses.cidade || "Betim"} · ${item.responses.bairro || "Bairro não informado"}`; acc[name] = (acc[name] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]);
-  return <>
-    <div className="cabecalho"><div><h2>Mapa territorial</h2><p>Visualização aproximada somente dos pontos autorizados pelo entrevistado.</p></div><span className="mapa-privacidade">◎ Localização com consentimento</span></div>
-    <div className="mapa-grid"><section className="painel mapa-painel"><div className="mapa-canvas" aria-label="Mapa aproximado das entrevistas autorizadas"><span className="mapa-rio" /><b className="mapa-label l1">BETIM</b><b className="mapa-label l2">REGIÕES DE CAMPO</b>{points.map((point, index) => { const left = 8 + ((point.lng - minLng) / Math.max(maxLng - minLng, .001)) * 84; const top = 8 + (1 - (point.lat - minLat) / Math.max(maxLat - minLat, .001)) * 84; return <i className={point.kind.startsWith("Entrevista") ? "map-point completed" : "map-point event"} style={{ left: `${left}%`, top: `${top}%` }} title={`${point.kind} · ${point.territory}`} key={point.id}>{index + 1}</i>; })}{!points.length && <div className="mapa-vazio"><b>Nenhum ponto autorizado ainda</b><span>O mapa será preenchido somente quando a pessoa permitir o registro aproximado.</span></div>}</div><div className="mapa-legenda"><span><i className="completed" /> Entrevista concluída</span><span><i className="event" /> Ocorrência de campo</span></div></section><section className="painel mapa-territorios"><Topo sup="COBERTURA DA COLETA" titulo="Entrevistas por território" />{territories.length ? territories.slice(0, 12).map(([name, count]) => <div key={name}><span><b>{name}</b><small>entrevistas sincronizadas</small></span><strong>{count}</strong></div>) : <div className="ranking-empty">Os territórios aparecerão após a primeira entrevista.</div>}</section></div>
-    <div className="ranking-nota"><i>✓</i><span><b>Privacidade territorial preservada.</b><small>A tela usa coordenadas aproximadas e não exibe nome ou contato do entrevistado.</small></span></div>
   </>;
 }
 
