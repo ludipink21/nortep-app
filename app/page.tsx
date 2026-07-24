@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, signIn, signUp, Survey, SurveyQuestion, updatePassword } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "mapa" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
@@ -54,6 +54,7 @@ export default function Home() {
   const [passwordRecoverySession, setPasswordRecoverySession] = useState<Session | null>(null);
   const [interviewStartedAt, setInterviewStartedAt] = useState<number>(0);
   const [resumeDraft, setResumeDraft] = useState<InterviewDraft | null>(null);
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const channel = readAccessChannel();
@@ -89,7 +90,11 @@ export default function Home() {
   useEffect(() => {
     if (view !== "entrevista" || !survey || !interviewStartedAt) return;
     const draft: InterviewDraft = { survey, step: passo, responses: respostas, startedAt: interviewStartedAt, savedAt: new Date().toISOString() };
-    try { localStorage.setItem(draftKey(survey.id), JSON.stringify(draft)); } catch { aviso("Não foi possível salvar o rascunho neste aparelho."); }
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    draftSaveTimer.current = setTimeout(() => {
+      try { localStorage.setItem(draftKey(survey.id), JSON.stringify(draft)); } catch { aviso("Não foi possível salvar o rascunho neste aparelho."); }
+    }, 350);
+    return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
   }, [view, survey, passo, respostas, interviewStartedAt]);
   useEffect(() => {
     if (view !== "entrevista") return;
