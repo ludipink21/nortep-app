@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadVaultAudit, loadVaultContacts, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, setupVaultKey, signIn, signUp, Survey, SurveyQuestion, unlockVault, updatePassword, updateSurveyStatusAdmin, VaultAudit, VaultContact } from "./supabase";
 
-type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "mapa" | "resultados" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
+type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "resultados" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "observador" | "coordenacao" | "administracao" | "principal";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
@@ -372,9 +372,8 @@ export default function Home() {
   const titulos: Record<View, string> = {
     inicio: "Visão geral",
     pesquisas: "Pesquisas",
-    equipe: "Pesquisadores",
+    equipe: "Acessos e cadastros",
     rankings: "Rankings",
-    mapa: "Mapa territorial",
     resultados: "Resultados",
     ecossistema: "Ecossistema NorteP",
     cofre: "Cofre de contatos",
@@ -390,9 +389,8 @@ export default function Home() {
       <nav>{[
         ["inicio", "⌂", "Visão geral"],
         ["pesquisas", "▤", "Pesquisas"],
-        ["equipe", "♙", "Pesquisadores"],
+        ["equipe", "♙", "Acessos e cadastros"],
         ["rankings", "★", "Rankings"],
-        ["mapa", "◎", "Mapa territorial"],
         ["resultados", "◫", "Resultados"],
         ...(profile.role === "admin" ? [["cofre", "◉", "Cofre de contatos"]] : []),
         ["ecossistema", "◇", "Ecossistema NorteP"],
@@ -422,7 +420,6 @@ export default function Home() {
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} surveys={adminSurveys} profiles={team} session={session} currentProfile={profile} atualizar={atualizarDadosAdmin} />}
         {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} />}
         {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
-        {view === "mapa" && <MapaTerritorial interviews={interviews} fieldEvents={fieldEvents} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "ecossistema" && <Ecossistema />}
         {view === "cofre" && profile.role === "admin" && <CofreContatos session={session} profiles={team} aviso={aviso} />}
@@ -898,7 +895,7 @@ function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite 
     onDelete(target.id);
   };
   return <>
-    <Cabecalho titulo="Equipe e acessos" sub={`${profiles.length} cadastro(s) · ${profiles.filter(x => x.active).length} ativo(s)`} botao="＋ Gerar convite" acao={() => setShowInvite(!showInvite)} />
+    <Cabecalho titulo="Acessos e cadastros" sub={`${profiles.length} pessoa(s) cadastrada(s) · ${profiles.filter(x => x.active).length} acesso(s) ativo(s)`} botao="＋ Gerar convite" acao={() => setShowInvite(!showInvite)} />
     <div className="access-grid">
       <div className="painel access-box"><small>LINK DO PESQUISADOR</small><h3>Cadastro e trabalho de campo</h3><p>Este endereço nunca abre o painel administrativo. Todo novo cadastro aguarda sua aprovação.</p><div className="link-row"><input readOnly value={researcherLink} aria-label="Link oficial do pesquisador" /><button onClick={() => copy(researcherLink, "Link do pesquisador copiado")}>Copiar link</button></div></div>
       <div className="painel access-box secure"><small>ADMINISTRAÇÃO</small><h3>Convite individual obrigatório</h3><p>Não compartilhe sua senha. Cada parceiro recebe um link de uso único, vinculado ao e-mail e válido por 72 horas.</p><button onClick={() => setShowInvite(true)}>Criar convite para parceiro</button></div>
