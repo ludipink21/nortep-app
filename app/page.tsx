@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, signIn, signUp, Survey, SurveyQuestion, updatePassword, updateSurveyStatusAdmin } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "mapa" | "resultados" | "ecossistema" | "portal" | "entrevista" | "obrigado";
-type AccessChannel = "publico" | "pesquisador" | "observador" | "administracao";
+type AccessChannel = "publico" | "pesquisador" | "observador" | "coordenacao" | "administracao";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
   | { kind: "field_event"; id: string; survey: Survey; event: Omit<FieldEvent, "id" | "survey_id" | "researcher_id" | "occurred_at">; deviceId: string; savedAt: string; attempts: number };
@@ -18,7 +18,7 @@ const draftKey = (surveyId: string) => `nortep-rascunho-${surveyId}`;
 function readAccessChannel(): AccessChannel {
   if (typeof window === "undefined") return "publico";
   const value = new URLSearchParams(window.location.search).get("acesso");
-  return value === "pesquisador" || value === "observador" || value === "administracao" ? value : "publico";
+  return value === "pesquisador" || value === "observador" || value === "coordenacao" || value === "administracao" ? value : "publico";
 }
 
 const pesquisas = [
@@ -114,9 +114,13 @@ export default function Home() {
     const current = await refreshSession(incoming);
     const p = await loadProfile(current);
     if (!p) throw new Error("Perfil não encontrado.");
-    if (channel === "administracao" && (p.role === "pesquisador" || p.role === "observador")) {
+    if (channel === "administracao" && p.role !== "admin") {
       saveSession(null);
       throw new Error("Este acesso é exclusivo para administração e coordenação autorizadas.");
+    }
+    if (channel === "coordenacao" && p.role !== "coordenador") {
+      saveSession(null);
+      throw new Error("Este link é exclusivo para coordenadores autorizados.");
     }
     if (channel === "observador" && p.role !== "observador") {
       saveSession(null);
@@ -171,6 +175,24 @@ export default function Home() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [session, profile?.role]);
+  useEffect(() => {
+    if (!session || !profile || profile.active || profile.access_removed_at) return;
+    const refreshApproval = async () => {
+      try {
+        const refreshed = await loadProfile(session);
+        if (refreshed.active) await autenticar(session, accessChannel);
+      } catch { /* A pessoa ainda pode conferir pelo botão. */ }
+    };
+    const timer = window.setInterval(() => void refreshApproval(), 30000);
+    const onVisible = () => { if (document.visibilityState === "visible") void refreshApproval(); };
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [session, profile?.id, profile?.active, profile?.access_removed_at]);
   const ir = (destino: View) => {
     if (profile?.role === "pesquisador" && !(["portal", "entrevista", "obrigado"] as View[]).includes(destino)) setView("portal");
     else setView(destino);
@@ -199,7 +221,7 @@ export default function Home() {
   const gerarConvite = async (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador") => {
     if (!session) throw new Error("Entre novamente para gerar o convite.");
     const code = await createAccessInvite(session, email, role);
-    const channel = role === "observador" ? "observador" : role === "pesquisador" ? "pesquisador" : "administracao";
+    const channel = role === "observador" ? "observador" : role === "pesquisador" ? "pesquisador" : role === "coordenador" ? "coordenacao" : "administracao";
     return `${window.location.origin}/?acesso=${channel}&convite=${encodeURIComponent(code)}`;
   };
   const fila = () => {
@@ -478,7 +500,7 @@ function PublicLanding() {
 }
 
 function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel; inviteCode: string; onAuthenticated: (session: Session, channel?: AccessChannel) => Promise<void> }) {
-  const invited = (access === "administracao" || access === "observador") && Boolean(inviteCode);
+  const invited = (access === "administracao" || access === "coordenacao" || access === "observador") && Boolean(inviteCode);
   const allowSignup = access === "pesquisador" || invited;
   const [modo, setModo] = useState<"entrar" | "criar" | "recuperar">(invited ? "criar" : "entrar");
   const [name, setName] = useState("");
@@ -516,6 +538,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     setBusy(false);
   };
   const adminAccess = access === "administracao";
+  const coordinatorAccess = access === "coordenacao";
   const observerAccess = access === "observador";
   if (confirmationEmail) return <div className="auth-shell"><ControleFonte />
     <section className="auth-brand">
@@ -565,9 +588,9 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     </section>
     <form className="auth-card" onSubmit={e => { e.preventDefault(); void enviar(); }}>
       <div className="auth-logo">NP</div>
-      <small>{adminAccess ? "ADMINISTRAÇÃO RESTRITA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
-      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (adminAccess ? "Entrar na administração" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
-      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (adminAccess ? "Somente contas administrativas previamente autorizadas." : observerAccess ? "Este acesso mostra somente indicadores agrupados da coleta, sem respostas individuais." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
+      <small>{adminAccess ? "ADMINISTRAÇÃO RESTRITA" : coordinatorAccess ? "COORDENAÇÃO RESTRITA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
+      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (adminAccess ? "Entrar na administração" : coordinatorAccess ? "Entrar na coordenação" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
+      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (adminAccess ? "Somente a administração responsável possui controle total." : coordinatorAccess ? "Acompanhe equipes e a coleta sem controlar a administração principal." : observerAccess ? "Este acesso mostra somente indicadores agrupados da coleta, sem respostas individuais." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
       {modo === "criar" && <div className="existing-account-note"><span><b>Já possui uma conta?</b><small>Não faça outro cadastro. Entre para saber se o acesso já está ativo ou se ainda aguarda aprovação.</small></span><button type="button" onClick={() => { setModo("entrar"); setMessage(""); }}>Entrar e verificar</button></div>}
       {modo === "criar" && <><label htmlFor="auth-name">Nome completo</label><input id="auth-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}
       <label htmlFor="auth-email">E-mail</label>
@@ -910,8 +933,23 @@ function Portal({ iniciar, profile, surveys, interviews, pending, sincronizar, r
 }
 
 function Cabecalho({ titulo, sub, botao, acao }: { titulo: string; sub: string; botao: string; acao: () => void }) { return <div className="cabecalho"><div><h2>{titulo}</h2><p>{sub}</p></div><button className="primary" onClick={acao}>{botao}</button></div>; }
+function RespostaTexto({ value, salvar, longa = false, placeholder = "" }: { value: string; salvar: (value: string) => void; longa?: boolean; placeholder?: string }) {
+  const [rascunho, setRascunho] = useState(value);
+  const valorAtual = useRef(value);
+  useEffect(() => {
+    if (value !== valorAtual.current) setRascunho(value);
+  }, [value]);
+  useEffect(() => {
+    valorAtual.current = rascunho;
+    const timer = window.setTimeout(() => salvar(rascunho), 220);
+    return () => window.clearTimeout(timer);
+  }, [rascunho, salvar]);
+  return longa
+    ? <textarea value={rascunho} onChange={event => setRascunho(event.target.value)} placeholder={placeholder} />
+    : <input value={rascunho} onChange={event => setRascunho(event.target.value)} placeholder={placeholder} />;
+}
 function EntrevistaDinamica({ survey, questions, passo, setPasso, r, setR, fim, cancelar }: { survey: Survey; questions: SurveyQuestion[]; passo: number; setPasso: (n: number) => void; r: Record<string, string>; setR: RespostasSetter; fim: () => void; cancelar: (outcome: FieldEvent["outcome"], reason: string) => void }) {
-  const set = (key: string, value: string) => setR(previous => ({ ...previous, [key]: value }));
+  const set = (key: string, value: string) => setR(previous => previous[key] === value ? previous : ({ ...previous, [key]: value }));
   const visible = questions.filter(q => !q.condition?.field || r[q.condition.field] === q.condition.equals);
   const sections = Array.from(new Set(visible.map(q => q.section || "Perguntas")));
   const currentSection = sections[Math.min(passo - 1, Math.max(sections.length - 1, 0))];
@@ -921,7 +959,7 @@ function EntrevistaDinamica({ survey, questions, passo, setPasso, r, setR, fim, 
   const ineligible = questions.some(q => ["idadeMinima", "moraMinas"].includes(q.code) && /^não/i.test(r[q.code] || ""));
   const choose = (question: SurveyQuestion, values: string[]) => <div className="opcoes">{values.map(value => <button type="button" aria-pressed={r[question.code] === value} className={r[question.code] === value ? "selecionado" : ""} onPointerDown={event => event.preventDefault()} onClick={() => set(question.code, r[question.code] === value ? "" : value)} key={value}>{value}</button>)}</div>;
   const multiple = (question: SurveyQuestion) => { const selected = (r[question.code] || "").split("||").filter(Boolean); const max = /até (três|3)/i.test(`${question.prompt} ${question.help_text || ""}`) ? 3 : Number.POSITIVE_INFINITY; return <div className="opcoes multipla">{question.options.map(value => <button type="button" aria-pressed={selected.includes(value)} className={selected.includes(value) ? "selecionado" : ""} onClick={() => set(question.code, (selected.includes(value) ? selected.filter(x => x !== value) : selected.length < max ? [...selected, value] : selected).join("||"))} key={value}><i>{selected.includes(value) ? "✓" : "+"}</i>{value}</button>)}</div>; };
-  const renderQuestion = (question: SurveyQuestion) => <div className={question.type === "internal_note" ? "dynamic-question internal" : "dynamic-question"} key={question.code}><label>{question.prompt} {question.required && <b>*</b>}</label>{question.help_text && <p>{question.help_text}</p>}{question.type === "short_text" && <input value={r[question.code] || ""} onChange={e => set(question.code, e.target.value)} />}{(question.type === "long_text" || question.type === "internal_note") && <textarea value={r[question.code] || ""} onChange={e => set(question.code, e.target.value)} placeholder={question.type === "internal_note" ? "Somente para a equipe; não leia ao entrevistado" : "Registre com as palavras da pessoa"} />}{question.type === "yes_no" && choose(question, ["Sim", "Não"])}{question.type === "single" && choose(question, question.options)}{question.type === "multiple" && multiple(question)}{question.type === "scale" && <div className="escala">{Array.from({ length: 11 }, (_, index) => String(index)).map(value => <button type="button" aria-pressed={r[question.code] === value} className={r[question.code] === value ? "selecionado" : ""} onClick={() => set(question.code, r[question.code] === value ? "" : value)} key={value}>{value}</button>)}</div>}{question.type === "rating" && choose(question, question.options.length ? question.options : ["Péssimo", "Ruim", "Regular", "Bom", "Ótimo"])}{question.type === "region" && (question.options.length ? choose(question, question.options) : <input value={r[question.code] || ""} onChange={e => set(question.code, e.target.value)} placeholder="Informe o bairro ou a região" />)}</div>;
+  const renderQuestion = (question: SurveyQuestion) => <div className={question.type === "internal_note" ? "dynamic-question internal" : "dynamic-question"} key={question.code}><label>{question.prompt} {question.required && <b>*</b>}</label>{question.help_text && <p>{question.help_text}</p>}{question.type === "short_text" && <RespostaTexto value={r[question.code] || ""} salvar={value => set(question.code, value)} />}{(question.type === "long_text" || question.type === "internal_note") && <RespostaTexto longa value={r[question.code] || ""} salvar={value => set(question.code, value)} placeholder={question.type === "internal_note" ? "Somente para a equipe; não leia ao entrevistado" : "Registre com as palavras da pessoa"} />}{question.type === "yes_no" && choose(question, ["Sim", "Não"])}{question.type === "single" && choose(question, question.options)}{question.type === "multiple" && multiple(question)}{question.type === "scale" && <div className="escala">{Array.from({ length: 11 }, (_, index) => String(index)).map(value => <button type="button" aria-pressed={r[question.code] === value} className={r[question.code] === value ? "selecionado" : ""} onClick={() => set(question.code, r[question.code] === value ? "" : value)} key={value}>{value}</button>)}</div>}{question.type === "rating" && choose(question, question.options.length ? question.options : ["Péssimo", "Ruim", "Regular", "Bom", "Ótimo"])}{question.type === "region" && (question.options.length ? choose(question, question.options) : <RespostaTexto value={r[question.code] || ""} salvar={value => set(question.code, value)} placeholder="Informe o bairro ou a região" />)}</div>;
 
   if (!questions.length) return <div className="entrevista"><div className="questao resultado-vazio"><i>◎</i><h3>Questionário ainda sem perguntas</h3><p>Peça à administração para concluir o editor antes de iniciar a coleta.</p><button onClick={() => cancelar("interrupted", "Pesquisa sem perguntas disponíveis")}>Voltar às pesquisas</button></div></div>;
   return <div className="entrevista dynamic-interview"><div className="entrevista-topo"><div><small>{survey.survey_type.toUpperCase()} · {survey.is_test ? "MODO TESTE" : "COLETA OFICIAL"}</small><h2>{survey.title}</h2></div><label>✓ Rascunho salvo no aparelho</label></div><div className="passos">{sections.map((section, index) => <div className={index + 1 <= passo ? "feito" : ""} key={section}><i>{index + 1 < passo ? "✓" : index + 1}</i><span>{section}</span></div>)}</div><div className="questao"><small>ETAPA {passo} DE {sections.length} · COLETA EM CAMPO</small><h3>{currentSection}</h3>{passo === 1 && survey.consent_text && <div className="leitura"><b>LEIA AO ENTREVISTADO</b><p>{survey.consent_text}</p></div>}{currentQuestions.map(renderQuestion)}{(consentRefused || ineligible) && <div className="encerrar"><b>{consentRefused ? "Respeite a decisão da pessoa." : "A pessoa está fora do público desta pesquisa."}</b><span>Agradeça pela atenção e encerre sem guardar respostas da pesquisa.</span><button onClick={() => cancelar(consentRefused ? "refused" : "ineligible", consentRefused ? "Consentimento recusado" : "Pessoa fora do público da pesquisa")}>{consentRefused ? "Registrar recusa" : "Registrar fora do público"} e encerrar</button></div>}<footer><button onClick={() => passo > 1 ? setPasso(passo - 1) : cancelar("interrupted", "Entrevista encerrada pelo pesquisador")}>{passo > 1 ? "← Voltar" : "Encerrar"}</button>{passo < sections.length ? <button className="primary" disabled={!valid || consentRefused || ineligible} onClick={() => setPasso(passo + 1)}>Continuar →</button> : <button className="primary" disabled={!valid || consentRefused || ineligible} onClick={fim}>✓ Finalizar entrevista</button>}</footer>{!valid && !consentRefused && !ineligible && <div className="faltam">Preencha os campos marcados com * para continuar.</div>}</div></div>;
