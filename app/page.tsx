@@ -368,6 +368,12 @@ export default function Home() {
   if (profile.role === "observador") return <ObserverPanel profile={profile} summary={observerSummary} sair={sair} atualizar={async () => { if (session) setObserverSummary(await loadObserverSummary(session)); }} />;
 
   const admin = profile.role === "admin" || profile.role === "coordenador";
+  useEffect(() => {
+    const refresh = () => { void atualizarDadosAdmin(); };
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [session, profile?.role]);
   const campo = view === "portal" || view === "entrevista" || view === "obrigado";
   const titulos: Record<View, string> = {
     inicio: "Visão geral",
@@ -418,7 +424,7 @@ export default function Home() {
       <div className={campo ? "content campo-content" : "content"}>
         {view === "inicio" && <><Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} fieldEvents={fieldEvents} /><AlertasSeguranca events={fieldEvents} /></>}
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} surveys={adminSurveys} profiles={team} session={session} currentProfile={profile} atualizar={atualizarDadosAdmin} />}
-        {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} />}
+        {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onRefresh={atualizarDadosAdmin} />}
         {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "ecossistema" && <Ecossistema />}
@@ -860,12 +866,13 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, sessio
   </>;
 }
 
-function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite }: { aviso: (t: string) => void; profiles: Profile[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador") => Promise<string> }) {
+function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite, onRefresh }: { aviso: (t: string) => void; profiles: Profile[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador") => Promise<string>; onRefresh: () => Promise<void> }) {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "coordenador" | "observador" | "pesquisador">("observador");
   const [generatedLink, setGeneratedLink] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const researcherLink = typeof window === "undefined" ? "" : `${window.location.origin}/?acesso=pesquisador`;
   const copy = async (value: string, message: string) => {
     await navigator.clipboard.writeText(value);
@@ -894,8 +901,20 @@ function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite 
     if (!window.confirm(`Apagar o acesso de ${target.name}?\n\nA pessoa será removida da equipe e não poderá entrar no aplicativo. As entrevistas já realizadas serão preservadas para auditoria.`)) return;
     onDelete(target.id);
   };
+  const refreshProfiles = async () => {
+    setRefreshing(true);
+    try {
+      await onRefresh();
+      aviso("Acessos e cadastros atualizados");
+    } catch {
+      aviso("Não foi possível atualizar agora. Verifique a conexão.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
   return <>
     <Cabecalho titulo="Acessos e cadastros" sub={`${profiles.length} pessoa(s) cadastrada(s) · ${profiles.filter(x => x.active).length} acesso(s) ativo(s)`} botao="＋ Gerar convite" acao={() => setShowInvite(!showInvite)} />
+    <div className="admin-guidance"><i>↻</i><span><b>Cadastros sempre atualizados</b><small>Novos acessos aparecem automaticamente em até 30 segundos. Use este botão para conferir agora.</small></span><button className="pause-all" onClick={() => void refreshProfiles()} disabled={refreshing}>{refreshing ? "Atualizando…" : "Atualizar cadastros"}</button></div>
     <div className="access-grid">
       <div className="painel access-box"><small>LINK DO PESQUISADOR</small><h3>Cadastro e trabalho de campo</h3><p>Este endereço nunca abre o painel administrativo. Todo novo cadastro aguarda sua aprovação.</p><div className="link-row"><input readOnly value={researcherLink} aria-label="Link oficial do pesquisador" /><button onClick={() => copy(researcherLink, "Link do pesquisador copiado")}>Copiar link</button></div></div>
       <div className="painel access-box secure"><small>ADMINISTRAÇÃO</small><h3>Convite individual obrigatório</h3><p>Não compartilhe sua senha. Cada parceiro recebe um link de uso único, vinculado ao e-mail e válido por 72 horas.</p><button onClick={() => setShowInvite(true)}>Criar convite para parceiro</button></div>
