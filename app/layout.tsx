@@ -31,5 +31,22 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body>{children}<script dangerouslySetInnerHTML={{ __html: "if ('serviceWorker' in navigator) window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})" }} /></body></html>;
+  const serviceWorkerUpdate = `
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async function () {
+        var reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (reloading || sessionStorage.getItem('nortep-reload-v26')) return;
+          reloading = true;
+          sessionStorage.setItem('nortep-reload-v26', '1');
+          window.location.reload();
+        });
+        try {
+          var registration = await navigator.serviceWorker.register('/sw.js?v=26', { updateViaCache: 'none' });
+          await registration.update();
+        } catch (_) {}
+      });
+    }
+  `;
+  return <html lang="pt-BR"><body>{children}<script dangerouslySetInnerHTML={{ __html: serviceWorkerUpdate }} /></body></html>;
 }
