@@ -82,6 +82,11 @@ export type SavedInterview = {
   duration_seconds?: number | null;
   quality_flags?: string[];
   is_test?: boolean;
+  respondent_name?: string | null;
+  contact_choice?: string | null;
+  contact_whatsapp?: string | null;
+  contact_email?: string | null;
+  contact_consent?: boolean;
 };
 
 export type FieldEvent = {
@@ -309,7 +314,7 @@ export async function removeProfileAccess(session: Session, profileId: string) {
 }
 
 export async function loadInterviews(session: Session) {
-  return rest<SavedInterview[]>(session, "interviews?select=id,code,survey_id,researcher_id,responses,completed_at,created_at,latitude,longitude,duration_seconds,quality_flags,is_test&status=eq.completed&order=completed_at.desc");
+  return rest<SavedInterview[]>(session, "interviews?select=id,code,survey_id,researcher_id,responses,completed_at,created_at,latitude,longitude,duration_seconds,quality_flags,is_test,respondent_name,contact_choice,contact_whatsapp,contact_email,contact_consent&status=eq.completed&order=completed_at.desc");
 }
 
 export async function loadFieldEvents(session: Session) {
