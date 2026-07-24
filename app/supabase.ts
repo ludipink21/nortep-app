@@ -323,7 +323,11 @@ export async function loadFieldEvents(session: Session) {
 }
 
 export async function saveInterview(session: Session, survey: Survey, responses: Record<string, string>, deviceId: string, durationSeconds?: number) {
-  const { nome, whatsapp, email, interesse, consentimentoContato, autorizaGeo, latitude, longitude, codigo, ...researchResponses } = responses;
+  const { nome, whatsapp, email, interesse, consentimentoContato, autorizaGeo, latitude, longitude, codigo, C01, C02, C03, C04, C05, C06, C07, ...researchResponses } = responses;
+  const dynamicContactConsent = C01 === "Sim" && C06 === "Sim";
+  const dynamicContactChannels = C03 || "";
+  const researchConsent = /^sim/i.test(responses.consentirPesquisa || "");
+  const geoConsent = C07 === "Sim" || autorizaGeo === "Sim, autoriza";
   const rows = await rest<Array<{ id: string; code: string }>>(session, "interviews?select=id,code", {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -332,12 +336,12 @@ export async function saveInterview(session: Session, survey: Survey, responses:
       researcher_id: session.user.id,
       status: "completed",
       responses: researchResponses,
-      respondent_name: nome || null,
-      contact_choice: interesse || null,
-      contact_whatsapp: whatsapp || null,
-      contact_email: email || null,
-      contact_consent: consentimentoContato === "sim",
-      geo_consent: autorizaGeo === "Sim, autoriza",
+      respondent_name: dynamicContactConsent ? C04 || null : nome || null,
+      contact_choice: dynamicContactConsent ? C02 || null : interesse || null,
+      contact_whatsapp: dynamicContactConsent && /(WhatsApp|Telefone)/i.test(dynamicContactChannels) ? C05 || null : whatsapp || null,
+      contact_email: dynamicContactConsent && /E-mail/i.test(dynamicContactChannels) ? C05 || null : email || null,
+      contact_consent: dynamicContactConsent || consentimentoContato === "sim",
+      geo_consent: geoConsent,
       latitude: latitude ? Number(latitude) : null,
       longitude: longitude ? Number(longitude) : null,
       device_id: deviceId,
@@ -352,9 +356,9 @@ export async function saveInterview(session: Session, survey: Survey, responses:
       interview_id: saved.id,
       researcher_id: session.user.id,
       consent_version: survey.consent_version,
-      research_consent: responses.consentirPesquisa === "Sim, aceito participar",
-      geo_consent: autorizaGeo === "Sim, autoriza",
-      contact_consent: consentimentoContato === "sim",
+      research_consent: researchConsent,
+      geo_consent: geoConsent,
+      contact_consent: dynamicContactConsent || consentimentoContato === "sim",
     }),
   });
   return saved;
@@ -413,6 +417,13 @@ export async function setSurveyAssignments(session: Session, surveyId: string, r
       p_region: territory.region || "",
       p_neighborhood: territory.neighborhood || "",
     }),
+  });
+}
+
+export async function updateSurveyStatusAdmin(session: Session, surveyId: string, status: Survey["status"]) {
+  return rest<Survey>(session, "rpc/update_survey_status_admin", {
+    method: "POST",
+    body: JSON.stringify({ p_survey_id: surveyId, p_status: status }),
   });
 }
 
