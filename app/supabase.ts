@@ -101,6 +101,7 @@ export type FieldEvent = {
   latitude?: number | null;
   longitude?: number | null;
   is_test?: boolean;
+  is_safety_alert?: boolean;
   occurred_at: string;
 };
 
@@ -375,6 +376,7 @@ export async function saveFieldEvent(session: Session, survey: Survey, event: Om
       latitude: event.latitude ?? null,
       longitude: event.longitude ?? null,
       device_id: deviceId,
+      is_safety_alert: event.is_safety_alert === true,
     }),
   });
   return rows[0];
