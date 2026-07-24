@@ -103,7 +103,16 @@ export default function Home() {
   }, [view, survey, passo, respostas, interviewStartedAt]);
   useEffect(() => {
     if (view !== "entrevista") return;
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+    const moverParaInicio = () => {
+      const interview = document.querySelector(".entrevista");
+      const top = interview ? Math.max(0, interview.getBoundingClientRect().top + window.scrollY - 96) : 0;
+      window.scrollTo({ top, behavior: "auto" });
+      document.documentElement.scrollTop = top;
+      document.body.scrollTop = top;
+    };
+    window.requestAnimationFrame(() => window.requestAnimationFrame(moverParaInicio));
+    const timer = window.setTimeout(moverParaInicio, 80);
+    return () => window.clearTimeout(timer);
   }, [view, passo]);
   useEffect(() => localStorage.setItem("nortep-video-agradecimento", videoUrl), [videoUrl]);
 
@@ -1001,7 +1010,7 @@ function EntrevistaDinamica({ survey, questions, passo, setPasso, r, setR, fim, 
   const consentRefused = questions.some(q => q.code === "consentirPesquisa" && /não/i.test(r[q.code] || ""));
   const ineligible = questions.some(q => ["idadeMinima", "moraMinas"].includes(q.code) && /^não/i.test(r[q.code] || ""));
   const choose = (question: SurveyQuestion, values: string[]) => <div className="opcoes">{values.map(value => <button type="button" aria-pressed={r[question.code] === value} className={r[question.code] === value ? "selecionado" : ""} onPointerDown={event => event.preventDefault()} onClick={() => set(question.code, r[question.code] === value ? "" : value)} key={value}>{value}</button>)}</div>;
-  const multiple = (question: SurveyQuestion) => { const selected = (r[question.code] || "").split("||").filter(Boolean); const max = /até (três|3)/i.test(`${question.prompt} ${question.help_text || ""}`) ? 3 : Number.POSITIVE_INFINITY; return <div className="opcoes multipla">{question.options.map(value => <button type="button" aria-pressed={selected.includes(value)} className={selected.includes(value) ? "selecionado" : ""} onClick={() => set(question.code, (selected.includes(value) ? selected.filter(x => x !== value) : selected.length < max ? [...selected, value] : selected).join("||"))} key={value}><i>{selected.includes(value) ? "✓" : "+"}</i>{value}</button>)}</div>; };
+  const multiple = (question: SurveyQuestion) => { const selected = (r[question.code] || "").split("||").filter(Boolean); const text = `${question.prompt} ${question.help_text || ""}`; const max = /(?:até|selecione|escolha|marque)\s*(?:as?\s*)?(três|3)\b/i.test(text) ? 3 : Number.POSITIVE_INFINITY; return <div className="opcoes multipla">{question.options.map(value => { const marked = selected.includes(value); const limitReached = selected.length >= max && !marked; return <button type="button" disabled={limitReached} aria-pressed={marked} className={marked ? "selecionado" : ""} onClick={() => set(question.code, (marked ? selected.filter(x => x !== value) : selected.length < max ? [...selected, value] : selected).join("||"))} key={value}><i>{marked ? "✓" : "+"}</i>{value}</button>; })}</div>; };
   const renderQuestion = (question: SurveyQuestion) => <div className={question.type === "internal_note" ? "dynamic-question internal" : "dynamic-question"} key={question.code}><label>{question.prompt} {question.required && <b>*</b>}</label>{question.help_text && <p>{question.help_text}</p>}{question.type === "short_text" && <RespostaTexto value={r[question.code] || ""} salvar={value => set(question.code, value)} />}{(question.type === "long_text" || question.type === "internal_note") && <RespostaTexto longa value={r[question.code] || ""} salvar={value => set(question.code, value)} placeholder={question.type === "internal_note" ? "Somente para a equipe; não leia ao entrevistado" : "Registre com as palavras da pessoa"} />}{question.type === "yes_no" && choose(question, ["Sim", "Não"])}{question.type === "single" && choose(question, question.options)}{question.type === "multiple" && multiple(question)}{question.type === "scale" && <div className="escala">{Array.from({ length: 11 }, (_, index) => String(index)).map(value => <button type="button" aria-pressed={r[question.code] === value} className={r[question.code] === value ? "selecionado" : ""} onClick={() => set(question.code, r[question.code] === value ? "" : value)} key={value}>{value}</button>)}</div>}{question.type === "rating" && choose(question, question.options.length ? question.options : ["Péssimo", "Ruim", "Regular", "Bom", "Ótimo"])}{question.type === "region" && (question.options.length ? choose(question, question.options) : <RespostaTexto value={r[question.code] || ""} salvar={value => set(question.code, value)} placeholder="Informe o bairro ou a região" />)}</div>;
 
   if (!questions.length) return <div className="entrevista"><div className="questao resultado-vazio"><i>◎</i><h3>Questionário ainda sem perguntas</h3><p>Peça à administração para concluir o editor antes de iniciar a coleta.</p><button onClick={() => cancelar("interrupted", "Pesquisa sem perguntas disponíveis")}>Voltar às pesquisas</button></div></div>;
@@ -1018,7 +1027,7 @@ function Entrevista({ passo, setPasso, r, setR, fim, cancelar, extraQuestions }:
       const novas = atuais.includes(item) ? atuais.filter(x => x !== item) : atuais.length < max ? [...atuais, item] : atuais;
       set(campo, novas.join("||"));
     };
-    return <div className="opcoes multipla">{itens.map(x => <button type="button" aria-pressed={atuais.includes(x)} className={atuais.includes(x) ? "selecionado" : ""} onClick={() => alternar(x)} key={x}><i>{atuais.includes(x) ? "✓" : "+"}</i>{x}</button>)}</div>;
+    return <div className="opcoes multipla">{itens.map(x => { const marcado = atuais.includes(x); return <button type="button" disabled={atuais.length >= max && !marcado} aria-pressed={marcado} className={marcado ? "selecionado" : ""} onClick={() => alternar(x)} key={x}><i>{marcado ? "✓" : "+"}</i>{x}</button>; })}</div>;
   };
   const capturarLocalizacao = () => {
     if (!navigator.geolocation) return setGeoStatus("Localização indisponível neste aparelho.");
