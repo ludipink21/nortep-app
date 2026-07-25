@@ -436,7 +436,7 @@ export default function Home() {
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V26" : "NORTEP · DADOS QUE APROXIMAM · V26"}</small>
+          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V28" : "NORTEP · DADOS QUE APROXIMAM · V28"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -661,7 +661,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V26</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V28</small>
     </form>
   </div>;
 }
@@ -763,18 +763,26 @@ function Inicio({ ir, aviso, interviews, profiles, pending, fieldEvents }: { ir:
     return acc;
   }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const rankingTerritorios = Object.entries(interviews.reduce<Record<string, number>>((acc, item) => {
-    const cidade = item.responses.cidade || "Betim";
-    const bairro = item.responses.bairro || "Bairro não informado";
+    const cidade = item.responses.localEntrevistaCidade || item.responses.cidade || "Cidade não informada";
+    const bairro = item.responses.localEntrevistaBairro || item.responses.bairro || "Bairro não informado";
     const local = `${cidade} · ${bairro}`;
     acc[local] = (acc[local] || 0) + 1;
     return acc;
   }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const coberturaCidades = Object.entries(interviews.reduce<Record<string, number>>((acc, item) => {
+    const cidade = item.responses.localEntrevistaCidade || item.responses.cidade || "Cidade não informada";
+    acc[cidade] = (acc[cidade] || 0) + 1;
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1]);
+  const maiorCobertura = Math.max(...coberturaCidades.map(([, total]) => total), 1);
+  const nivelCobertura = (total: number) => total / maiorCobertura >= .75 ? "forte" : total / maiorCobertura >= .4 ? "medio" : "leve";
   return <>
     <div className="boas"><div><small>QUARTA-FEIRA, 22 DE JULHO</small><h2>Bom dia, Ludimila. <span>O campo está avançando.</span></h2><p>Acompanhe o ritmo das equipes e veja onde sua atenção é mais necessária.</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
     <div className="metricas"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(interviews.length)} s="salvas com segurança" /><Metrica c="laranja" i="◎" t="Meta da pesquisa" v={`${progresso}%`} s={`${Math.max(100 - interviews.length, 0)} entrevistas restantes`} /><Metrica c="roxo" i="♙" t="Pesquisadores com coleta" v={String(ativos)} s="na pesquisa atual" /><Metrica c="azul" i="⌁" t="Neste aparelho" v={String(pending)} s="pendentes de sincronização" /></div>
     <div className="operacao-piloto"><article><small>ABORDAGENS REGISTRADAS</small><b>{abordagens}</b><span>entrevistas e ocorrências</span></article><article><small>TAXA DE CONCLUSÃO</small><b>{adesao}%</b><span>concluídas sobre abordagens</span></article><article><small>RECUSAS E INTERRUPÇÕES</small><b>{recusas + interrompidas}</b><span>{recusas} recusas · {interrompidas} interrompidas</span></article><article className={alertasQualidade ? "com-alerta" : ""}><small>ALERTAS DE QUALIDADE</small><b>{alertasQualidade}</b><span>{alertasQualidade ? "verificar antes da análise" : "nenhum alerta atual"}</span></article></div>
     <div className="duas"><div className="painel"><Topo sup="RITMO DE COLETA" titulo="Entrevistas nos últimos 7 dias" /><div className="grafico">{contagens.map((valor, i) => <div key={dias[i].toISOString()}><b>{valor}</b><i style={{ height: `${Math.max(valor ? valor / max * 90 : 3, 3)}%` }} /><small>{i === 6 ? "HOJE" : dias[i].toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3).toUpperCase()}</small></div>)}</div></div><div className="painel"><Topo sup="SITUAÇÃO DA COLETA" titulo="Acompanhamento" /><div className="alerta"><i className={pending ? "a1" : "a0"}>{pending ? "!" : "✓"}</i><span><b>{pending ? `${pending} entrevista(s) aguardando internet` : "Todas as respostas sincronizadas"}</b><small>{pending ? "Abra a área do pesquisador e toque em sincronizar" : "Nenhuma pendência neste aparelho"}</small></span></div><div className="alerta"><i className="a2">i</i><span><b>{interviews.length ? "Coleta em andamento" : "Pronto para a primeira entrevista"}</b><small>Acompanhe aqui a evolução da pesquisa.</small></span></div></div></div>
     <div className="ranking-grid"><div className="painel"><Topo sup="EQUIPE DE CAMPO" titulo="Entrevistas concluídas por pesquisador" />{rankingPesquisadores.length ? rankingPesquisadores.map(([id, total], index) => <div className="ranking-row" key={id}><i>{index + 1}</i><span><b>{nomesPesquisadores[id] || "Pesquisador"}</b><small>Entrevistas sincronizadas</small></span><strong>{total}</strong></div>) : <div className="ranking-empty">O ranking aparecerá após a primeira entrevista.</div>}</div><div className="painel"><Topo sup="CIDADES E BAIRROS" titulo="Entrevistas concluídas por território" />{rankingTerritorios.length ? rankingTerritorios.map(([local, total], index) => <div className="ranking-row" key={local}><i>{index + 1}</i><span><b>{local}</b><small>Entrevistas sincronizadas</small></span><strong>{total}</strong></div>) : <div className="ranking-empty">Os territórios aparecerão após a primeira entrevista.</div>}</div></div>
+    <section className="painel cobertura-territorial"><Topo sup="COBERTURA TERRITORIAL" titulo="Intensidade da coleta por cidade" /><p>Leitura operacional sem mapa físico: quanto mais intensa a cor, maior o volume de entrevistas naquele território.</p>{coberturaCidades.length ? <div className="cobertura-conteudo"><div className="heat-grid">{coberturaCidades.map(([cidade, total]) => <article className={`heat-cell ${nivelCobertura(total)}`} key={cidade}><small>{cidade}</small><b>{total}</b><span>{total === 1 ? "entrevista" : "entrevistas"}</span></article>)}</div><div className="cobertura-lista">{rankingTerritorios.map(([local, total]) => <div key={local}><span><b>{local}</b><small>{total} entrevista(s) no ponto de coleta</small></span><em><i style={{ width: `${total / maiorCobertura * 100}%` }} /></em><strong>{total}</strong></div>)}</div></div> : <div className="ranking-empty">A cobertura aparecerá após a primeira entrevista sincronizada.</div>}</section>
     <div className="painel lista"><div className="topo"><div><small>PESQUISAS ATIVAS</small><h3>Acompanhamento por pesquisa</h3></div><button onClick={() => ir("pesquisas")}>Ver todas →</button></div><LinhaPesquisa p={pesquisaPiloto} ir={ir} /></div>
   </>;
 }
@@ -830,7 +838,7 @@ function Rankings({ interviews, profiles, surveys, fieldEvents }: { interviews: 
 }
 
 function Metrica({ c, i, t, v, s }: { c: string; i: string; t: string; v: string; s: string }) { return <div className="metrica"><i className={c}>{i}</i><span><small>{t}</small><b>{v}</b><em>{s}</em></span></div>; }
-function Topo({ sup, titulo }: { sup: string; titulo: string }) { return <div className="topo"><div><small>{sup}</small><h3>{titulo}</h3></div><button>•••</button></div>; }
+function Topo({ sup, titulo }: { sup: string; titulo: string }) { return <div className="topo"><div><small>{sup}</small><h3>{titulo}</h3></div></div>; }
 function LinhaPesquisa({ p, ir }: { p: typeof pesquisas[0]; ir: (v: View) => void }) { return <div className="linha-pesquisa"><i>▤</i><span><b>{p.nome}</b><small>● {p.status} · {p.equipe} pesquisadores</small></span><div><small>{p.feitas} de {p.meta}</small><em><i style={{ width: (p.feitas / p.meta * 100) + "%" }} /></em></div><strong>{Math.round(p.feitas / p.meta * 100)}%</strong><button onClick={() => ir("resultados")}>Ver detalhes</button></div>; }
 
 function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, session, currentProfile, atualizar }: { ir: (v: View) => void; aviso: (t: string) => void; videoUrl: string; setVideoUrl: (v: string) => void; surveys: Survey[]; profiles: Profile[]; session: Session; currentProfile: Profile; atualizar: () => Promise<void> }) {
