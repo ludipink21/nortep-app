@@ -436,7 +436,7 @@ export default function Home() {
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V28" : "NORTEP · DADOS QUE APROXIMAM · V28"}</small>
+          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V29" : "NORTEP · DADOS QUE APROXIMAM · V29"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -515,17 +515,27 @@ function TelaCarregando() {
 
 function ControleFonte() {
   const [grande, setGrande] = useState(false);
+  const [escuro, setEscuro] = useState(false);
+  const [aberto, setAberto] = useState(false);
   useEffect(() => {
     const salvo = localStorage.getItem("nortep-texto-grande") === "sim";
+    const temaEscuro = localStorage.getItem("nortep-tema") === "escuro";
     setGrande(salvo);
+    setEscuro(temaEscuro);
     document.documentElement.dataset.texto = salvo ? "grande" : "normal";
+    document.documentElement.dataset.tema = temaEscuro ? "escuro" : "claro";
   }, []);
   const alterar = (valor: boolean) => {
     setGrande(valor);
     localStorage.setItem("nortep-texto-grande", valor ? "sim" : "nao");
     document.documentElement.dataset.texto = valor ? "grande" : "normal";
   };
-  return <div className="font-control" role="group" aria-label="Tamanho do texto"><span>Texto</span><button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+</button></div>;
+  const alterarTema = (valor: boolean) => {
+    setEscuro(valor);
+    localStorage.setItem("nortep-tema", valor ? "escuro" : "claro");
+    document.documentElement.dataset.tema = valor ? "escuro" : "claro";
+  };
+  return <div className="visual-control"><button type="button" className="visual-trigger" aria-expanded={aberto} aria-label="Abrir configurações visuais" onClick={() => setAberto(!aberto)}>⚙ <span>Visual</span></button>{aberto && <div className="visual-menu" role="dialog" aria-label="Configurações visuais"><div><b>Visual do aplicativo</b><small>Salvo neste aparelho</small></div><label> Tema <button type="button" className={!escuro ? "active" : ""} aria-pressed={!escuro} onClick={() => alterarTema(false)}>☀ Claro</button><button type="button" className={escuro ? "active" : ""} aria-pressed={escuro} onClick={() => alterarTema(true)}>◐ Noturno</button></label><label> Texto <button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A normal</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+ maior</button></label></div>}</div>;
 }
 
 function TelaConfigErro() {
@@ -661,7 +671,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V28</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V29</small>
     </form>
   </div>;
 }
