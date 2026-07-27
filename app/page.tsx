@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadVaultAudit, loadVaultContacts, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, setupVaultKey, signIn, signUp, Survey, SurveyQuestion, unlockVault, updatePassword, updateSurveyStatusAdmin, VaultAudit, VaultContact } from "./supabase";
+import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadVaultAudit, loadVaultContacts, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, setupVaultKey, signIn, signUp, Survey, SurveyQuestion, unlockVault, updatePassword, updateSurveyStatusAdmin, VaultAudit, VaultContact } from "./supabase";
 
 type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "resultados" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "observador" | "coordenacao" | "administracao" | "principal";
@@ -374,6 +374,22 @@ export default function Home() {
     return () => { window.removeEventListener("online", autoSync); if (timer) window.clearTimeout(timer); };
   }, [session, pendingCount]);
   const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setObserverSummary(null); setView("inicio"); };
+  const descadastrarMeuAcesso = async () => {
+    if (!session || !profile) return;
+    if (profile.is_primary_admin) return aviso("A conta principal é protegida e não pode ser descadastrada.");
+    const senha = window.prompt("Para confirmar sua identidade, digite a senha desta conta:");
+    if (!senha) return;
+    try {
+      await signIn(profile.email, senha);
+      const confirmou = window.confirm("Descadastrar seu acesso ao NorteP?\n\nVocê perderá o acesso ao aplicativo. Seu nome e e-mail serão retirados do cadastro operacional. Entrevistas e registros já realizados permanecerão preservados para auditoria.");
+      if (!confirmou) return;
+      await removeOwnProfileAccess(session);
+      window.alert("Seu acesso foi descadastrado com segurança.");
+      sair();
+    } catch (error) {
+      aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível descadastrar este acesso");
+    }
+  };
   const admin = profile?.role === "admin" || profile?.role === "coordenador";
   useEffect(() => {
     if (!session || !admin) return;
@@ -396,10 +412,10 @@ export default function Home() {
     return <Login access={accessChannel} inviteCode={inviteCode} onAuthenticated={autenticar} />;
   }
   if (profile.access_removed_at) return <AcessoRemovido profile={profile} sair={sair} />;
-  if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} verificar={async () => {
+  if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} descadastrar={descadastrarMeuAcesso} verificar={async () => {
     if (session) await autenticar(session, accessChannel);
   }} />;
-  if (profile.role === "observador") return <ObserverPanel profile={profile} summary={observerSummary} sair={sair} atualizar={async () => { if (session) setObserverSummary(await loadObserverSummary(session)); }} />;
+  if (profile.role === "observador") return <ObserverPanel profile={profile} summary={observerSummary} sair={sair} descadastrar={descadastrarMeuAcesso} atualizar={async () => { if (session) setObserverSummary(await loadObserverSummary(session)); }} />;
 
   const campo = view === "portal" || view === "entrevista" || view === "obrigado";
   const titulos: Record<View, string> = {
@@ -416,7 +432,7 @@ export default function Home() {
   };
 
   return <div className={campo ? "app app-campo" : "app"}>
-    <ControleFonte />
+    <ControleFonte profile={profile} sair={sair} descadastrar={descadastrarMeuAcesso} />
     {!campo && <aside className={menu ? "open" : ""}>
       <div className="logo"><i>NP</i><span>NorteP <b>Pesquisa</b></span></div>
       <nav>{[
@@ -436,7 +452,7 @@ export default function Home() {
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V35" : "NORTEP · DADOS QUE APROXIMAM · V35"}</small>
+          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V36" : "NORTEP · DADOS QUE APROXIMAM · V36"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -513,7 +529,7 @@ function TelaCarregando() {
   return <div className="auth-shell"><div className="auth-card loading-card"><div className="auth-logo">NP</div><h1>NorteP Pesquisa</h1><p>Preparando seu acesso seguro…</p></div></div>;
 }
 
-function ControleFonte() {
+function ControleFonte({ profile, sair, descadastrar }: { profile?: Profile; sair?: () => void; descadastrar?: () => Promise<void> } = {}) {
   const [grande, setGrande] = useState(false);
   const [escuro, setEscuro] = useState(false);
   const [aberto, setAberto] = useState(false);
@@ -535,7 +551,7 @@ function ControleFonte() {
     localStorage.setItem("nortep-tema", valor ? "escuro" : "claro");
     document.documentElement.dataset.tema = valor ? "escuro" : "claro";
   };
-  return <div className="visual-control"><button type="button" className="visual-trigger" aria-expanded={aberto} aria-label="Abrir configurações visuais" onClick={() => setAberto(!aberto)}>⚙ <span>Visual</span></button>{aberto && <div className="visual-menu" role="dialog" aria-label="Configurações visuais"><div><b>Visual do aplicativo</b><small>Salvo neste aparelho</small></div><label> Tema <button type="button" className={!escuro ? "active" : ""} aria-pressed={!escuro} onClick={() => alterarTema(false)}>☀ Claro</button><button type="button" className={escuro ? "active" : ""} aria-pressed={escuro} onClick={() => alterarTema(true)}>◐ Noturno</button></label><label> Texto <button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A normal</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+ maior</button></label></div>}</div>;
+  return <div className="visual-control"><button type="button" className="visual-trigger" aria-expanded={aberto} aria-label="Abrir configurações" onClick={() => setAberto(!aberto)}>⚙ <span>Configurações</span></button>{aberto && <div className="visual-menu" role="dialog" aria-label="Configurações do aplicativo"><div><b>Visual do aplicativo</b><small>Salvo neste aparelho</small></div><label> Tema <button type="button" className={!escuro ? "active" : ""} aria-pressed={!escuro} onClick={() => alterarTema(false)}>☀ Claro</button><button type="button" className={escuro ? "active" : ""} aria-pressed={escuro} onClick={() => alterarTema(true)}>◐ Noturno</button></label><label> Texto <button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A normal</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+ maior</button></label>{profile && sair && <section className="account-settings"><div><b>Minha conta</b><small>{profile.name} · {roleLabel(profile.role)}</small></div><button type="button" className="account-logout" onClick={sair}>Sair do aplicativo</button>{profile.is_primary_admin ? <small className="primary-account-note">A conta principal é protegida contra descadastramento.</small> : <button type="button" className="account-remove" onClick={() => void descadastrar?.()}>Descadastrar meu acesso</button>}</section>}</div>}</div>;
 }
 
 function TelaConfigErro() {
@@ -671,7 +687,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V35</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V36</small>
     </form>
   </div>;
 }
@@ -734,21 +750,21 @@ function traduzErro(message: string) {
   return "Não foi possível concluir a operação. Aguarde um momento e tente novamente.";
 }
 
-function AguardandoAprovacao({ profile, sair, verificar }: { profile: Profile; sair: () => void; verificar: () => Promise<void> }) {
+function AguardandoAprovacao({ profile, sair, descadastrar, verificar }: { profile: Profile; sair: () => void; descadastrar: () => Promise<void>; verificar: () => Promise<void> }) {
   const [checking, setChecking] = useState(false);
   const refresh = async () => { setChecking(true); try { await verificar(); } finally { setChecking(false); } };
-  return <div className="auth-shell"><ControleFonte /><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO CRIADO COM SUCESSO</small><h2>Olá, {profile.name}.</h2><p>Seu cadastro está correto e chegou à coordenação. Assim que a administração aprovar, toque no botão abaixo para abrir a pesquisa.</p><div className="pending-shield">◎ <span><b>Aguardando apenas a aprovação</b><small>Esta proteção impede que pessoas não autorizadas façam entrevistas.</small></span></div><button className="primary pending-refresh" onClick={refresh} disabled={checking}>{checking ? "Verificando…" : "Verificar liberação da pesquisa"}</button><button className="auth-switch" onClick={sair}>Sair e voltar depois</button></div></div>;
+  return <div className="auth-shell"><ControleFonte profile={profile} sair={sair} descadastrar={descadastrar} /><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO CRIADO COM SUCESSO</small><h2>Olá, {profile.name}.</h2><p>Seu cadastro está correto e chegou à coordenação. Assim que a administração aprovar, toque no botão abaixo para abrir a pesquisa.</p><div className="pending-shield">◎ <span><b>Aguardando apenas a aprovação</b><small>Esta proteção impede que pessoas não autorizadas façam entrevistas.</small></span></div><button className="primary pending-refresh" onClick={refresh} disabled={checking}>{checking ? "Verificando…" : "Verificar liberação da pesquisa"}</button><button className="auth-switch" onClick={sair}>Sair e voltar depois</button></div></div>;
 }
 
 function AcessoRemovido({ profile, sair }: { profile: Profile; sair: () => void }) {
   return <div className="auth-shell"><ControleFonte /><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO ENCERRADO</small><h2>Olá, {profile.name}.</h2><p>Este acesso foi removido pela administração e não pode abrir pesquisas ou painéis.</p><div className="pending-shield"><i>×</i><span><b>Acesso indisponível</b><small>Se acreditar que houve um engano, fale com a coordenação da NorteP.</small></span></div><button className="auth-switch" onClick={sair}>Sair</button></div></div>;
 }
 
-function ObserverPanel({ profile, summary, sair, atualizar }: { profile: Profile; summary: ObserverSummary | null; sair: () => void; atualizar: () => Promise<void> }) {
+function ObserverPanel({ profile, summary, sair, descadastrar, atualizar }: { profile: Profile; summary: ObserverSummary | null; sair: () => void; descadastrar: () => Promise<void>; atualizar: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const refresh = async () => { setBusy(true); try { await atualizar(); } finally { setBusy(false); } };
   const lastUpdate = summary?.updated_at ? new Date(summary.updated_at).toLocaleString("pt-BR") : "Nenhuma entrevista registrada";
-  return <div className="observer-shell"><ControleFonte />
+  return <div className="observer-shell"><ControleFonte profile={profile} sair={sair} descadastrar={descadastrar} />
     <aside><div className="observer-logo"><i>NP</i><span>NorteP <b>Pesquisa</b></span></div><div className="observer-lock"><b>◉ Somente leitura</b><span>Respostas individuais, contatos e configurações estão protegidos.</span></div><div className="observer-user"><i>{profile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{profile.name}</b><small>Observador autorizado</small></span><button onClick={sair}>Sair</button></div></aside>
     <main><header><div><small>NORTEP · VISÃO AUTORIZADA</small><h1>Acompanhamento da coleta</h1></div><button onClick={refresh} disabled={busy}>{busy ? "Atualizando…" : "↻ Atualizar números"}</button></header><div className="observer-content"><div className="observer-intro"><div><small>ACESSO SEGURO</small><h2>Olá, {profile.name.split(" ")[0]}.</h2><p>Você pode acompanhar somente indicadores agrupados. Nenhum dado pessoal ou resposta individual é exibido.</p></div><span>Última coleta: <b>{lastUpdate}</b></span></div>{summary ? <><div className="observer-metrics"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(summary.total_interviews)} s="somente contagem agrupada" /><Metrica c="laranja" i="◎" t="Realizadas hoje" v={String(summary.interviews_today)} s="ritmo da coleta" /><Metrica c="roxo" i="♙" t="Pesquisadores com coleta" v={String(summary.active_researchers)} s="sem identificação pessoal" /><Metrica c="azul" i="▤" t="Pesquisas em andamento" v={String(summary.active_surveys)} s="pesquisas liberadas" /></div><div className="painel observer-surveys"><div className="topo"><div><small>PESQUISAS AUTORIZADAS</small><h3>Acompanhamento agrupado</h3></div></div>{summary.surveys.length ? summary.surveys.map(item => <div className="observer-survey-row" key={item.id}><span><b>{item.title}</b><small>Em campo</small></span><div><b>{item.interviews}</b><small>entrevistas</small></div><div><b>{item.researchers}</b><small>pesquisadores</small></div></div>) : <div className="resultado-vazio"><h3>Nenhuma pesquisa em andamento</h3><p>Os indicadores aparecerão quando uma pesquisa for liberada.</p></div>}</div></> : <div className="painel resultado-vazio"><h3>Preparando indicadores</h3><p>Aguarde um momento e atualize os números.</p></div>}<div className="observer-notice"><i>✓</i><span><b>Privacidade preservada</b><small>Este perfil não permite acessar nomes, contatos, localização, respostas, exportações, equipe ou configurações.</small></span></div></div></main>
   </div>;

@@ -325,6 +325,13 @@ export async function removeProfileAccess(session: Session, profileId: string) {
   });
 }
 
+export async function removeOwnProfileAccess(session: Session) {
+  return rest<{ removed: boolean }>(session, "rpc/remove_own_profile_access", {
+    method: "POST",
+    body: "{}",
+  });
+}
+
 export async function loadInterviews(session: Session) {
   return rest<SavedInterview[]>(session, "interviews?select=id,code,survey_id,researcher_id,responses,completed_at,created_at,latitude,longitude,duration_seconds,quality_flags,is_test,contact_consent&status=eq.completed&order=completed_at.desc");
 }
