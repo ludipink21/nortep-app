@@ -452,7 +452,7 @@ export default function Home() {
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V36" : "NORTEP · DADOS QUE APROXIMAM · V36"}</small>
+          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V37" : "NORTEP · DADOS QUE APROXIMAM · V37"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -551,7 +551,7 @@ function ControleFonte({ profile, sair, descadastrar }: { profile?: Profile; sai
     localStorage.setItem("nortep-tema", valor ? "escuro" : "claro");
     document.documentElement.dataset.tema = valor ? "escuro" : "claro";
   };
-  return <div className="visual-control"><button type="button" className="visual-trigger" aria-expanded={aberto} aria-label="Abrir configurações" onClick={() => setAberto(!aberto)}>⚙ <span>Configurações</span></button>{aberto && <div className="visual-menu" role="dialog" aria-label="Configurações do aplicativo"><div><b>Visual do aplicativo</b><small>Salvo neste aparelho</small></div><label> Tema <button type="button" className={!escuro ? "active" : ""} aria-pressed={!escuro} onClick={() => alterarTema(false)}>☀ Claro</button><button type="button" className={escuro ? "active" : ""} aria-pressed={escuro} onClick={() => alterarTema(true)}>◐ Noturno</button></label><label> Texto <button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A normal</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+ maior</button></label>{profile && sair && <section className="account-settings"><div><b>Minha conta</b><small>{profile.name} · {roleLabel(profile.role)}</small></div><button type="button" className="account-logout" onClick={sair}>Sair do aplicativo</button>{profile.is_primary_admin ? <small className="primary-account-note">A conta principal é protegida contra descadastramento.</small> : <button type="button" className="account-remove" onClick={() => void descadastrar?.()}>Descadastrar meu acesso</button>}</section>}</div>}</div>;
+  return <div className="visual-control"><button type="button" className="visual-trigger" aria-expanded={aberto} aria-label="Abrir configurações" onClick={() => setAberto(!aberto)}>⚙ <span>Configurações</span></button>{aberto && <div className="visual-menu" role="dialog" aria-label="Configurações do aplicativo"><div><b>Visual do aplicativo</b><small>Salvo neste aparelho</small></div><label> Tema <button type="button" className={!escuro ? "active" : ""} aria-pressed={!escuro} onClick={() => alterarTema(false)}>☀ Claro</button><button type="button" className={escuro ? "active" : ""} aria-pressed={escuro} onClick={() => alterarTema(true)}>◐ Noturno</button></label><label> Texto <button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A normal</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+ maior</button></label>{profile && sair && <section className="account-settings"><div><b>Minha conta</b><small>{profile.name} · {({ admin: "Administrador", coordenador: "Coordenador", pesquisador: "Pesquisador", observador: "Observador" } as const)[profile.role]}</small></div><button type="button" className="account-logout" onClick={sair}>Sair do aplicativo</button>{profile.is_primary_admin ? <small className="primary-account-note">A conta principal é protegida contra descadastramento.</small> : <button type="button" className="account-remove" onClick={() => void descadastrar?.()}>Descadastrar meu acesso</button>}</section>}</div>}</div>;
 }
 
 function TelaConfigErro() {
@@ -687,7 +687,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V36</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V37</small>
     </form>
   </div>;
 }
