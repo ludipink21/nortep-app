@@ -96,3 +96,28 @@ html[data-tema="escuro"]{--tyrian-dark:#21151d!important;--gold-light:#3a2b35!im
 
 @media(max-width:1050px){.operacao-piloto,.result-summary{grid-template-columns:1fr 1fr}.result-filters{grid-template-columns:1fr 1fr}.editor-grid{grid-template-columns:1fr 1fr}.assignment-territory{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){.operacao-piloto,.result-summary,.ranking-filtros,.result-filters{grid-template-columns:1fr}.survey-admin-cards{grid-template-columns:1fr}.modal-backdrop{padding:0;place-items:stretch}.survey-editor,.assignment-editor,.field-event-modal{max-height:100vh;border-radius:0}.editor-grid{grid-template-columns:1fr;padding:17px}.editor-grid label.wide{grid-column:auto}.question-editor-head,.question-editor-list{padding-left:17px;padding-right:17px}.question-editor-list>article{grid-template-columns:30px 1fr}.question-actions{grid-column:1/-1;flex-direction:row;justify-content:flex-end}.question-fields>div,.question-fields .condition-row{grid-template-columns:1fr}.assignment-territory,.researcher-checks{grid-template-columns:1fr}.field-event-call{align-items:stretch;flex-direction:column}.field-event-call button{width:100%}.mapa-grid{grid-template-columns:1fr}.mapa-canvas{height:390px}.mapa-privacidade{display:inline-block;margin-top:12px}.mapa-legenda{display:grid;gap:6px}.dynamic-interview .passos{overflow:auto}.dynamic-interview .passos div{min-width:45px}}
+
+/* Correção final de contraste: ícones e conteúdo dos botões no tema noturno. */
+html[data-tema="escuro"] :is(.app,.observer-shell,.public-shell,.auth-shell) button,
+html[data-tema="escuro"] :is(.app,.observer-shell,.public-shell,.auth-shell) button *{
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  opacity:1!important
+}
+html[data-tema="escuro"] .app :is(.metrica>i,.alerta>i,.linha-pesquisa>i,.ranking-row>i,.ranking-detalhe>i,.question-number,.ranking-nota>i,.eco>i,.video-status>i,.privacidade>i,.check-final){
+  background:#7d3154!important;
+  border-color:#b7658a!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  opacity:1!important;
+  text-shadow:0 1px 1px #250c18
+}
+html[data-tema="escuro"] .app nav button,
+html[data-tema="escuro"] .app nav button *{
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  opacity:1!important
+}
+html[data-tema="escuro"] .app nav button.active{
+  box-shadow:inset 0 0 0 2px #d68bab!important
+}
