@@ -121,3 +121,39 @@ html[data-tema="escuro"] .app nav button *{
 html[data-tema="escuro"] .app nav button.active{
   box-shadow:inset 0 0 0 2px #d68bab!important
 }
+
+/* Ecossistema: os cartões também precisam pertencer ao tema noturno. */
+html[data-tema="escuro"] .app .eco,
+html[data-tema="escuro"] .app .eco.ativo{
+  background:#30242c!important;
+  border-color:#67515e!important;
+  color:#fffaf5!important;
+  box-shadow:0 10px 24px #08050842!important
+}
+html[data-tema="escuro"] .app .eco.ativo{
+  border-color:#c9a352!important
+}
+html[data-tema="escuro"] .app .eco :is(h3,p){
+  color:#fffaf5!important;
+  -webkit-text-fill-color:#fffaf5!important;
+  opacity:1!important
+}
+html[data-tema="escuro"] .app .eco>label{
+  background:#493945!important;
+  color:#fffaf5!important;
+  -webkit-text-fill-color:#fffaf5!important;
+  border:1px solid #745d6b!important;
+  opacity:1!important
+}
+html[data-tema="escuro"] .app .eco.ativo>label{
+  background:#5c4729!important;
+  border-color:#c9a352!important
+}
+html[data-tema="escuro"] .app .eco button,
+html[data-tema="escuro"] .app .eco button:disabled{
+  background:#7d3154!important;
+  border-color:#b7658a!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  opacity:1!important
+}
