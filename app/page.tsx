@@ -268,9 +268,9 @@ export default function Home() {
       aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível apagar o acesso");
     }
   };
-  const gerarConvite = async (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador", territory?: { cities?: string[]; regions?: string[]; neighborhoods?: string[] }) => {
+  const gerarConvite = async (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador", options?: { coordinatorId?: string; cities?: string[]; regions?: string[]; neighborhoods?: string[] }) => {
     if (!session) throw new Error("Entre novamente para gerar o convite.");
-    const code = await createAccessInvite(session, email, role, territory);
+    const code = await createAccessInvite(session, email, role, options);
     const channel = role === "observador" ? "observador" : role === "pesquisador" ? "pesquisador" : role === "coordenador" ? "coordenacao" : "administracao";
     return `${window.location.origin}/?acesso=${channel}&convite=${encodeURIComponent(code)}`;
   };
@@ -519,7 +519,7 @@ export default function Home() {
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V43" : "NORTEP · DADOS QUE APROXIMAM · V43"}</small>
+          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V44" : "NORTEP · DADOS QUE APROXIMAM · V44"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -803,7 +803,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V43</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V44</small>
     </form>
   </div>;
 }
@@ -1029,7 +1029,7 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, sessio
   </>;
 }
 
-function Coordenacao({ aviso, profiles, memberships, territories, interviews, currentProfile, onToggle, onDelete, onInvite, onSetTerritories, onRefresh }: { aviso: (t: string) => void; profiles: Profile[]; memberships: CoordinatorMembership[]; territories: CoordinatorTerritory[]; interviews: SavedInterview[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador", territory?: { cities?: string[]; regions?: string[]; neighborhoods?: string[] }) => Promise<string>; onSetTerritories: (coordinatorId: string, cities: string[], regions: string[], neighborhoods: string[]) => Promise<void>; onRefresh: () => Promise<void> }) {
+function Coordenacao({ aviso, profiles, memberships, territories, interviews, currentProfile, onToggle, onDelete, onInvite, onSetTerritories, onRefresh }: { aviso: (t: string) => void; profiles: Profile[]; memberships: CoordinatorMembership[]; territories: CoordinatorTerritory[]; interviews: SavedInterview[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador", options?: { coordinatorId?: string; cities?: string[]; regions?: string[]; neighborhoods?: string[] }) => Promise<string>; onSetTerritories: (coordinatorId: string, cities: string[], regions: string[], neighborhoods: string[]) => Promise<void>; onRefresh: () => Promise<void> }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [citiesText, setCitiesText] = useState("");
@@ -1039,7 +1039,9 @@ function Coordenacao({ aviso, profiles, memberships, territories, interviews, cu
   const [busy, setBusy] = useState(false);
   const [editingCoordinatorId, setEditingCoordinatorId] = useState("");
   const isCoordinator = currentProfile.role === "coordenador";
-  const inviteRole: "coordenador" | "pesquisador" = isCoordinator ? "pesquisador" : "coordenador";
+  const [adminInviteRole, setAdminInviteRole] = useState<"coordenador" | "pesquisador">("coordenador");
+  const [responsibleCoordinatorId, setResponsibleCoordinatorId] = useState("");
+  const inviteRole: "coordenador" | "pesquisador" = isCoordinator ? "pesquisador" : adminInviteRole;
   const coordinators = profiles.filter(person => person.role === "coordenador");
   const researchers = profiles.filter(person => person.role === "pesquisador");
   const splitTerritories = (value: string) => Array.from(new Set(value.split(",").map(item => item.trim()).filter(Boolean)));
@@ -1054,13 +1056,14 @@ function Coordenacao({ aviso, profiles, memberships, territories, interviews, cu
   }).sort((a, b) => b.total - a.total || a.person.name.localeCompare(b.person.name));
   const generate = async () => {
     if (!inviteEmail.includes("@")) return aviso("Informe um e-mail válido.");
+    if (!isCoordinator && inviteRole === "pesquisador" && !responsibleCoordinatorId) return aviso("Escolha o coordenador responsável pelo pesquisador.");
     setBusy(true);
     try {
       const link = await onInvite(inviteEmail.trim().toLowerCase(), inviteRole, inviteRole === "coordenador" ? {
         cities: splitTerritories(citiesText),
         regions: splitTerritories(regionsText),
         neighborhoods: splitTerritories(neighborhoodsText),
-      } : undefined);
+      } : (!isCoordinator ? { coordinatorId: responsibleCoordinatorId } : undefined));
       setGeneratedLink(link);
       await navigator.clipboard.writeText(link);
       aviso(`Convite de ${inviteRole === "coordenador" ? "coordenação" : "pesquisador"} criado e copiado.`);
@@ -1107,8 +1110,16 @@ function Coordenacao({ aviso, profiles, memberships, territories, interviews, cu
       <article><small>ENTREVISTAS SINCRONIZADAS</small><b>{interviews.length}</b><span>produção registrada no banco</span></article>
       <article><small>REALIZADAS HOJE</small><b>{interviews.filter(item => new Date(item.completed_at || item.created_at).toDateString() === today).length}</b><span>ritmo atual da operação</span></article>
     </div>
-    <div className="admin-guidance"><i>✓</i><span><b>Responsabilidades separadas</b><small>{isCoordinator ? "Convide somente os pesquisadores da sua equipe e acompanhe a coleta do seu território." : "A administração cria coordenadores e define seus territórios; cada coordenador convida os próprios pesquisadores."}</small></span><button className="pause-all" onClick={() => void refresh()} disabled={busy}>{busy ? "Atualizando…" : "Atualizar painel"}</button></div>
-    {inviteOpen && <div className="painel invite-panel coord-invite"><div><small>{inviteRole === "coordenador" ? "NOVO COORDENADOR" : "NOVO PESQUISADOR"}</small><h3>Gerar convite individual</h3><p>{isCoordinator ? "O pesquisador será vinculado automaticamente à sua equipe." : "Crie o coordenador e informe os territórios sob sua responsabilidade."}</p></div>{!isCoordinator && <><label>Cidade(s)<input value={citiesText} onChange={event => setCitiesText(event.target.value)} placeholder="Betim, Contagem" /></label><label>Região(ões)<input value={regionsText} onChange={event => setRegionsText(event.target.value)} placeholder="Centro, Norte" /></label><label>Bairro(s)<input value={neighborhoodsText} onChange={event => setNeighborhoodsText(event.target.value)} placeholder="Centro, Alterosas" /></label></>}<label>E-mail autorizado<input type="email" value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} placeholder="pessoa@exemplo.com" /></label><button className="primary" disabled={busy || !inviteEmail} onClick={() => void generate()}>{busy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}.</span><div className="link-row"><input readOnly value={generatedLink} /><button onClick={() => void navigator.clipboard.writeText(generatedLink).then(() => aviso("Convite copiado novamente."))}>Copiar</button></div></div>}</div>}
+    <div className="admin-guidance"><i>✓</i><span><b>Gestão organizada por equipe</b><small>{isCoordinator ? "Convide somente os pesquisadores da sua equipe e acompanhe a coleta do seu território." : "Administradores podem criar coordenadores ou incluir pesquisadores, sempre escolhendo a coordenação responsável."}</small></span><button className="pause-all" onClick={() => void refresh()} disabled={busy}>{busy ? "Atualizando…" : "Atualizar painel"}</button></div>
+    {inviteOpen && <div className="painel invite-panel coord-invite">
+      <div><small>{inviteRole === "coordenador" ? "NOVO COORDENADOR" : "NOVO PESQUISADOR"}</small><h3>Gerar convite individual</h3><p>{isCoordinator ? "O pesquisador será vinculado automaticamente à sua equipe." : inviteRole === "coordenador" ? "Crie o coordenador e informe os territórios sob sua responsabilidade." : "Inclua o pesquisador e escolha a coordenação que acompanhará seu trabalho."}</p></div>
+      {!isCoordinator && <label>Tipo de acesso<select value={adminInviteRole} onChange={event => { setAdminInviteRole(event.target.value as "coordenador" | "pesquisador"); setGeneratedLink(""); }}><option value="coordenador">Coordenador</option><option value="pesquisador">Pesquisador</option></select></label>}
+      {!isCoordinator && inviteRole === "pesquisador" && <label>Coordenador responsável<select value={responsibleCoordinatorId} onChange={event => setResponsibleCoordinatorId(event.target.value)}><option value="">Selecione uma coordenação</option>{coordinators.filter(person => person.active).map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</select></label>}
+      {!isCoordinator && inviteRole === "coordenador" && <><label>Cidade(s)<input value={citiesText} onChange={event => setCitiesText(event.target.value)} placeholder="Betim, Contagem" /></label><label>Região(ões)<input value={regionsText} onChange={event => setRegionsText(event.target.value)} placeholder="Centro, Norte" /></label><label>Bairro(s)<input value={neighborhoodsText} onChange={event => setNeighborhoodsText(event.target.value)} placeholder="Centro, Alterosas" /></label></>}
+      <label>E-mail autorizado<input type="email" value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} placeholder="pessoa@exemplo.com" /></label>
+      <button className="primary" disabled={busy || !inviteEmail || (!isCoordinator && inviteRole === "pesquisador" && !responsibleCoordinatorId)} onClick={() => void generate()}>{busy ? "Gerando…" : "Gerar e copiar convite"}</button>
+      {generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}.</span><div className="link-row"><input readOnly value={generatedLink} /><button onClick={() => void navigator.clipboard.writeText(generatedLink).then(() => aviso("Convite copiado novamente."))}>Copiar</button></div></div>}
+    </div>}
     {!isCoordinator && <section className="painel coord-list"><Topo sup="RESPONSÁVEIS PELA COLETA" titulo="Coordenadores cadastrados" />{coordinators.length ? coordinators.map(person => { const memberCount = memberships.filter(item => item.coordinator_id === person.id && item.active).length; const ownTerritories = territories.filter(item => item.coordinator_id === person.id && item.active); return <div className="coord-person" key={person.id}><span className="pessoa"><i>{person.name.split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase()}</i><span><b>{person.name}</b><small>{person.email} · {memberCount} pesquisador(es)</small><small>{ownTerritories.length ? ownTerritories.map(item => `${item.scope_type}: ${item.scope_value}`).join(" · ") : "Território ainda não definido"}</small></span></span><strong className={person.active ? "ok" : "pendente"}>● {person.active ? "Ativo" : "Suspenso"}</strong><div className="access-actions"><button onClick={() => openTerritories(person.id)}>Definir territórios</button><button className={person.active ? "suspender" : "aprovar"} onClick={() => onToggle(person.id, !person.active)}>{person.active ? "Suspender" : "Reativar"}</button><button className="apagar-acesso" onClick={() => remove(person)}>Apagar acesso</button></div></div>; }) : <div className="ranking-empty">Nenhum coordenador cadastrado. Use “Novo acesso de campo” para gerar o primeiro convite.</div>}</section>}
     <section className="painel coord-production"><Topo sup="PRODUÇÃO DA EQUIPE" titulo="Entrevistas por pesquisador" />{production.length ? <div className="coord-table"><div className="coord-row coord-head"><span>Pesquisador</span><span>Hoje</span><span>Total</span><span>Tempo médio</span><span>Última coleta</span><span>Acesso</span></div>{production.map(({ person, total, todayTotal, average, latest }, index) => <div className="coord-row" key={person.id}><span className="coord-name"><i>{index + 1}</i><span><b>{person.name}</b><small>{person.region || "Território não vinculado"}</small></span></span><strong>{todayTotal}</strong><strong>{total}</strong><span>{average ? `${average} min` : "—"}</span><span>{latest ? new Date(latest).toLocaleDateString("pt-BR") : "Sem coleta"}</span><span className={person.active ? "ok" : "pendente"}>● {person.active ? "Ativo" : "Suspenso"}</span></div>)}</div> : <div className="ranking-empty">Os pesquisadores e suas pontuações aparecerão aqui quando forem cadastrados.</div>}</section>
     {editingCoordinatorId && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Definir territórios do coordenador"><div className="assignment-editor"><header><div><small>TERRITÓRIOS DA COORDENAÇÃO</small><h2>{coordinators.find(person => person.id === editingCoordinatorId)?.name || "Coordenador"}</h2></div><button onClick={() => setEditingCoordinatorId("")}>×</button></header><p>Separe por vírgulas quando houver mais de uma cidade, região ou bairro.</p><div className="assignment-territory"><label>Cidade(s)<input value={citiesText} onChange={event => setCitiesText(event.target.value)} placeholder="Betim, Contagem" /></label><label>Região(ões)<input value={regionsText} onChange={event => setRegionsText(event.target.value)} placeholder="Centro, Norte" /></label><label>Bairro(s)<input value={neighborhoodsText} onChange={event => setNeighborhoodsText(event.target.value)} placeholder="Alterosas, Centro" /></label></div><footer><button onClick={() => setEditingCoordinatorId("")}>Cancelar</button><button className="primary" disabled={busy} onClick={() => void saveTerritories()}>{busy ? "Salvando…" : "Salvar territórios"}</button></footer></div></div>}

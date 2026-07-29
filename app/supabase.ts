@@ -259,15 +259,21 @@ export async function redeemAccessInvite(session: Session, code: string) {
   });
 }
 
-export async function createAccessInvite(session: Session, email: string, role: "admin" | "coordenador" | "observador" | "pesquisador", territory?: { cities?: string[]; regions?: string[]; neighborhoods?: string[] }) {
-  return rest<string>(session, "rpc/create_scoped_access_invite", {
+export async function createAccessInvite(
+  session: Session,
+  email: string,
+  role: "admin" | "coordenador" | "observador" | "pesquisador",
+  options?: { coordinatorId?: string; cities?: string[]; regions?: string[]; neighborhoods?: string[] },
+) {
+  return rest<string>(session, "rpc/create_managed_access_invite", {
     method: "POST",
     body: JSON.stringify({
       p_email: email,
       p_role: role,
-      p_cities: territory?.cities || [],
-      p_regions: territory?.regions || [],
-      p_neighborhoods: territory?.neighborhoods || [],
+      p_coordinator_id: options?.coordinatorId || null,
+      p_cities: options?.cities || [],
+      p_regions: options?.regions || [],
+      p_neighborhoods: options?.neighborhoods || [],
     }),
   });
 }
