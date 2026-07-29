@@ -8,19 +8,22 @@ const worker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8
 const migration = await readFile(new URL("../supabase/migrations/20260728090000_founder_and_role_boundaries.sql", import.meta.url), "utf8");
 const structureGuard = await readFile(new URL("../supabase/migrations/20260728100000_founder_survey_structure_guard.sql", import.meta.url), "utf8");
 
-test("V40 mantém entradas separadas por função", () => {
+test("V41 mantém entradas separadas por função e visão exclusiva da fundadora", () => {
   for (const channel of ["principal", "administracao", "coordenacao", "observador", "pesquisador"]) {
     assert.match(page, new RegExp(`"${channel}"`));
   }
   assert.match(page, /Administradora fundadora/);
   assert.match(page, /Criar coordenador/);
   assert.match(page, /Minha coordenação/);
+  assert.match(page, /Ver todo o aplicativo/);
+  assert.match(page, /Prévia exclusiva da fundadora/);
+  assert.match(page, /bussolanortep@gmail\.com/);
 });
 
 test("service worker e interface usam a mesma versão", () => {
-  assert.match(page, /V40/);
-  assert.match(layout, /sw\.js\?v=40/);
-  assert.match(worker, /nortep-pesquisa-v40/);
+  assert.match(page, /V41/);
+  assert.match(layout, /sw\.js\?v=41/);
+  assert.match(worker, /nortep-pesquisa-v41/);
 });
 
 test("permissões críticas ficam protegidas no banco", () => {

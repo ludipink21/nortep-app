@@ -36,13 +36,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       window.addEventListener('load', async function () {
         var reloading = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (reloading || sessionStorage.getItem('nortep-reload-v40')) return;
+          if (reloading || sessionStorage.getItem('nortep-reload-v41')) return;
           reloading = true;
-          sessionStorage.setItem('nortep-reload-v40', '1');
+          sessionStorage.setItem('nortep-reload-v41', '1');
           window.location.reload();
         });
         try {
-          var registration = await navigator.serviceWorker.register('/sw.js?v=40', { updateViaCache: 'none' });
+          var registration = await navigator.serviceWorker.register('/sw.js?v=41', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });

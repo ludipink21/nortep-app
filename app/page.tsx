@@ -5,8 +5,9 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadVaultAudit, loadVaultContacts, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, setupVaultKey, signIn, signUp, Survey, SurveyQuestion, unlockVault, updatePassword, updateSurveyStatusAdmin, VaultAudit, VaultContact } from "./supabase";
 
-type View = "inicio" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
+type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "observador" | "coordenacao" | "administracao" | "principal";
+type FounderPerspective = "fundadora" | "publico" | "pesquisador" | "observador" | "coordenador" | "administrador";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
   | { kind: "field_event"; id: string; survey: Survey; event: Omit<FieldEvent, "id" | "survey_id" | "researcher_id" | "occurred_at">; deviceId: string; savedAt: string; attempts: number };
@@ -54,6 +55,7 @@ export default function Home() {
   const [passwordRecoverySession, setPasswordRecoverySession] = useState<Session | null>(null);
   const [interviewStartedAt, setInterviewStartedAt] = useState<number>(0);
   const [resumeDraft, setResumeDraft] = useState<InterviewDraft | null>(null);
+  const [founderPerspective, setFounderPerspective] = useState<FounderPerspective>("fundadora");
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -224,6 +226,11 @@ export default function Home() {
     };
   }, [session, profile?.id, profile?.active, profile?.access_removed_at]);
   const ir = (destino: View) => {
+    if (destino === "visoes" && !profile?.is_primary_admin) {
+      setView("inicio");
+      setMenu(false);
+      return;
+    }
     if (profile?.role === "pesquisador" && !(["portal", "entrevista", "obrigado"] as View[]).includes(destino)) setView("portal");
     else setView(destino);
     setMenu(false);
@@ -373,7 +380,7 @@ export default function Home() {
     const timer = navigator.onLine && pendingCount ? window.setTimeout(autoSync, 1200) : 0;
     return () => { window.removeEventListener("online", autoSync); if (timer) window.clearTimeout(timer); };
   }, [session, pendingCount]);
-  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setObserverSummary(null); setView("inicio"); };
+  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setObserverSummary(null); setFounderPerspective("fundadora"); setView("inicio"); };
   const descadastrarMeuAcesso = async () => {
     if (!session || !profile) return;
     if (profile.is_primary_admin) return aviso("A conta principal é protegida e não pode ser descadastrada.");
@@ -417,9 +424,47 @@ export default function Home() {
   }} />;
   if (profile.role === "observador") return <ObserverPanel profile={profile} summary={observerSummary} sair={sair} descadastrar={descadastrarMeuAcesso} atualizar={async () => { if (session) setObserverSummary(await loadObserverSummary(session)); }} />;
 
-  const campo = view === "portal" || view === "entrevista" || view === "obrigado";
+  const founderAccess = profile.is_primary_admin === true && profile.email.toLowerCase() === "bussolanortep@gmail.com";
+  const previewing = founderAccess && founderPerspective !== "fundadora";
+  const visualProfile: Profile = previewing && founderPerspective !== "publico"
+    ? {
+        ...profile,
+        role: founderPerspective === "administrador" ? "admin" : founderPerspective,
+        is_primary_admin: false,
+      } as Profile
+    : profile;
+  const leavePreview = () => {
+    setFounderPerspective("fundadora");
+    setView("visoes");
+    setMenu(false);
+  };
+  const openFounderPerspective = (perspective: FounderPerspective) => {
+    if (!founderAccess) return;
+    setFounderPerspective(perspective);
+    setView(perspective === "pesquisador" ? "portal" : "inicio");
+    setMenu(false);
+  };
+  const previewObserverSummary: ObserverSummary = observerSummary ?? {
+    total_interviews: interviews.length,
+    interviews_today: interviews.filter(item => new Date(item.completed_at || item.created_at).toDateString() === new Date().toDateString()).length,
+    active_researchers: new Set(interviews.map(item => item.researcher_id)).size,
+    active_surveys: adminSurveys.filter(item => item.status === "active" || item.status === "pilot").length,
+    updated_at: interviews[0]?.completed_at ?? null,
+    surveys: adminSurveys.filter(item => item.status === "active" || item.status === "pilot").map(item => ({
+      id: item.id,
+      title: item.title,
+      status: item.status,
+      interviews: interviews.filter(interview => interview.survey_id === item.id).length,
+      researchers: new Set(interviews.filter(interview => interview.survey_id === item.id).map(interview => interview.researcher_id)).size,
+    })),
+  };
+  if (founderAccess && founderPerspective === "publico") return <><FounderPreviewBar label="Capa pública" voltar={leavePreview} /><div className="founder-preview-surface"><PublicLanding /></div></>;
+  if (founderAccess && founderPerspective === "observador") return <><FounderPreviewBar label="Observador" voltar={leavePreview} /><div className="founder-preview-surface"><ObserverPanel profile={visualProfile} summary={previewObserverSummary} sair={leavePreview} descadastrar={async () => aviso("A prévia não altera a sua conta fundadora.")} atualizar={async () => atualizarDadosAdmin()} /></div></>;
+
+  const campo = founderPerspective === "pesquisador" || view === "portal" || view === "entrevista" || view === "obrigado";
   const titulos: Record<View, string> = {
     inicio: "Visão geral",
+    visoes: "Visão completa do aplicativo",
     pesquisas: "Pesquisas",
     coordenacao: "Coordenação de campo",
     equipe: "Acessos e cadastros",
@@ -433,28 +478,30 @@ export default function Home() {
   };
 
   return <div className={campo ? "app app-campo" : "app"}>
-    <ControleFonte profile={profile} sair={sair} descadastrar={descadastrarMeuAcesso} />
+    <ControleFonte profile={visualProfile} sair={previewing ? leavePreview : sair} descadastrar={previewing ? async () => aviso("A prévia não altera a sua conta fundadora.") : descadastrarMeuAcesso} />
+    {previewing && <FounderPreviewBar label={founderPerspective === "pesquisador" ? "Pesquisador" : founderPerspective === "coordenador" ? "Coordenador" : "Administrador secundário"} voltar={leavePreview} />}
     {!campo && <aside className={menu ? "open" : ""}>
       <div className="logo"><i>NP</i><span>NorteP <b>Pesquisa</b></span></div>
       <nav>{[
         ["inicio", "⌂", "Visão geral"],
+        ...(founderAccess && !previewing ? [["visoes", "◉", "Ver todo o aplicativo"]] : []),
         ["pesquisas", "▤", "Pesquisas"],
-        ["coordenacao", "♟", profile.role === "coordenador" ? "Minha coordenação" : "Coordenação"],
-        ...(profile.role === "admin" ? [["equipe", "♙", "Acessos e cadastros"]] : []),
+        ["coordenacao", "♟", visualProfile.role === "coordenador" ? "Minha coordenação" : "Coordenação"],
+        ...(visualProfile.role === "admin" ? [["equipe", "♙", "Acessos e cadastros"]] : []),
         ["rankings", "★", "Rankings"],
         ["resultados", "◫", "Resultados"],
-        ...(profile.role === "admin" ? [["cofre", "◉", "Cofre de contatos"]] : []),
+        ...(visualProfile.role === "admin" ? [["cofre", "◉", "Cofre de contatos"]] : []),
         ["ecossistema", "◇", "Ecossistema NorteP"],
       ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i>{item[1]}</i>{item[2]}</button>)}</nav>
       <div className="coleta"><b>● Coleta conectada</b><small>{interviews.length} de 100 entrevistas</small><div><i style={{ width: `${Math.min(interviews.length, 100)}%` }} /></div></div>
-      <div className="perfil"><i>{profile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{profile.name}</b><small>{profile.is_primary_admin ? "Administradora fundadora" : profile.role === "admin" ? "Administração" : "Coordenação de campo"}</small></span><button onClick={sair}>Sair</button></div>
+      <div className="perfil"><i>{visualProfile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{visualProfile.name}</b><small>{visualProfile.is_primary_admin ? "Administradora fundadora" : visualProfile.role === "admin" ? "Administração" : "Coordenação de campo"}</small></span><button onClick={previewing ? leavePreview : sair}>{previewing ? "Voltar" : "Sair"}</button></div>
     </aside>}
 
     <main>
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V40" : "NORTEP · DADOS QUE APROXIMAM · V40"}</small>
+          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V41" : "NORTEP · DADOS QUE APROXIMAM · V41"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -462,20 +509,21 @@ export default function Home() {
           {campo && <button className="sync" onClick={sincronizarPendentes}>● {offline ? "Sem conexão" : pendingCount ? `${pendingCount} pendente(s)` : "Sincronizado"}</button>}
           {campo && view === "portal" && <button className="refresh-surveys" onClick={() => void atualizarPesquisasPesquisador(true)}>↻ Atualizar pesquisas</button>}
           {!campo && admin && <button className="preview-field" onClick={() => ir("portal")}>Ver área do pesquisador →</button>}
-          {campo && <button className="sair-campo" onClick={() => admin ? ir("inicio") : sair()}>{admin ? "Sair da prévia" : "Sair"}</button>}
+          {campo && <button className="sair-campo" onClick={() => previewing ? leavePreview() : admin ? ir("inicio") : sair()}>{previewing ? "Voltar ao painel da fundadora" : admin ? "Sair da prévia" : "Sair"}</button>}
         </section>
       </header>
 
       <div className={campo ? "content campo-content" : "content"}>
-        {view === "inicio" && <><Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} fieldEvents={fieldEvents} currentProfile={profile} /><AlertasSeguranca events={fieldEvents} /></>}
+        {view === "inicio" && <><Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} fieldEvents={fieldEvents} currentProfile={visualProfile} /><AlertasSeguranca events={fieldEvents} /></>}
+        {view === "visoes" && founderAccess && <FounderViews abrir={openFounderPerspective} ir={ir} aviso={aviso} />}
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} surveys={adminSurveys} profiles={team} session={session} currentProfile={profile} atualizar={atualizarDadosAdmin} />}
-        {view === "coordenacao" && <Coordenacao aviso={aviso} profiles={team} interviews={interviews} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onRefresh={atualizarDadosAdmin} />}
-        {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onRefresh={atualizarDadosAdmin} />}
+        {view === "coordenacao" && <Coordenacao aviso={aviso} profiles={team} interviews={interviews} currentProfile={visualProfile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onRefresh={atualizarDadosAdmin} />}
+        {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={visualProfile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onRefresh={atualizarDadosAdmin} />}
         {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "ecossistema" && <Ecossistema />}
-        {view === "cofre" && profile.role === "admin" && <CofreContatos session={session} profiles={team} aviso={aviso} />}
-        {view === "portal" && <Portal profile={profile} surveys={surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
+        {view === "cofre" && visualProfile.role === "admin" && <CofreContatos session={session} profiles={team} aviso={aviso} />}
+        {view === "portal" && <Portal profile={visualProfile} surveys={founderAccess && previewing ? adminSurveys.filter(item => item.status === "active" || item.status === "pilot") : surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
         {view === "entrevista" && survey && (survey.slug === "betim-territorio-escolhas-2026" ? <Entrevista extraQuestions={surveyQuestions} passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={() => {
           const motivo = respostas.consentirPesquisa === "Não aceito participar" ? "Consentimento recusado" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "Pessoa fora do público da pesquisa" : "Entrevista encerrada";
           void registrarOcorrencia(respostas.consentirPesquisa === "Não aceito participar" ? "refused" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "ineligible" : "interrupted", motivo, survey);
@@ -499,6 +547,53 @@ export default function Home() {
     {menu && <div className="scrim" onClick={() => setMenu(false)} />}
     {resumeDraft && <RetomarEntrevista draft={resumeDraft} continuar={() => void abrirPesquisa(resumeDraft.survey, resumeDraft, "retomada")} recomecar={() => { localStorage.removeItem(draftKey(resumeDraft.survey.id)); void abrirPesquisa(resumeDraft.survey, undefined, "recomeco"); }} cancelar={() => setResumeDraft(null)} />}
     {toast && <div className="toast">✓ {toast}</div>}
+  </div>;
+}
+
+function FounderPreviewBar({ label, voltar }: { label: string; voltar: () => void }) {
+  return <div className="founder-preview-bar" role="status">
+    <span><b>Prévia exclusiva da fundadora</b><small>Você está vendo o aplicativo como: {label}. Sua permissão principal não foi alterada.</small></span>
+    <button type="button" onClick={voltar}>← Voltar à visão completa</button>
+  </div>;
+}
+
+function FounderViews({ abrir, ir, aviso }: { abrir: (perspective: FounderPerspective) => void; ir: (view: View) => void; aviso: (text: string) => void }) {
+  const entradas: Array<{ perspective: FounderPerspective; icon: string; title: string; description: string; access: AccessChannel }> = [
+    { perspective: "fundadora", icon: "NP", title: "Administradora fundadora", description: "Controle principal, visão total, códigos e áreas protegidas.", access: "principal" },
+    { perspective: "publico", icon: "⌂", title: "Capa pública", description: "Página institucional vista por quem ainda não possui acesso.", access: "publico" },
+    { perspective: "pesquisador", icon: "▤", title: "Pesquisador", description: "Pesquisas liberadas, coleta, rascunho e sincronização.", access: "pesquisador" },
+    { perspective: "observador", icon: "◉", title: "Observador", description: "Indicadores agrupados, sem respostas individuais nem contatos.", access: "observador" },
+    { perspective: "coordenador", icon: "♟", title: "Coordenador", description: "Equipe, território, produção e ocorrências sob sua coordenação.", access: "coordenacao" },
+    { perspective: "administrador", icon: "♙", title: "Administrador secundário", description: "Operação administrativa sem controlar a conta fundadora.", access: "administracao" },
+  ];
+  const paginas: Array<{ view: View; label: string }> = [
+    { view: "inicio", label: "Visão geral" },
+    { view: "pesquisas", label: "Pesquisas" },
+    { view: "coordenacao", label: "Coordenação" },
+    { view: "equipe", label: "Acessos e cadastros" },
+    { view: "rankings", label: "Rankings" },
+    { view: "resultados", label: "Resultados" },
+    { view: "cofre", label: "Cofre de contatos" },
+    { view: "ecossistema", label: "Ecossistema NorteP" },
+  ];
+  const copiar = async (access: AccessChannel) => {
+    const suffix = access === "publico" ? "" : `?acesso=${access}`;
+    await navigator.clipboard.writeText(`${window.location.origin}/${suffix}`);
+    aviso(access === "publico" ? "Link da capa copiado." : "Link de entrada copiado.");
+  };
+  return <div className="founder-views">
+    <section className="founder-views-intro">
+      <div><small>CONTROLE EXCLUSIVO · BUSSOLANORTEP@GMAIL.COM</small><h2>Veja o NorteP pelos olhos de cada pessoa</h2><p>Abra qualquer experiência sem trocar sua conta e sem compartilhar a entrada secreta da administradora fundadora.</p></div>
+      <span><b>Seu acesso continua protegido</b><small>Outros administradores não enxergam esta área.</small></span>
+    </section>
+    <div className="founder-entry-grid">{entradas.map(item => <article key={item.perspective}>
+      <i>{item.icon}</i><small>ENTRADA</small><h3>{item.title}</h3><p>{item.description}</p>
+      <div><button type="button" onClick={() => void copiar(item.access)}>Copiar link</button><button type="button" className="primary" onClick={() => abrir(item.perspective)}>Visualizar como</button></div>
+    </article>)}</div>
+    <section className="painel founder-pages">
+      <div><small>TODAS AS ÁREAS DA FUNDAÇÃO</small><h3>Abrir uma página do seu painel</h3><p>Atalhos para conferir todo o conteúdo administrativo sem procurar no menu.</p></div>
+      <nav>{paginas.map(item => <button type="button" key={item.view} onClick={() => ir(item.view)}>{item.label}<span>→</span></button>)}</nav>
+    </section>
   </div>;
 }
 
