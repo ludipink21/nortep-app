@@ -78,6 +78,15 @@ export type CoordinatorMembership = {
   updated_at?: string;
 };
 
+export type CoordinatorTerritory = {
+  id: string;
+  coordinator_id: string;
+  scope_type: "cidade" | "regiao" | "bairro";
+  scope_value: string;
+  active: boolean;
+  created_at?: string;
+};
+
 export type SavedInterview = {
   id: string;
   code: string;
@@ -250,10 +259,16 @@ export async function redeemAccessInvite(session: Session, code: string) {
   });
 }
 
-export async function createAccessInvite(session: Session, email: string, role: "admin" | "coordenador" | "observador" | "pesquisador", coordinatorId?: string) {
-  return rest<string>(session, "rpc/create_team_access_invite", {
+export async function createAccessInvite(session: Session, email: string, role: "admin" | "coordenador" | "observador" | "pesquisador", territory?: { cities?: string[]; regions?: string[]; neighborhoods?: string[] }) {
+  return rest<string>(session, "rpc/create_scoped_access_invite", {
     method: "POST",
-    body: JSON.stringify({ p_email: email, p_role: role, p_coordinator_id: coordinatorId || null }),
+    body: JSON.stringify({
+      p_email: email,
+      p_role: role,
+      p_cities: territory?.cities || [],
+      p_regions: territory?.regions || [],
+      p_neighborhoods: territory?.neighborhoods || [],
+    }),
   });
 }
 
@@ -322,6 +337,22 @@ export async function loadProfiles(session: Session) {
 
 export async function loadCoordinatorMemberships(session: Session) {
   return rest<CoordinatorMembership[]>(session, "coordinator_memberships?select=*&active=eq.true&order=created_at.asc");
+}
+
+export async function loadCoordinatorTerritories(session: Session) {
+  return rest<CoordinatorTerritory[]>(session, "coordinator_territories?select=*&active=eq.true&order=scope_type.asc,scope_value.asc");
+}
+
+export async function setCoordinatorTerritories(session: Session, coordinatorId: string, cities: string[], regions: string[], neighborhoods: string[]) {
+  return rest<number>(session, "rpc/set_coordinator_territories_admin", {
+    method: "POST",
+    body: JSON.stringify({
+      p_coordinator_id: coordinatorId,
+      p_cities: cities,
+      p_regions: regions,
+      p_neighborhoods: neighborhoods,
+    }),
+  });
 }
 
 export async function setCoordinatorMembers(session: Session, coordinatorId: string, researcherIds: string[]) {

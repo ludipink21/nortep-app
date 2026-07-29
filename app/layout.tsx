@@ -42,7 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           window.location.reload();
         });
         try {
-          var registration = await navigator.serviceWorker.register('/sw.js?v=42', { updateViaCache: 'none' });
+          var registration = await navigator.serviceWorker.register('/sw.js?v=43', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });
