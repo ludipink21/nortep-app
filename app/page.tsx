@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { clearSurveyTestData, configured, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadVaultAudit, loadVaultContacts, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setSurveyAssignments, setupVaultKey, signIn, signUp, Survey, SurveyQuestion, unlockVault, updatePassword, updateSurveyStatusAdmin, VaultAudit, VaultContact } from "./supabase";
 
-type View = "inicio" | "pesquisas" | "equipe" | "rankings" | "resultados" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
+type View = "inicio" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "observador" | "coordenacao" | "administracao" | "principal";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
@@ -421,6 +421,7 @@ export default function Home() {
   const titulos: Record<View, string> = {
     inicio: "Visão geral",
     pesquisas: "Pesquisas",
+    coordenacao: "Coordenação de campo",
     equipe: "Acessos e cadastros",
     rankings: "Rankings",
     resultados: "Resultados",
@@ -438,21 +439,22 @@ export default function Home() {
       <nav>{[
         ["inicio", "⌂", "Visão geral"],
         ["pesquisas", "▤", "Pesquisas"],
-        ["equipe", "♙", "Acessos e cadastros"],
+        ["coordenacao", "♟", profile.role === "coordenador" ? "Minha coordenação" : "Coordenação"],
+        ...(profile.role === "admin" ? [["equipe", "♙", "Acessos e cadastros"]] : []),
         ["rankings", "★", "Rankings"],
         ["resultados", "◫", "Resultados"],
         ...(profile.role === "admin" ? [["cofre", "◉", "Cofre de contatos"]] : []),
         ["ecossistema", "◇", "Ecossistema NorteP"],
       ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i>{item[1]}</i>{item[2]}</button>)}</nav>
       <div className="coleta"><b>● Coleta conectada</b><small>{interviews.length} de 100 entrevistas</small><div><i style={{ width: `${Math.min(interviews.length, 100)}%` }} /></div></div>
-      <div className="perfil"><i>{profile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{profile.name}</b><small>{profile.role === "admin" ? "Administradora responsável" : "Coordenação"}</small></span><button onClick={sair}>Sair</button></div>
+      <div className="perfil"><i>{profile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{profile.name}</b><small>{profile.is_primary_admin ? "Administradora fundadora" : profile.role === "admin" ? "Administração" : "Coordenação de campo"}</small></span><button onClick={sair}>Sair</button></div>
     </aside>}
 
     <main>
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V38" : "NORTEP · DADOS QUE APROXIMAM · V38"}</small>
+          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V39" : "NORTEP · DADOS QUE APROXIMAM · V39"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -465,8 +467,9 @@ export default function Home() {
       </header>
 
       <div className={campo ? "content campo-content" : "content"}>
-        {view === "inicio" && <><Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} fieldEvents={fieldEvents} /><AlertasSeguranca events={fieldEvents} /></>}
+        {view === "inicio" && <><Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} fieldEvents={fieldEvents} currentProfile={profile} /><AlertasSeguranca events={fieldEvents} /></>}
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} surveys={adminSurveys} profiles={team} session={session} currentProfile={profile} atualizar={atualizarDadosAdmin} />}
+        {view === "coordenacao" && <Coordenacao aviso={aviso} profiles={team} interviews={interviews} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onRefresh={atualizarDadosAdmin} />}
         {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={profile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onRefresh={atualizarDadosAdmin} />}
         {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
@@ -687,7 +690,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V38</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V39</small>
     </form>
   </div>;
 }
@@ -770,7 +773,7 @@ function ObserverPanel({ profile, summary, sair, descadastrar, atualizar }: { pr
   </div>;
 }
 
-function Inicio({ ir, aviso, interviews, profiles, pending, fieldEvents }: { ir: (v: View) => void; aviso: (t: string) => void; interviews: SavedInterview[]; profiles: Profile[]; pending: number; fieldEvents: FieldEvent[] }) {
+function Inicio({ ir, aviso, interviews, profiles, pending, fieldEvents, currentProfile }: { ir: (v: View) => void; aviso: (t: string) => void; interviews: SavedInterview[]; profiles: Profile[]; pending: number; fieldEvents: FieldEvent[]; currentProfile: Profile }) {
   const hoje = new Date();
   const dias = Array.from({ length: 7 }, (_, i) => { const d = new Date(hoje); d.setDate(d.getDate() - (6 - i)); return d; });
   const contagens = dias.map(d => interviews.filter(x => new Date(x.completed_at || x.created_at).toDateString() === d.toDateString()).length);
@@ -803,7 +806,7 @@ function Inicio({ ir, aviso, interviews, profiles, pending, fieldEvents }: { ir:
   const maiorCobertura = Math.max(...coberturaCidades.map(([, total]) => total), 1);
   const nivelCobertura = (total: number) => total / maiorCobertura >= .75 ? "forte" : total / maiorCobertura >= .4 ? "medio" : "leve";
   return <>
-    <div className="boas"><div><small>QUARTA-FEIRA, 22 DE JULHO</small><h2>Bom dia, Ludimila. <span>O campo está avançando.</span></h2><p>Acompanhe o ritmo das equipes e veja onde sua atenção é mais necessária.</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
+    <div className="boas"><div><small>{currentProfile.is_primary_admin ? "CENTRAL DA ADMINISTRADORA FUNDADORA" : currentProfile.role === "coordenador" ? "PAINEL DA COORDENAÇÃO DE CAMPO" : "PAINEL ADMINISTRATIVO"}</small><h2>Olá, {currentProfile.name.split(" ")[0]}. <span>O campo está avançando.</span></h2><p>{currentProfile.is_primary_admin ? "Você possui o acesso principal protegido e a visão completa da operação." : currentProfile.role === "coordenador" ? "Acompanhe a equipe de campo, o ritmo e as ocorrências da coleta." : "Acompanhe a operação sem compartilhar a senha da conta fundadora."}</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
     <div className="metricas"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(interviews.length)} s="salvas com segurança" /><Metrica c="laranja" i="◎" t="Meta da pesquisa" v={`${progresso}%`} s={`${Math.max(100 - interviews.length, 0)} entrevistas restantes`} /><Metrica c="roxo" i="♙" t="Pesquisadores com coleta" v={String(ativos)} s="na pesquisa atual" /><Metrica c="azul" i="⌁" t="Neste aparelho" v={String(pending)} s="pendentes de sincronização" /></div>
     <div className="operacao-piloto"><article><small>ABORDAGENS REGISTRADAS</small><b>{abordagens}</b><span>entrevistas e ocorrências</span></article><article><small>TAXA DE CONCLUSÃO</small><b>{adesao}%</b><span>concluídas sobre abordagens</span></article><article><small>RECUSAS E INTERRUPÇÕES</small><b>{recusas + interrompidas}</b><span>{recusas} recusas · {interrompidas} interrompidas</span></article><article className={alertasQualidade ? "com-alerta" : ""}><small>ALERTAS DE QUALIDADE</small><b>{alertasQualidade}</b><span>{alertasQualidade ? "verificar antes da análise" : "nenhum alerta atual"}</span></article></div>
     <div className="duas"><div className="painel"><Topo sup="RITMO DE COLETA" titulo="Entrevistas nos últimos 7 dias" /><div className="grafico">{contagens.map((valor, i) => <div key={dias[i].toISOString()}><b>{valor}</b><i style={{ height: `${Math.max(valor ? valor / max * 90 : 3, 3)}%` }} /><small>{i === 6 ? "HOJE" : dias[i].toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3).toUpperCase()}</small></div>)}</div></div><div className="painel"><Topo sup="SITUAÇÃO DA COLETA" titulo="Acompanhamento" /><div className="alerta"><i className={pending ? "a1" : "a0"}>{pending ? "!" : "✓"}</i><span><b>{pending ? `${pending} entrevista(s) aguardando internet` : "Todas as respostas sincronizadas"}</b><small>{pending ? "Abra a área do pesquisador e toque em sincronizar" : "Nenhuma pendência neste aparelho"}</small></span></div><div className="alerta"><i className="a2">i</i><span><b>{interviews.length ? "Coleta em andamento" : "Pronto para a primeira entrevista"}</b><small>Acompanhe aqui a evolução da pesquisa.</small></span></div></div></div>
@@ -875,7 +878,7 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, sessio
   const [assignmentSurvey, setAssignmentSurvey] = useState<Survey | null>(null);
   const [selectedResearchers, setSelectedResearchers] = useState<string[]>([]);
   const [territory, setTerritory] = useState({ team: "", city: "", region: "", neighborhood: "" });
-  const canEdit = currentProfile.role === "admin";
+  const canEdit = currentProfile.is_primary_admin === true;
   const typeLabels: Record<Survey["survey_type"], string> = { quantitative: "Quantitativa", qualitative: "Qualitativa", directional: "Direcional", electoral: "Eleitoral", data_collection: "Coleta de dados" };
   const statusLabels: Record<Survey["status"], string> = { draft: "Rascunho", pilot: "Teste", active: "Em campo", closed: "Arquivada" };
   const questionTypeLabels: Record<SurveyQuestion["type"], string> = { short_text: "Texto curto", long_text: "Texto longo", yes_no: "Sim ou não", single: "Escolha única", multiple: "Várias escolhas", scale: "Escala de 0 a 10", rating: "Péssimo a ótimo", region: "Bairro ou região", internal_note: "Observação interna" };
@@ -913,6 +916,62 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, sessio
   </>;
 }
 
+function Coordenacao({ aviso, profiles, interviews, currentProfile, onToggle, onDelete, onInvite, onRefresh }: { aviso: (t: string) => void; profiles: Profile[]; interviews: SavedInterview[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador") => Promise<string>; onRefresh: () => Promise<void> }) {
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [generatedLink, setGeneratedLink] = useState("");
+  const [busy, setBusy] = useState(false);
+  const isCoordinator = currentProfile.role === "coordenador";
+  const inviteRole: "coordenador" | "pesquisador" = isCoordinator ? "pesquisador" : "coordenador";
+  const coordinators = profiles.filter(person => person.role === "coordenador");
+  const researchers = profiles.filter(person => person.role === "pesquisador");
+  const today = new Date().toDateString();
+  const production = researchers.map(person => {
+    const personInterviews = interviews.filter(item => item.researcher_id === person.id);
+    const todayTotal = personInterviews.filter(item => new Date(item.completed_at || item.created_at).toDateString() === today).length;
+    const durations = personInterviews.map(item => Number(item.duration_seconds || 0)).filter(Boolean);
+    const average = durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length / 60) : 0;
+    const latest = personInterviews.map(item => item.completed_at || item.created_at).sort().at(-1);
+    return { person, total: personInterviews.length, todayTotal, average, latest };
+  }).sort((a, b) => b.total - a.total || a.person.name.localeCompare(b.person.name));
+  const generate = async () => {
+    if (!inviteEmail.includes("@")) return aviso("Informe um e-mail válido.");
+    setBusy(true);
+    try {
+      const link = await onInvite(inviteEmail.trim().toLowerCase(), inviteRole);
+      setGeneratedLink(link);
+      await navigator.clipboard.writeText(link);
+      aviso(`Convite de ${inviteRole === "coordenador" ? "coordenação" : "pesquisador"} criado e copiado.`);
+    } catch (error) {
+      aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível criar o convite.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const refresh = async () => {
+    setBusy(true);
+    try { await onRefresh(); aviso("Painel da coordenação atualizado."); }
+    catch { aviso("Não foi possível atualizar agora."); }
+    finally { setBusy(false); }
+  };
+  const remove = (person: Profile) => {
+    if (window.confirm(`Apagar o acesso de ${person.name}? As entrevistas realizadas serão preservadas.`)) onDelete(person.id);
+  };
+  return <>
+    <Cabecalho titulo={isCoordinator ? "Minha coordenação" : "Coordenação de campo"} sub={isCoordinator ? "Equipe de campo, produção e acompanhamento da coleta." : `${coordinators.length} coordenador(es) · ${researchers.length} pesquisador(es)`} botao={isCoordinator ? "＋ Convidar pesquisador" : "＋ Criar coordenador"} acao={() => setInviteOpen(!inviteOpen)} />
+    <div className="coord-summary">
+      <article><small>COORDENADORES ATIVOS</small><b>{coordinators.filter(person => person.active).length}</b><span>acessos de gestão de campo</span></article>
+      <article><small>PESQUISADORES ATIVOS</small><b>{researchers.filter(person => person.active).length}</b><span>aptos para receber pesquisas</span></article>
+      <article><small>ENTREVISTAS SINCRONIZADAS</small><b>{interviews.length}</b><span>produção registrada no banco</span></article>
+      <article><small>REALIZADAS HOJE</small><b>{interviews.filter(item => new Date(item.completed_at || item.created_at).toDateString() === today).length}</b><span>ritmo atual da operação</span></article>
+    </div>
+    <div className="admin-guidance"><i>✓</i><span><b>Acesso separado por função</b><small>{isCoordinator ? "Seu link abre diretamente a coordenação. Pesquisadores convidados entram somente na área de campo." : "Coordenadores entram por um link próprio e não recebem a senha nem o acesso da administradora fundadora."}</small></span><button className="pause-all" onClick={() => void refresh()} disabled={busy}>{busy ? "Atualizando…" : "Atualizar painel"}</button></div>
+    {inviteOpen && <div className="painel invite-panel coord-invite"><div><small>{inviteRole === "coordenador" ? "NOVO COORDENADOR" : "NOVO PESQUISADOR"}</small><h3>Gerar convite individual</h3><p>O convite funciona apenas para o e-mail informado, expira em 72 horas e cria uma entrada própria para esta função.</p></div><label>E-mail autorizado<input type="email" value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} placeholder="pessoa@exemplo.com" /></label><button className="primary" disabled={busy || !inviteEmail} onClick={() => void generate()}>{busy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}.</span><div className="link-row"><input readOnly value={generatedLink} /><button onClick={() => void navigator.clipboard.writeText(generatedLink).then(() => aviso("Convite copiado novamente."))}>Copiar</button></div></div>}</div>}
+    {!isCoordinator && <section className="painel coord-list"><Topo sup="RESPONSÁVEIS PELA COLETA" titulo="Coordenadores cadastrados" />{coordinators.length ? coordinators.map(person => <div className="coord-person" key={person.id}><span className="pessoa"><i>{person.name.split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase()}</i><span><b>{person.name}</b><small>{person.email}{person.region ? ` · ${person.region}` : ""}</small></span></span><strong className={person.active ? "ok" : "pendente"}>● {person.active ? "Ativo" : "Suspenso"}</strong><div className="access-actions"><button className={person.active ? "suspender" : "aprovar"} onClick={() => onToggle(person.id, !person.active)}>{person.active ? "Suspender" : "Reativar"}</button><button className="apagar-acesso" onClick={() => remove(person)}>Apagar acesso</button></div></div>) : <div className="ranking-empty">Nenhum coordenador cadastrado. Use “Criar coordenador” para gerar o primeiro convite.</div>}</section>}
+    <section className="painel coord-production"><Topo sup="PRODUÇÃO DA EQUIPE" titulo="Entrevistas por pesquisador" />{production.length ? <div className="coord-table"><div className="coord-row coord-head"><span>Pesquisador</span><span>Hoje</span><span>Total</span><span>Tempo médio</span><span>Última coleta</span><span>Acesso</span></div>{production.map(({ person, total, todayTotal, average, latest }, index) => <div className="coord-row" key={person.id}><span className="coord-name"><i>{index + 1}</i><span><b>{person.name}</b><small>{person.region || "Território não vinculado"}</small></span></span><strong>{todayTotal}</strong><strong>{total}</strong><span>{average ? `${average} min` : "—"}</span><span>{latest ? new Date(latest).toLocaleDateString("pt-BR") : "Sem coleta"}</span><span className={person.active ? "ok" : "pendente"}>● {person.active ? "Ativo" : "Suspenso"}</span></div>)}</div> : <div className="ranking-empty">Os pesquisadores e suas pontuações aparecerão aqui quando forem cadastrados.</div>}</section>
+  </>;
+}
+
 function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite, onRefresh }: { aviso: (t: string) => void; profiles: Profile[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador") => Promise<string>; onRefresh: () => Promise<void> }) {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -941,7 +1000,8 @@ function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite,
   const roleLabel = (role: Profile["role"]) => ({ admin: "Administrador", coordenador: "Coordenador", pesquisador: "Pesquisador", observador: "Observador" })[role];
   const canManage = (target: Profile) => {
     if (target.id === currentProfile.id || target.is_primary_admin) return false;
-    if (currentProfile.role === "admin") return true;
+    if (currentProfile.is_primary_admin) return true;
+    if (currentProfile.role === "admin") return target.role !== "admin";
     return currentProfile.role === "coordenador" && (target.role === "pesquisador" || target.role === "observador");
   };
   const confirmDelete = (target: Profile) => {
@@ -966,7 +1026,7 @@ function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite,
       <div className="painel access-box"><small>LINK DO PESQUISADOR</small><h3>Cadastro e trabalho de campo</h3><p>Este endereço nunca abre o painel administrativo. Todo novo cadastro aguarda sua aprovação.</p><div className="link-row"><input readOnly value={researcherLink} aria-label="Link oficial do pesquisador" /><button onClick={() => copy(researcherLink, "Link do pesquisador copiado")}>Copiar link</button></div></div>
       <div className="painel access-box secure"><small>ADMINISTRAÇÃO</small><h3>Convite individual obrigatório</h3><p>Não compartilhe sua senha. Cada parceiro recebe um link de uso único, vinculado ao e-mail e válido por 72 horas.</p><button onClick={() => setShowInvite(true)}>Criar convite para parceiro</button></div>
     </div>
-    {showInvite && <div className="painel invite-panel"><div><small>NOVO CONVITE SEGURO</small><h3>Autorizar parceiro</h3><p>Observador é a opção recomendada para acompanhar a coleta sem acessar dados individuais. Coordenador administra a coleta; administrador possui controle total.</p></div><label>E-mail autorizado<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="parceiro@exemplo.com" /></label><label>Permissão<select value={inviteRole} onChange={e => setInviteRole(e.target.value as "admin" | "coordenador" | "observador")}><option value="observador">Observador — recomendado</option><option value="coordenador">Coordenador — gerencia a coleta</option><option value="admin">Administrador — controle total</option></select></label><button className="primary" disabled={inviteBusy || !inviteEmail} onClick={generate}>{inviteBusy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}. O link já está copiado.</span><div className="link-row"><input readOnly value={generatedLink} aria-label="Convite administrativo gerado" /><button onClick={() => copy(generatedLink, "Convite copiado novamente")}>Copiar</button></div></div>}</div>}
+    {showInvite && <div className="painel invite-panel"><div><small>NOVO CONVITE SEGURO</small><h3>Autorizar parceiro</h3><p>Observador acompanha indicadores; coordenador gerencia a coleta; administrador secundário possui acesso administrativo sem controlar a conta fundadora.</p></div><label>E-mail autorizado<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="parceiro@exemplo.com" /></label><label>Permissão<select value={inviteRole} onChange={e => setInviteRole(e.target.value as "admin" | "coordenador" | "observador")}><option value="observador">Observador — somente leitura</option><option value="coordenador">Coordenador — gerencia a coleta</option>{currentProfile.is_primary_admin && <option value="admin">Administrador secundário</option>}</select></label><button className="primary" disabled={inviteBusy || !inviteEmail} onClick={generate}>{inviteBusy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}. O link já está copiado.</span><div className="link-row"><input readOnly value={generatedLink} aria-label="Convite administrativo gerado" /><button onClick={() => copy(generatedLink, "Convite copiado novamente")}>Copiar</button></div></div>}</div>}
     <div className="painel tabela"><div className="tr cab"><span>Usuário</span><span>Função</span><span>Status</span><span>Ações</span></div>{profiles.map(p => <div className="tr" key={p.id}><span className="pessoa"><i>{p.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{p.name}</b><small>{p.email}</small></span></span><span>{roleLabel(p.role)}{p.is_primary_admin && <small className="primary-admin-label">Conta principal</small>}</span><b className={p.active ? "ok" : "pendente"}>● {p.active ? "Ativo" : "Suspenso"}</b><span className="access-actions">{canManage(p) ? <><button className={p.active ? "suspender" : "aprovar"} onClick={() => onToggle(p.id, !p.active)}>{p.active ? "Suspender" : "Reativar"}</button><button className="apagar-acesso" onClick={() => confirmDelete(p)}>Apagar acesso</button></> : <small className="protected-access">{p.is_primary_admin ? "Protegida" : "Seu acesso"}</small>}</span></div>)}{!profiles.length && <div className="vazio-tabela">Nenhum cadastro encontrado.</div>}</div>
   </>;
 }
