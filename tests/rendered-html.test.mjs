@@ -8,14 +8,17 @@ const worker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8
 const hierarchy = await readFile(new URL("../supabase/migrations/20260730100000_supervisor_territory_and_mobilization.sql", import.meta.url), "utf8");
 const officialPilot = await readFile(new URL("../supabase/migrations/20260730110000_reset_pilot_and_seed_surveys.sql", import.meta.url), "utf8");
 const questionScope = await readFile(new URL("../supabase/migrations/20260730112000_fix_question_scope.sql", import.meta.url), "utf8");
+const strategyObserver = await readFile(new URL("../supabase/migrations/20260730140000_strategy_observer_network.sql", import.meta.url), "utf8");
 
-test("V47 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
+test("V48 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
   for (const channel of ["principal", "administracao", "coordenacao", "supervisao", "observador", "pesquisador"]) {
     assert.match(page, new RegExp(`"${channel}"`));
   }
   assert.match(page, /Administradora fundadora/);
   assert.match(page, /Minha supervisão/);
   assert.match(page, /Mobilização e relacionamentos/);
+  assert.match(page, /Painel Estratégico do Candidato/);
+  assert.match(page, /REDE DE MOBILIZAÇÃO/);
   assert.match(page, /Ver todo o aplicativo/);
   assert.match(page, /Prévia exclusiva da fundadora/);
   assert.match(page, /bussolanortep@gmail\.com/);
@@ -23,9 +26,9 @@ test("V47 mantém entradas separadas, supervisão e visão exclusiva da fundador
 });
 
 test("service worker e interface usam a mesma versão", () => {
-  assert.match(page, /V47/);
-  assert.match(layout, /sw\.js\?v=47/);
-  assert.match(worker, /nortep-pesquisa-v47/);
+  assert.match(page, /V48/);
+  assert.match(layout, /sw\.js\?v=48/);
+  assert.match(worker, /nortep-pesquisa-v48/);
   assert.match(layout, /nortep-icon-v1\.png/);
   assert.match(worker, /nortep-icon-v1\.png/);
   assert.match(layout, /location\.hostname === 'localhost'/);
@@ -50,6 +53,23 @@ test("mobilização pública não expõe tabelas e exige consentimento", () => {
   assert.match(hierarchy, /submit_public_mobilization_response/);
   assert.match(hierarchy, /grant execute on function public\.get_public_mobilization_form\(text\) to anon/);
   assert.match(hierarchy, /revoke all on table public\.team_links, public\.profile_territories/);
+});
+
+test("painel do candidato é criado somente pela fundadora e não expõe eleitores", () => {
+  assert.match(strategyObserver, /create_candidate_observer_invite/);
+  assert.match(strategyObserver, /if not public\.is_primary_admin\(\)/);
+  assert.match(strategyObserver, /observer_mode = 'candidato'/);
+  assert.match(strategyObserver, /network_names_visible/);
+  assert.doesNotMatch(strategyObserver, /respondent_name/);
+  assert.doesNotMatch(strategyObserver, /contact_whatsapp/);
+  assert.doesNotMatch(strategyObserver, /contact_email/);
+});
+
+test("cada pesquisa pode ter vídeo final e a rede registra a origem da indicação", () => {
+  assert.match(page, /Vídeo de agradecimento \(YouTube\)/);
+  assert.match(page, /Indicado por/);
+  assert.match(strategyObserver, /set_survey_thank_you_video_admin/);
+  assert.match(strategyObserver, /mobilization_partners_parent_not_self/);
 });
 
 test("limpeza oficial preserva as contas autorizadas e cria quatro pesquisas", () => {

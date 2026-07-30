@@ -12,18 +12,45 @@ export type Profile = {
   role: "admin" | "coordenador" | "supervisor" | "pesquisador" | "observador";
   active: boolean;
   is_primary_admin?: boolean;
+  observer_mode?: "geral" | "candidato";
   access_removed_at?: string | null;
   region?: string | null;
   created_at?: string;
 };
 
 export type ObserverSummary = {
+  observer_mode: "geral" | "candidato";
   total_interviews: number;
   interviews_today: number;
   active_researchers: number;
   active_surveys: number;
+  field_events: number;
+  completion_rate: number;
+  mobilization_total: number;
+  mobilization_content: number;
+  mobilization_meetings: number;
+  mobilization_volunteers: number;
   updated_at: string | null;
-  surveys: Array<{ id: string; title: string; status: string; interviews: number; researchers: number }>;
+  surveys: Array<{ id: string; title: string; status: string; interviews: number; researchers: number; video_configured: boolean }>;
+  coverage: Array<{ level: "cidade" | "regiao" | "bairro"; territory: string; interviews: number }>;
+  priorities: Array<{ label: string; responses: number; percentage: number }>;
+  mobilization_territories: Array<{ territory: string; responses: number; content_opt_ins: number; volunteer_opt_ins: number }>;
+  network: Array<{
+    id: string;
+    parent_id?: string | null;
+    parent_name?: string | null;
+    name: string;
+    kind: "apoiador" | "lideranca";
+    city?: string | null;
+    region?: string | null;
+    neighborhood?: string | null;
+    responses: number;
+    content_opt_ins: number;
+    meetings_opt_ins: number;
+    volunteer_opt_ins: number;
+    referrals: number;
+    last_response_at?: string | null;
+  }>;
 };
 
 export type Survey = {
@@ -115,9 +142,13 @@ export type MobilizationPartner = {
   code: string;
   active: boolean;
   video_url?: string | null;
+  parent_id?: string | null;
+  parent_name?: string | null;
   responses: number;
   content_opt_ins: number;
+  meetings_opt_ins: number;
   volunteer_opt_ins: number;
+  referrals?: number;
   last_response_at?: string | null;
 };
 
@@ -315,6 +346,13 @@ export async function createAccessInvite(
       p_regions: options?.regions || [],
       p_neighborhoods: options?.neighborhoods || [],
     }),
+  });
+}
+
+export async function createCandidateObserverInvite(session: Session, email: string) {
+  return rest<string>(session, "rpc/create_candidate_observer_invite", {
+    method: "POST",
+    body: JSON.stringify({ p_email: email }),
   });
 }
 
@@ -610,7 +648,7 @@ async function publicRest<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export async function createMobilizationPartner(
   session: Session,
-  partner: { name: string; kind: "apoiador" | "lideranca"; city?: string; region?: string; neighborhood?: string; videoUrl?: string },
+  partner: { name: string; kind: "apoiador" | "lideranca"; city?: string; region?: string; neighborhood?: string; videoUrl?: string; parentId?: string },
 ) {
   return rest<{ id: string; code: string }>(session, "rpc/create_mobilization_partner", {
     method: "POST",
@@ -621,7 +659,15 @@ export async function createMobilizationPartner(
       p_region: partner.region || null,
       p_neighborhood: partner.neighborhood || null,
       p_video_url: partner.videoUrl || null,
+      p_parent_id: partner.parentId || null,
     }),
+  });
+}
+
+export async function updateSurveyThankYouVideo(session: Session, surveyId: string, videoUrl: string) {
+  return rest<Survey>(session, "rpc/set_survey_thank_you_video_admin", {
+    method: "POST",
+    body: JSON.stringify({ p_survey_id: surveyId, p_video_url: videoUrl || null }),
   });
 }
 
