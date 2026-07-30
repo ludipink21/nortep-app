@@ -152,6 +152,16 @@ export type MobilizationPartner = {
   last_response_at?: string | null;
 };
 
+export type CandidateOperation = {
+  id: string;
+  name: string;
+  role: "admin" | "coordenador" | "supervisor";
+  active: boolean;
+  territories: Array<{ type: "cidade" | "regiao" | "bairro"; value: string }>;
+  team_members: number;
+  interviews: number;
+};
+
 export type PublicMobilizationForm = {
   partner: { name: string; kind: "apoiador" | "lideranca"; city?: string | null; region?: string | null; neighborhood?: string | null };
   survey: { id: string; title: string; description?: string | null; consent_text: string; video_url?: string | null };
@@ -361,6 +371,15 @@ export async function loadObserverSummary(session: Session) {
     method: "POST",
     body: "{}",
   });
+}
+
+export async function loadCandidateOperations(session: Session) {
+  const result = await rest<CandidateOperation[] | { error?: string }>(session, "rpc/candidate_operations_summary", {
+    method: "POST",
+    body: "{}",
+  });
+  if (!Array.isArray(result)) throw new Error(result.error || "Não foi possível carregar a operação.");
+  return result;
 }
 
 export async function refreshSession(session: Session) {
@@ -668,6 +687,13 @@ export async function updateSurveyThankYouVideo(session: Session, surveyId: stri
   return rest<Survey>(session, "rpc/set_survey_thank_you_video_admin", {
     method: "POST",
     body: JSON.stringify({ p_survey_id: surveyId, p_video_url: videoUrl || null }),
+  });
+}
+
+export async function setMobilizationPartnerActive(session: Session, partnerId: string, active: boolean) {
+  return rest<{ id: string; active: boolean }>(session, "rpc/set_mobilization_partner_active", {
+    method: "POST",
+    body: JSON.stringify({ p_partner_id: partnerId, p_active: active }),
   });
 }
 

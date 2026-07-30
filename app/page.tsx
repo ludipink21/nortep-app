@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { clearSurveyTestData, configured, createAccessInvite, createCandidateObserverInvite, createMobilizationPartner, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadFieldEvents, loadInterviews, loadMobilizationPartners, loadObserverSummary, loadProfile, loadProfiles, loadProfileTerritories, loadPublicMobilizationForm, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadTeamLinks, loadVaultAudit, loadVaultContacts, MobilizationPartner, ObserverSummary, Profile, ProfileTerritory, PublicMobilizationForm, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setProfileTerritories, setSurveyAssignments, setupVaultKey, signIn, signUp, submitPublicMobilizationResponse, Survey, SurveyQuestion, TeamLink, unlockVault, updatePassword, updateSurveyStatusAdmin, updateSurveyThankYouVideo, VaultAudit, VaultContact } from "./supabase";
+import { CandidateOperation, clearSurveyTestData, configured, createAccessInvite, createCandidateObserverInvite, createMobilizationPartner, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadCandidateOperations, loadFieldEvents, loadInterviews, loadMobilizationPartners, loadObserverSummary, loadProfile, loadProfiles, loadProfileTerritories, loadPublicMobilizationForm, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadTeamLinks, loadVaultAudit, loadVaultContacts, MobilizationPartner, ObserverSummary, Profile, ProfileTerritory, PublicMobilizationForm, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setMobilizationPartnerActive, setProfileActive, setProfileTerritories, setSurveyAssignments, setupVaultKey, signIn, signUp, submitPublicMobilizationResponse, Survey, SurveyQuestion, TeamLink, unlockVault, updatePassword, updateSurveyStatusAdmin, updateSurveyThankYouVideo, VaultAudit, VaultContact } from "./supabase";
 
 type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "mobilizacao" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "observador" | "supervisao" | "coordenacao" | "administracao" | "principal";
@@ -47,6 +47,7 @@ export default function Home() {
   const [teamLinks, setTeamLinks] = useState<TeamLink[]>([]);
   const [profileTerritories, setProfileTerritoriesState] = useState<ProfileTerritory[]>([]);
   const [mobilizationPartners, setMobilizationPartners] = useState<MobilizationPartner[]>([]);
+  const [candidateOperations, setCandidateOperations] = useState<CandidateOperation[]>([]);
   const [publicMobilizationCode, setPublicMobilizationCode] = useState("");
   const [publicMobilizationForm, setPublicMobilizationForm] = useState<PublicMobilizationForm | null>(null);
   const [interviews, setInterviews] = useState<SavedInterview[]>([]);
@@ -153,8 +154,17 @@ export default function Home() {
     setTeamLinks(links);
     setProfileTerritoriesState(territories);
     if (p.role === "admin") {
-      try { setMobilizationPartners(await loadMobilizationPartners(s)); }
-      catch { setMobilizationPartners([]); }
+      try {
+        const [partners, operations] = await Promise.all([
+          loadMobilizationPartners(s),
+          loadCandidateOperations(s),
+        ]);
+        setMobilizationPartners(partners);
+        setCandidateOperations(operations);
+      } catch {
+        setMobilizationPartners([]);
+        setCandidateOperations([]);
+      }
     }
   }
 
@@ -186,6 +196,14 @@ export default function Home() {
     setProfile(p);
     if (p.role === "observador") {
       setObserverSummary(await loadObserverSummary(current));
+      if (p.observer_mode === "candidato") {
+        const [partners, operations] = await Promise.all([
+          loadMobilizationPartners(current),
+          loadCandidateOperations(current),
+        ]);
+        setMobilizationPartners(partners);
+        setCandidateOperations(operations);
+      }
       setView("inicio");
       return;
     }
@@ -381,7 +399,17 @@ export default function Home() {
     const [everySurvey, saved, events, profiles, links, territories] = await Promise.all([loadAllSurveys(session), loadInterviews(session), loadFieldEvents(session), loadProfiles(session), loadTeamLinks(session), loadProfileTerritories(session)]);
     setAdminSurveys(everySurvey); setInterviews(saved); setFieldEvents(events); setTeam(profiles); setTeamLinks(links); setProfileTerritoriesState(territories);
     if (profile.role === "admin") {
-      try { setMobilizationPartners(await loadMobilizationPartners(session)); } catch { setMobilizationPartners([]); }
+      try {
+        const [partners, operations] = await Promise.all([
+          loadMobilizationPartners(session),
+          loadCandidateOperations(session),
+        ]);
+        setMobilizationPartners(partners);
+        setCandidateOperations(operations);
+      } catch {
+        setMobilizationPartners([]);
+        setCandidateOperations([]);
+      }
     }
   };
   const atualizarTerritoriosCoordenador = async (coordinatorId: string, cities: string[], regions: string[], neighborhoods: string[]) => {
@@ -428,7 +456,7 @@ export default function Home() {
     const timer = navigator.onLine && pendingCount ? window.setTimeout(autoSync, 1200) : 0;
     return () => { window.removeEventListener("online", autoSync); if (timer) window.clearTimeout(timer); };
   }, [session, pendingCount]);
-  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setTeam([]); setTeamLinks([]); setProfileTerritoriesState([]); setMobilizationPartners([]); setObserverSummary(null); setFounderPerspective("fundadora"); setView("inicio"); };
+  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setTeam([]); setTeamLinks([]); setProfileTerritoriesState([]); setMobilizationPartners([]); setCandidateOperations([]); setObserverSummary(null); setFounderPerspective("fundadora"); setView("inicio"); };
   const descadastrarMeuAcesso = async () => {
     if (!session || !profile) return;
     if (profile.is_primary_admin) return aviso("A conta principal é protegida e não pode ser descadastrada.");
@@ -471,7 +499,28 @@ export default function Home() {
   if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} descadastrar={descadastrarMeuAcesso} verificar={async () => {
     if (session) await autenticar(session, accessChannel);
   }} />;
-  if (profile.role === "observador") return <ObserverPanel profile={profile} summary={observerSummary} sair={sair} descadastrar={descadastrarMeuAcesso} atualizar={async () => { if (session) setObserverSummary(await loadObserverSummary(session)); }} />;
+  if (profile.role === "observador") return <ObserverPanel
+    profile={profile}
+    summary={observerSummary}
+    session={session}
+    partners={mobilizationPartners}
+    operations={candidateOperations}
+    aviso={aviso}
+    sair={sair}
+    descadastrar={descadastrarMeuAcesso}
+    atualizar={async () => {
+      if (!session) return;
+      setObserverSummary(await loadObserverSummary(session));
+      if (profile.observer_mode === "candidato") {
+        const [partners, operations] = await Promise.all([
+          loadMobilizationPartners(session),
+          loadCandidateOperations(session),
+        ]);
+        setMobilizationPartners(partners);
+        setCandidateOperations(operations);
+      }
+    }}
+  />;
 
   const founderAccess = profile.is_primary_admin === true && profile.email.toLowerCase() === "bussolanortep@gmail.com";
   const previewing = founderAccess && founderPerspective !== "fundadora";
@@ -521,7 +570,7 @@ export default function Home() {
     network: mobilizationPartners.map(item => ({ ...item, meetings_opt_ins: Number(item.meetings_opt_ins || 0), referrals: Number(item.referrals || 0) })),
   };
   if (founderAccess && founderPerspective === "publico") return <><FounderPreviewBar label="Capa pública" voltar={leavePreview} /><div className="founder-preview-surface"><PublicLanding /></div></>;
-  if (founderAccess && (founderPerspective === "observador" || founderPerspective === "candidato")) return <><FounderPreviewBar label={founderPerspective === "candidato" ? "Painel Estratégico do Candidato" : "Observador geral"} voltar={leavePreview} /><div className="founder-preview-surface"><ObserverPanel profile={visualProfile} summary={{ ...previewObserverSummary, observer_mode: founderPerspective === "candidato" ? "candidato" : "geral" }} sair={leavePreview} descadastrar={async () => aviso("A prévia não altera a sua conta fundadora.")} atualizar={async () => atualizarDadosAdmin()} /></div></>;
+  if (founderAccess && (founderPerspective === "observador" || founderPerspective === "candidato")) return <><FounderPreviewBar label={founderPerspective === "candidato" ? "Painel Estratégico do Candidato" : "Observador geral"} voltar={leavePreview} /><div className="founder-preview-surface"><ObserverPanel profile={visualProfile} summary={{ ...previewObserverSummary, observer_mode: founderPerspective === "candidato" ? "candidato" : "geral" }} session={session} partners={mobilizationPartners} operations={candidateOperations} aviso={aviso} sair={leavePreview} descadastrar={async () => aviso("A prévia não altera a sua conta fundadora.")} atualizar={async () => atualizarDadosAdmin()} /></div></>;
 
   const campo = founderPerspective === "pesquisador" || view === "portal" || view === "entrevista" || view === "obrigado";
   const titulos: Record<View, string> = {
@@ -565,7 +614,7 @@ export default function Home() {
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V48" : "NORTEP · DADOS QUE APROXIMAM · V48"}</small>
+          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V49" : "NORTEP · DADOS QUE APROXIMAM · V49"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -854,7 +903,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || coordinatorAccess || supervisorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V48</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || supervisorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V49</small>
     </form>
   </div>;
 }
@@ -927,9 +976,9 @@ function AcessoRemovido({ profile, sair }: { profile: Profile; sair: () => void 
   return <div className="auth-shell"><ControleFonte /><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO ENCERRADO</small><h2>Olá, {profile.name}.</h2><p>Este acesso foi removido pela administração e não pode abrir pesquisas ou painéis.</p><div className="pending-shield"><i>×</i><span><b>Acesso indisponível</b><small>Se acreditar que houve um engano, fale com a coordenação da NorteP.</small></span></div><button className="auth-switch" onClick={sair}>Sair</button></div></div>;
 }
 
-function ObserverPanel({ profile, summary, sair, descadastrar, atualizar }: { profile: Profile; summary: ObserverSummary | null; sair: () => void; descadastrar: () => Promise<void>; atualizar: () => Promise<void> }) {
+function ObserverPanel({ profile, summary, session, partners, operations, aviso, sair, descadastrar, atualizar }: { profile: Profile; summary: ObserverSummary | null; session: Session; partners: MobilizationPartner[]; operations: CandidateOperation[]; aviso: (text: string) => void; sair: () => void; descadastrar: () => Promise<void>; atualizar: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"situacao" | "mobilizacao" | "rede">("situacao");
+  const [tab, setTab] = useState<"situacao" | "mobilizacao" | "operacao" | "rede" | "gestao">("situacao");
   const [presentation, setPresentation] = useState(false);
   const refresh = async () => { setBusy(true); try { await atualizar(); } finally { setBusy(false); } };
   const lastUpdate = summary?.updated_at ? new Date(summary.updated_at).toLocaleString("pt-BR") : "Nenhuma entrevista registrada";
@@ -948,6 +997,13 @@ function ObserverPanel({ profile, summary, sair, descadastrar, atualizar }: { pr
     topPriority ? { icon: "✦", title: `${topPriority.label} lidera a escuta`, text: `${topPriority.percentage}% das respostas válidas apontam este tema.` } : { icon: "✦", title: "Ouvir antes de orientar", text: "Aguarde uma base mínima para destacar prioridades da população." },
     { icon: "↗", title: `${volunteerRate}% demonstraram interesse voluntário`, text: `${summary?.mobilization_volunteers || 0} pessoa(s) em ${summary?.mobilization_total || 0} formulários de mobilização.` },
   ];
+  const tabCopy = {
+    situacao: { eyebrow: "PESQUISA E TERRITÓRIO", title: `Olá, ${profile.name.split(" ")[0]}. Veja onde agir agora.`, text: "Indicadores explicativos mostram o que avançou, onde falta cobertura e quais temas aparecem com mais força." },
+    mobilizacao: { eyebrow: "RELACIONAMENTO E PARTICIPAÇÃO", title: "A mobilização transforma escuta em participação.", text: "Os dados abaixo medem formulários e autorizações reais, sem apresentar pessoas como votos garantidos." },
+    operacao: { eyebrow: "MOVIMENTAÇÃO DA OPERAÇÃO", title: "Acompanhe quem coordena e supervisiona o trabalho.", text: "A visão apresenta responsáveis, territórios e volume operacional, sem mostrar senhas, contatos ou respostas individuais." },
+    rede: { eyebrow: "LIDERANÇAS E ALCANCE", title: "Acompanhe quem está ampliando a rede.", text: "Nomes abaixo pertencem somente às lideranças e aos mobilizadores cadastrados. Eleitores permanecem protegidos." },
+    gestao: { eyebrow: "CONTROLE DA MOBILIZAÇÃO", title: "Cadastre lideranças, apoiadores e novos links.", text: "O candidato pode organizar e pausar sua rede de mobilização. O cofre e a administração técnica continuam protegidos." },
+  }[tab];
   return <div className={`observer-shell observer-strategy ${candidateMode ? "candidate-view" : ""} ${presentation ? "presentation-mode" : ""}`}><ControleFonte profile={profile} sair={sair} descadastrar={descadastrar} />
     <aside>
       <div className="observer-logo"><i>NP</i><span>NorteP <b>Pesquisa</b></span></div>
@@ -955,14 +1011,16 @@ function ObserverPanel({ profile, summary, sair, descadastrar, atualizar }: { pr
       <nav className="observer-nav" aria-label="Áreas do painel">
         <button className={tab === "situacao" ? "active" : ""} onClick={() => setTab("situacao")}><i>◉</i><span>Situação geral</span></button>
         <button className={tab === "mobilizacao" ? "active" : ""} onClick={() => setTab("mobilizacao")}><i>✦</i><span>Mobilização</span></button>
+        {candidateMode && <button className={tab === "operacao" ? "active" : ""} onClick={() => setTab("operacao")}><i>◎</i><span>Movimentação geral</span></button>}
         {candidateMode && <button className={tab === "rede" ? "active" : ""} onClick={() => setTab("rede")}><i>⌘</i><span>Rede de lideranças</span></button>}
+        {candidateMode && <button className={tab === "gestao" ? "active" : ""} onClick={() => setTab("gestao")}><i>＋</i><span>Gerenciar mobilização</span></button>}
       </nav>
-      <div className="observer-user"><i>{profile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{profile.name}</b><small>{candidateMode ? "Candidato · somente leitura" : "Observador autorizado"}</small></span><button onClick={sair}>Sair</button></div>
+      <div className="observer-user"><i>{profile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{profile.name}</b><small>{candidateMode ? "Candidato · gestão da mobilização" : "Observador autorizado"}</small></span><button onClick={sair}>Sair</button></div>
     </aside>
     <main>
       <header><div><small>NORTEP · DADOS QUE ORIENTAM</small><h1>{candidateMode ? "Painel Estratégico do Candidato" : "Sala de Situação NorteP"}</h1></div><div className="observer-header-actions"><button onClick={() => setPresentation(!presentation)}>{presentation ? "Sair da apresentação" : "▣ Modo apresentação"}</button><button className="observer-refresh" onClick={refresh} disabled={busy}>{busy ? "Atualizando…" : "↻ Atualizar"}</button></div></header>
       <div className="observer-content">
-        <div className="observer-intro"><div><small>{tab === "situacao" ? "PESQUISA E TERRITÓRIO" : tab === "mobilizacao" ? "RELACIONAMENTO E PARTICIPAÇÃO" : "LIDERANÇAS E ALCANCE"}</small><h2>{tab === "situacao" ? `Olá, ${profile.name.split(" ")[0]}. Veja onde agir agora.` : tab === "mobilizacao" ? "A mobilização transforma escuta em participação." : "Acompanhe quem está ampliando a rede."}</h2><p>{tab === "situacao" ? "Indicadores explicativos mostram o que avançou, onde falta cobertura e quais temas aparecem com mais força." : tab === "mobilizacao" ? "Os dados abaixo medem formulários e autorizações reais, sem apresentar pessoas como votos garantidos." : "Nomes abaixo pertencem somente às lideranças e aos mobilizadores cadastrados. Eleitores permanecem protegidos."}</p></div><span>Última atualização<b>{lastUpdate}</b></span></div>
+        <div className="observer-intro"><div><small>{tabCopy.eyebrow}</small><h2>{tabCopy.title}</h2><p>{tabCopy.text}</p></div><span>Última atualização<b>{lastUpdate}</b></span></div>
         {!summary ? <div className="painel resultado-vazio"><h3>Preparando indicadores</h3><p>Aguarde um momento e atualize os números.</p></div> : tab === "situacao" ? <>
           <div className="observer-metrics"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(summary.total_interviews)} s={`${summary.interviews_today} concluída(s) hoje`} /><Metrica c="laranja" i="◎" t="Taxa de conclusão" v={`${summary.completion_rate}%`} s={`${summary.field_events} ocorrência(s) de campo`} /><Metrica c="roxo" i="♙" t="Cobertura ativa" v={String(summary.active_researchers)} s="pesquisadores com coleta" /><Metrica c="azul" i="▤" t="Pesquisas em andamento" v={String(summary.active_surveys)} s="operações liberadas" /></div>
           <section className="observer-action-grid">{actionCards.map(card => <article key={card.title}><i>{card.icon}</i><span><small>ORIENTAÇÃO</small><b>{card.title}</b><p>{card.text}</p></span></article>)}</section>
@@ -978,7 +1036,11 @@ function ObserverPanel({ profile, summary, sair, descadastrar, atualizar }: { pr
             <section className="painel observer-territory-list"><Topo sup="PARTICIPAÇÃO POR TERRITÓRIO" titulo="Onde a rede está mais presente" />{summary.mobilization_territories.length ? summary.mobilization_territories.map(item => <div key={item.territory}><span><b>{item.territory}</b><small>{item.content_opt_ins} conteúdo · {item.volunteer_opt_ins} voluntariado</small><em><i style={{ width: `${Math.max(item.responses / maxMobilizationTerritory * 100, 4)}%` }} /></em></span><strong>{item.responses}</strong></div>) : <div className="observer-empty"><i>◎</i><b>Nenhum formulário recebido</b><span>Os territórios aparecerão quando os links de mobilização começarem a receber respostas.</span></div>}</section>
           </div>
           <div className="observer-notice"><i>i</i><span><b>Leitura responsável</b><small>Participação, autorização e interesse não significam promessa de voto. O painel mede relacionamentos registrados com consentimento.</small></span></div>
-        </> : <>
+        </> : tab === "operacao" ? <>
+          <div className="candidate-network-summary"><article><small>ADMINISTRAÇÃO SECUNDÁRIA</small><b>{operations.filter(item => item.role === "admin").length}</b><span>acessos operacionais</span></article><article><small>COORDENADORES</small><b>{operations.filter(item => item.role === "coordenador").length}</b><span>responsáveis territoriais</span></article><article><small>SUPERVISORES</small><b>{operations.filter(item => item.role === "supervisor").length}</b><span>acompanhamento de campo</span></article></div>
+          <section className="painel candidate-operations"><Topo sup="EQUIPE DE GESTÃO" titulo="Movimentação geral da operação" />{operations.length ? <div className="candidate-operation-grid">{operations.map(item => <article key={item.id}><div><i>{item.role === "admin" ? "A" : item.role === "coordenador" ? "C" : "S"}</i><span><small>{item.role === "admin" ? "ADMINISTRADOR SECUNDÁRIO" : item.role === "coordenador" ? "COORDENADOR" : "SUPERVISOR"}</small><b>{item.name}</b><em>{item.active ? "● Acesso ativo" : "○ Acesso suspenso"}</em></span></div><p>{item.territories.length ? item.territories.map(area => `${area.type}: ${area.value}`).join(" · ") : "Território não vinculado"}</p><footer><span><b>{item.team_members}</b><small>pessoa(s) na equipe direta</small></span><span><b>{item.interviews}</b><small>entrevista(s) próprias</small></span></footer></article>)}</div> : <div className="observer-empty"><i>◎</i><b>Nenhum responsável operacional cadastrado</b><span>Administradores secundários, coordenadores e supervisores aparecerão aqui após a ativação.</span></div>}</section>
+          <div className="observer-notice"><i>i</i><span><b>Visão operacional sem dados sensíveis</b><small>O candidato acompanha responsáveis, territórios e produção. E-mails, senhas, contatos e respostas individuais não são exibidos.</small></span></div>
+        </> : tab === "gestao" ? <Mobilizacao aviso={aviso} session={session} partners={partners} atualizar={atualizar} candidateMode /> : <>
           <div className="candidate-network-summary"><article><small>LIDERANÇAS E APOIADORES</small><b>{network.length}</b><span>pessoas responsáveis por links</span></article><article><small>FORMULÁRIOS ORIGINADOS</small><b>{summary.mobilization_total}</b><span>alcance comprovado pela rede</span></article><article><small>NOVAS INDICAÇÕES</small><b>{network.reduce((sum, item) => sum + Number(item.referrals || 0), 0)}</b><span>vínculos entre lideranças</span></article></div>
           <section className="painel candidate-network"><Topo sup="REDE DE MOBILIZAÇÃO" titulo="Quem indicou e quem ampliou a escuta" />{network.length ? <div className="network-grid">{network.map((item, index) => <article key={item.id}><div className="network-person"><i>{item.kind === "lideranca" ? "L" : "A"}</i><span><small>{item.kind === "lideranca" ? "LIDERANÇA" : "APOIADOR"}</small><b>{item.name}</b><em>{[item.city, item.region, item.neighborhood].filter(Boolean).join(" · ") || "Território a definir"}</em></span></div><div className="network-referral"><small>{item.parent_name ? "INDICADO POR" : "INÍCIO DA REDE"}</small><b>{item.parent_name || "NorteP"}</b></div><div className="network-numbers"><span><b>{item.responses}</b><small>formulários</small></span><span><b>{item.content_opt_ins}</b><small>conteúdo</small></span><span><b>{item.meetings_opt_ins}</b><small>encontros</small></span><span><b>{item.volunteer_opt_ins}</b><small>voluntariado</small></span></div><footer><span>#{String(index + 1).padStart(2, "0")}</span><b>{item.referrals} nova(s) indicação(ões)</b></footer></article>)}</div> : <div className="observer-empty"><i>⌘</i><b>A rede será construída com os links da mobilização</b><span>Cadastre a primeira liderança e, depois, vincule quem foi indicado por ela.</span></div>}</section>
           <div className="observer-notice candidate-safety"><i>✓</i><span><b>Alcance real, sem lista de supostos votos</b><small>Este painel mostra lideranças cadastradas e formulários concluídos. Nomes, contatos e escolhas individuais dos eleitores permanecem protegidos.</small></span></div>
@@ -1352,7 +1414,7 @@ function Resultados({ aviso, interviews, surveys, fieldEvents }: { aviso: (t: st
   return <><Cabecalho titulo="Resultados" sub={`${filtered.length} entrevista(s) nos filtros selecionados`} botao="⇩ Exportar CSV" acao={exportar} /><div className="filtros result-filters"><select value={surveyFilter} onChange={e => setSurveyFilter(e.target.value)}><option value="todos">Todas as pesquisas</option>{surveys.map(s => <option value={s.id} key={s.id}>{s.title}</option>)}</select><select value={periodFilter} onChange={e => setPeriodFilter(e.target.value)}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="todos">Todo o período</option></select><select value={dataMode} onChange={e => setDataMode(e.target.value)}><option value="todos">Testes e oficiais</option><option value="teste">Somente testes</option><option value="oficial">Somente oficiais</option></select><input value={territoryFilter} onChange={e => setTerritoryFilter(e.target.value)} placeholder="Cidade, região ou bairro" /></div>{!filtered.length && !filteredEvents.length ? <div className="painel resultado-vazio"><i>◎</i><h3>Nenhum dado encontrado</h3><p>Ajuste os filtros ou aguarde a próxima sincronização.</p></div> : <><div className="result-summary"><article><small>ENTREVISTAS</small><b>{filtered.length}</b></article><article><small>ABORDAGENS SEM ENTREVISTA</small><b>{filteredEvents.length}</b></article><article className={alerts.length ? "alert" : ""}><small>ALERTAS DE QUALIDADE</small><b>{alerts.length}</b></article><article><small>TAXA DE CONCLUSÃO</small><b>{filtered.length + filteredEvents.length ? Math.round(filtered.length / (filtered.length + filteredEvents.length) * 100) : 0}%</b></article></div><div className="duas resultados"><div className="painel"><Topo sup="PRIORIDADE DA CIDADE" titulo="O que deveria melhorar primeiro?" />{prioridades.length ? prioridades.map(([nome, valor]) => <div className="barra" key={nome}><span>{nome}</span><em><i style={{ width: `${valor / Math.max(filtered.length, 1) * 100}%` }} /></em><b>{Math.round(valor / Math.max(filtered.length, 1) * 100)}%</b></div>) : <div className="ranking-empty">Esta pergunta não existe nas pesquisas filtradas.</div>}</div><div className="painel outcome-panel"><Topo sup="RESULTADO DAS ABORDAGENS" titulo="Ocorrências de campo" /><div><span>Recusas</span><b>{outcomes.refused}</b></div><div><span>Fora do público</span><b>{outcomes.ineligible}</b></div><div><span>Interrompidas</span><b>{outcomes.interrupted}</b></div><div><span>Ninguém atendeu</span><b>{outcomes.no_answer}</b></div></div></div><div className="duas resultados"><div className="painel recentes"><Topo sup="ÚLTIMAS RESPOSTAS" titulo="Entrevistas sincronizadas" />{filtered.slice(0, 8).map(x => <div key={x.id}><span><b>{x.code} {x.is_test && <mark>TESTE</mark>}</b><small>{x.responses.bairro || "Bairro não informado"}</small></span><time>{new Date(x.completed_at).toLocaleDateString("pt-BR")}</time></div>)}</div><div className="painel quality-panel"><Topo sup="AUDITORIA AUTOMÁTICA" titulo="Entrevistas para conferir" />{alerts.length ? alerts.slice(0, 8).map(item => <div key={item.id}><span><b>{item.code}</b><small>{(item.quality_flags || []).map(flag => flag === "muito_rapida" ? "Entrevista muito rápida" : "Possível resposta repetida").join(" · ")}</small></span><strong>{item.duration_seconds ? `${Math.round(item.duration_seconds / 60)} min` : "—"}</strong></div>) : <div className="ranking-empty">Nenhum alerta automático nos filtros atuais.</div>}</div></div></>}</>;
 }
 
-function Mobilizacao({ aviso, session, partners, atualizar }: { aviso: (text: string) => void; session: Session; partners: MobilizationPartner[]; atualizar: () => Promise<void> }) {
+function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = false }: { aviso: (text: string) => void; session: Session; partners: MobilizationPartner[]; atualizar: () => Promise<void>; candidateMode?: boolean }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
@@ -1385,8 +1447,20 @@ function Mobilizacao({ aviso, session, partners, atualizar }: { aviso: (text: st
     await navigator.clipboard.writeText(`${window.location.origin}/?mobilizacao=${encodeURIComponent(code)}`);
     aviso("Link copiado.");
   };
+  const togglePartner = async (partner: MobilizationPartner) => {
+    setBusy(true);
+    try {
+      await setMobilizationPartnerActive(session, partner.id, !partner.active);
+      await atualizar();
+      aviso(partner.active ? "Link pausado. Ele não receberá novas respostas." : "Link reativado.");
+    } catch (error) {
+      aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível alterar o link.");
+    } finally {
+      setBusy(false);
+    }
+  };
   return <>
-    <Cabecalho titulo="Mobilização e relacionamentos" sub="Links públicos sem cadastro, com consentimentos separados e resultado por apoiador ou liderança." botao="＋ Novo link" acao={() => setOpen(!open)} />
+    <Cabecalho titulo={candidateMode ? "Controle da mobilização" : "Mobilização e relacionamentos"} sub="Links públicos sem cadastro, com consentimentos separados e resultado por apoiador ou liderança." botao="＋ Novo link" acao={() => setOpen(!open)} />
     <div className="coord-summary mobilization-summary">
       <article><small>LINKS ATIVOS</small><b>{partners.filter(item => item.active).length}</b><span>apoiadores e lideranças</span></article>
       <article><small>FORMULÁRIOS RECEBIDOS</small><b>{total}</b><span>respostas identificadas pelo link</span></article>
@@ -1411,7 +1485,7 @@ function Mobilizacao({ aviso, session, partners, atualizar }: { aviso: (text: st
       <strong>{item.responses}<small>respostas</small></strong>
       <strong>{item.content_opt_ins}<small>conteúdo</small></strong>
       <strong>{item.volunteer_opt_ins}<small>voluntariado</small></strong>
-      <button onClick={() => void copyLink(item.code)}>Copiar link</button>
+      <span className="mobilization-actions"><button onClick={() => void copyLink(item.code)}>Copiar link</button><button className={item.active ? "suspender" : "aprovar"} disabled={busy} onClick={() => void togglePartner(item)}>{item.active ? "Pausar" : "Reativar"}</button></span>
     </article>) : <div className="ranking-empty">Nenhum link criado. Use “Novo link” para começar.</div>}</section>
   </>;
 }

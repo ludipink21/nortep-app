@@ -10,8 +10,9 @@ const hierarchy = await readFile(new URL("../supabase/migrations/20260730100000_
 const officialPilot = await readFile(new URL("../supabase/migrations/20260730110000_reset_pilot_and_seed_surveys.sql", import.meta.url), "utf8");
 const questionScope = await readFile(new URL("../supabase/migrations/20260730112000_fix_question_scope.sql", import.meta.url), "utf8");
 const strategyObserver = await readFile(new URL("../supabase/migrations/20260730140000_strategy_observer_network.sql", import.meta.url), "utf8");
+const candidateMobilization = await readFile(new URL("../supabase/migrations/20260730170000_candidate_mobilization_control.sql", import.meta.url), "utf8");
 
-test("V48 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
+test("V49 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
   for (const channel of ["principal", "administracao", "coordenacao", "supervisao", "observador", "pesquisador"]) {
     assert.match(page, new RegExp(`"${channel}"`));
   }
@@ -27,9 +28,9 @@ test("V48 mantém entradas separadas, supervisão e visão exclusiva da fundador
 });
 
 test("service worker e interface usam a mesma versão", () => {
-  assert.match(page, /V48/);
-  assert.match(layout, /sw\.js\?v=48/);
-  assert.match(worker, /nortep-pesquisa-v48/);
+  assert.match(page, /V49/);
+  assert.match(layout, /sw\.js\?v=49/);
+  assert.match(worker, /nortep-pesquisa-v49/);
   assert.match(layout, /nortep-icon-v1\.png/);
   assert.match(worker, /nortep-icon-v1\.png/);
   assert.match(layout, /location\.hostname === 'localhost'/);
@@ -69,6 +70,16 @@ test("painel do candidato é criado somente pela fundadora e não expõe eleitor
   assert.doesNotMatch(strategyObserver, /respondent_name/);
   assert.doesNotMatch(strategyObserver, /contact_whatsapp/);
   assert.doesNotMatch(strategyObserver, /contact_email/);
+});
+
+test("candidato gerencia mobilização sem receber acesso administrativo", () => {
+  assert.match(page, /Gerenciar mobilização/);
+  assert.match(page, /Movimentação geral/);
+  assert.match(candidateMobilization, /observer_mode = 'candidato'/);
+  assert.match(candidateMobilization, /set_mobilization_partner_active/);
+  assert.match(candidateMobilization, /candidate_operations_summary/);
+  assert.doesNotMatch(candidateMobilization, /contact_email|contact_whatsapp|password/);
+  assert.doesNotMatch(candidateMobilization, /\bdelete\s+from\b/i);
 });
 
 test("cada pesquisa pode ter vídeo final e a rede registra a origem da indicação", () => {
