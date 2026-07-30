@@ -1,3 +1,3 @@
 export async function GET(request: Request) {
-  return Response.redirect(new URL("/favicon.svg", request.url), 307);
+  return Response.redirect(new URL("/nortep-icon-v1.png", request.url), 307);
 }

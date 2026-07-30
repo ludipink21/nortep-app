@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const worker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+const faviconRoute = await readFile(new URL("../app/favicon.ico/route.ts", import.meta.url), "utf8");
 const hierarchy = await readFile(new URL("../supabase/migrations/20260730100000_supervisor_territory_and_mobilization.sql", import.meta.url), "utf8");
 const officialPilot = await readFile(new URL("../supabase/migrations/20260730110000_reset_pilot_and_seed_surveys.sql", import.meta.url), "utf8");
 const questionScope = await readFile(new URL("../supabase/migrations/20260730112000_fix_question_scope.sql", import.meta.url), "utf8");
@@ -32,6 +33,11 @@ test("service worker e interface usam a mesma versão", () => {
   assert.match(layout, /nortep-icon-v1\.png/);
   assert.match(worker, /nortep-icon-v1\.png/);
   assert.match(layout, /location\.hostname === 'localhost'/);
+});
+
+test("favicon uses the official NorteP icon", () => {
+  assert.match(faviconRoute, /nortep-icon-v1\.png/);
+  assert.doesNotMatch(faviconRoute, /favicon\.svg/);
 });
 
 test("hierarquia territorial aplica menor privilégio", () => {
