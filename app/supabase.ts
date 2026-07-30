@@ -9,7 +9,7 @@ export type Profile = {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "coordenador" | "pesquisador" | "observador";
+  role: "admin" | "coordenador" | "supervisor" | "pesquisador" | "observador";
   active: boolean;
   is_primary_admin?: boolean;
   access_removed_at?: string | null;
@@ -32,7 +32,7 @@ export type Survey = {
   title: string;
   description?: string;
   status: "draft" | "pilot" | "active" | "closed";
-  survey_type: "quantitative" | "qualitative" | "directional" | "electoral" | "data_collection";
+  survey_type: "quantitative" | "qualitative" | "directional" | "electoral" | "data_collection" | "relationship";
   estimated_minutes: number;
   consent_version: string;
   consent_text?: string;
@@ -85,6 +85,46 @@ export type CoordinatorTerritory = {
   scope_value: string;
   active: boolean;
   created_at?: string;
+};
+
+export type TeamLink = {
+  manager_id: string;
+  member_id: string;
+  active: boolean;
+  assigned_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ProfileTerritory = {
+  id: string;
+  profile_id: string;
+  scope_type: "cidade" | "regiao" | "bairro";
+  scope_value: string;
+  active: boolean;
+  created_at?: string;
+};
+
+export type MobilizationPartner = {
+  id: string;
+  name: string;
+  kind: "apoiador" | "lideranca";
+  city?: string | null;
+  region?: string | null;
+  neighborhood?: string | null;
+  code: string;
+  active: boolean;
+  video_url?: string | null;
+  responses: number;
+  content_opt_ins: number;
+  volunteer_opt_ins: number;
+  last_response_at?: string | null;
+};
+
+export type PublicMobilizationForm = {
+  partner: { name: string; kind: "apoiador" | "lideranca"; city?: string | null; region?: string | null; neighborhood?: string | null };
+  survey: { id: string; title: string; description?: string | null; consent_text: string; video_url?: string | null };
+  questions: SurveyQuestion[];
 };
 
 export type SavedInterview = {
@@ -262,7 +302,7 @@ export async function redeemAccessInvite(session: Session, code: string) {
 export async function createAccessInvite(
   session: Session,
   email: string,
-  role: "admin" | "coordenador" | "observador" | "pesquisador",
+  role: "admin" | "coordenador" | "supervisor" | "observador" | "pesquisador",
   options?: { coordinatorId?: string; cities?: string[]; regions?: string[]; neighborhoods?: string[] },
 ) {
   return rest<string>(session, "rpc/create_managed_access_invite", {
@@ -349,6 +389,26 @@ export async function loadCoordinatorTerritories(session: Session) {
   return rest<CoordinatorTerritory[]>(session, "coordinator_territories?select=*&active=eq.true&order=scope_type.asc,scope_value.asc");
 }
 
+export async function loadTeamLinks(session: Session) {
+  return rest<TeamLink[]>(session, "team_links?select=*&active=eq.true&order=created_at.asc");
+}
+
+export async function loadProfileTerritories(session: Session) {
+  return rest<ProfileTerritory[]>(session, "profile_territories?select=*&active=eq.true&order=scope_type.asc,scope_value.asc");
+}
+
+export async function setProfileTerritories(session: Session, profileId: string, cities: string[], regions: string[], neighborhoods: string[]) {
+  return rest<number>(session, "rpc/set_profile_territories_manager", {
+    method: "POST",
+    body: JSON.stringify({
+      p_profile_id: profileId,
+      p_cities: cities,
+      p_regions: regions,
+      p_neighborhoods: neighborhoods,
+    }),
+  });
+}
+
 export async function setCoordinatorTerritories(session: Session, coordinatorId: string, cities: string[], regions: string[], neighborhoods: string[]) {
   return rest<number>(session, "rpc/set_coordinator_territories_admin", {
     method: "POST",
@@ -399,6 +459,7 @@ export async function loadFieldEvents(session: Session) {
 
 export async function saveInterview(session: Session, survey: Survey, responses: Record<string, string>, deviceId: string, durationSeconds?: number) {
   const { nome, whatsapp, email, interesse, consentimentoContato, autorizaGeo, latitude, longitude, codigo, C01, C02, C03, C04, C05, C06, C07, ...researchResponses } = responses;
+  void codigo;
   const dynamicContactConsent = C01 === "Sim" && C06 === "Sim";
   const dynamicContactChannels = C03 || "";
   const researchConsent = /^sim/i.test(responses.consentirPesquisa || "");
@@ -530,5 +591,89 @@ export async function clearSurveyTestData(session: Session, surveyId: string) {
   return rest<{ interviews_removed: number; field_events_removed: number }>(session, "rpc/clear_test_data_admin", {
     method: "POST",
     body: JSON.stringify({ p_survey_id: surveyId }),
+  });
+}
+
+async function publicRest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const ready = await loadRuntimeConfig();
+  if (!ready) throw new Error("Configuração indisponível.");
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: key,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+  return parseResponse(response) as Promise<T>;
+}
+
+export async function createMobilizationPartner(
+  session: Session,
+  partner: { name: string; kind: "apoiador" | "lideranca"; city?: string; region?: string; neighborhood?: string; videoUrl?: string },
+) {
+  return rest<{ id: string; code: string }>(session, "rpc/create_mobilization_partner", {
+    method: "POST",
+    body: JSON.stringify({
+      p_name: partner.name,
+      p_kind: partner.kind,
+      p_city: partner.city || null,
+      p_region: partner.region || null,
+      p_neighborhood: partner.neighborhood || null,
+      p_video_url: partner.videoUrl || null,
+    }),
+  });
+}
+
+export async function loadMobilizationPartners(session: Session) {
+  const result = await rest<MobilizationPartner[] | { error?: string }>(session, "rpc/list_mobilization_partners", {
+    method: "POST",
+    body: "{}",
+  });
+  if (!Array.isArray(result)) throw new Error(result.error || "Não foi possível carregar os relacionamentos.");
+  return result;
+}
+
+export async function loadPublicMobilizationForm(code: string) {
+  return publicRest<PublicMobilizationForm | null>("rpc/get_public_mobilization_form", {
+    method: "POST",
+    body: JSON.stringify({ p_code: code }),
+  });
+}
+
+export async function submitPublicMobilizationResponse(
+  code: string,
+  payload: {
+    answers: Record<string, string>;
+    name?: string;
+    whatsapp?: string;
+    email?: string;
+    privacyConsent: boolean;
+    contentOptIn: boolean;
+    meetingsOptIn: boolean;
+    volunteerOptIn: boolean;
+    academicConsent: boolean;
+    city?: string;
+    region?: string;
+    neighborhood?: string;
+  },
+) {
+  return publicRest<{ code: string; video_url?: string | null }>("rpc/submit_public_mobilization_response", {
+    method: "POST",
+    body: JSON.stringify({
+      p_code: code,
+      p_answers: payload.answers,
+      p_name: payload.name || null,
+      p_whatsapp: payload.whatsapp || null,
+      p_email: payload.email || null,
+      p_contact_consent: payload.privacyConsent,
+      p_content_opt_in: payload.contentOptIn,
+      p_meetings_opt_in: payload.meetingsOptIn,
+      p_volunteer_opt_in: payload.volunteerOptIn,
+      p_academic_consent: payload.academicConsent,
+      p_city: payload.city || null,
+      p_region: payload.region || null,
+      p_neighborhood: payload.neighborhood || null,
+    }),
   });
 }

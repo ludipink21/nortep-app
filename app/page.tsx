@@ -3,11 +3,11 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { clearSurveyTestData, configured, CoordinatorMembership, CoordinatorTerritory, createAccessInvite, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadCoordinatorMemberships, loadCoordinatorTerritories, loadFieldEvents, loadInterviews, loadObserverSummary, loadProfile, loadProfiles, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadVaultAudit, loadVaultContacts, ObserverSummary, Profile, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setCoordinatorTerritories, setProfileActive, setSurveyAssignments, setupVaultKey, signIn, signUp, Survey, SurveyQuestion, unlockVault, updatePassword, updateSurveyStatusAdmin, VaultAudit, VaultContact } from "./supabase";
+import { clearSurveyTestData, configured, createAccessInvite, createMobilizationPartner, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadFieldEvents, loadInterviews, loadMobilizationPartners, loadObserverSummary, loadProfile, loadProfiles, loadProfileTerritories, loadPublicMobilizationForm, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadTeamLinks, loadVaultAudit, loadVaultContacts, MobilizationPartner, ObserverSummary, Profile, ProfileTerritory, PublicMobilizationForm, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setProfileActive, setProfileTerritories, setSurveyAssignments, setupVaultKey, signIn, signUp, submitPublicMobilizationResponse, Survey, SurveyQuestion, TeamLink, unlockVault, updatePassword, updateSurveyStatusAdmin, VaultAudit, VaultContact } from "./supabase";
 
-type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
-type AccessChannel = "publico" | "pesquisador" | "observador" | "coordenacao" | "administracao" | "principal";
-type FounderPerspective = "fundadora" | "publico" | "pesquisador" | "observador" | "coordenador" | "administrador";
+type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "mobilizacao" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
+type AccessChannel = "publico" | "pesquisador" | "observador" | "supervisao" | "coordenacao" | "administracao" | "principal";
+type FounderPerspective = "fundadora" | "publico" | "pesquisador" | "observador" | "supervisor" | "coordenador" | "administrador";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
   | { kind: "field_event"; id: string; survey: Survey; event: Omit<FieldEvent, "id" | "survey_id" | "researcher_id" | "occurred_at">; deviceId: string; savedAt: string; attempts: number };
@@ -19,7 +19,7 @@ const draftKey = (surveyId: string) => `nortep-rascunho-${surveyId}`;
 function readAccessChannel(): AccessChannel {
   if (typeof window === "undefined") return "publico";
   const value = new URLSearchParams(window.location.search).get("acesso");
-  return value === "pesquisador" || value === "observador" || value === "coordenacao" || value === "administracao" || value === "principal" ? value : "publico";
+  return value === "pesquisador" || value === "observador" || value === "supervisao" || value === "coordenacao" || value === "administracao" || value === "principal" ? value : "publico";
 }
 
 const pesquisas = [
@@ -44,8 +44,11 @@ export default function Home() {
   const [adminSurveys, setAdminSurveys] = useState<Survey[]>([]);
   const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>([]);
   const [team, setTeam] = useState<Profile[]>([]);
-  const [coordinatorMemberships, setCoordinatorMemberships] = useState<CoordinatorMembership[]>([]);
-  const [coordinatorTerritories, setCoordinatorTerritoriesState] = useState<CoordinatorTerritory[]>([]);
+  const [teamLinks, setTeamLinks] = useState<TeamLink[]>([]);
+  const [profileTerritories, setProfileTerritoriesState] = useState<ProfileTerritory[]>([]);
+  const [mobilizationPartners, setMobilizationPartners] = useState<MobilizationPartner[]>([]);
+  const [publicMobilizationCode, setPublicMobilizationCode] = useState("");
+  const [publicMobilizationForm, setPublicMobilizationForm] = useState<PublicMobilizationForm | null>(null);
   const [interviews, setInterviews] = useState<SavedInterview[]>([]);
   const [fieldEvents, setFieldEvents] = useState<FieldEvent[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -59,12 +62,19 @@ export default function Home() {
   const [resumeDraft, setResumeDraft] = useState<InterviewDraft | null>(null);
   const [founderPerspective, setFounderPerspective] = useState<FounderPerspective>("fundadora");
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function aviso(texto: string) {
+    setToast(texto);
+    setTimeout(() => setToast(""), 2600);
+  }
 
   useEffect(() => {
     const channel = readAccessChannel();
-    const invitation = new URLSearchParams(window.location.search).get("convite") || "";
+    const params = new URLSearchParams(window.location.search);
+    const invitation = params.get("convite") || "";
+    const mobilizationCode = params.get("mobilizacao") || "";
     setAccessChannel(channel);
     setInviteCode(invitation);
+    setPublicMobilizationCode(mobilizationCode);
     const video = localStorage.getItem("nortep-video-agradecimento");
     if (video) setVideoUrl(video);
     const pendentes: PendingItem[] = JSON.parse(localStorage.getItem("nortep-pendentes") || "[]");
@@ -80,6 +90,10 @@ export default function Home() {
     const boot = async () => {
       try {
         await loadRuntimeConfig();
+        if (mobilizationCode) {
+          setPublicMobilizationForm(await loadPublicMobilizationForm(mobilizationCode));
+          return;
+        }
         const callback = await readSessionFromUrl();
         if (callback?.type === "recovery") {
           setPasswordRecoverySession(callback.session);
@@ -131,13 +145,17 @@ export default function Home() {
   useEffect(() => localStorage.setItem("nortep-video-agradecimento", videoUrl), [videoUrl]);
 
   async function carregarAdmin(s: Session, p: Profile) {
-    if (!(["admin", "coordenador"] as string[]).includes(p.role)) return;
-    const [profiles, everySurvey, events, memberships, territories] = await Promise.all([loadProfiles(s), loadAllSurveys(s), loadFieldEvents(s), loadCoordinatorMemberships(s), loadCoordinatorTerritories(s)]);
+    if (!(["admin", "coordenador", "supervisor"] as string[]).includes(p.role)) return;
+    const [profiles, everySurvey, events, links, territories] = await Promise.all([loadProfiles(s), loadAllSurveys(s), loadFieldEvents(s), loadTeamLinks(s), loadProfileTerritories(s)]);
     setTeam(profiles);
     setAdminSurveys(everySurvey);
     setFieldEvents(events);
-    setCoordinatorMemberships(memberships);
-    setCoordinatorTerritoriesState(territories);
+    setTeamLinks(links);
+    setProfileTerritoriesState(territories);
+    if (p.role === "admin") {
+      try { setMobilizationPartners(await loadMobilizationPartners(s)); }
+      catch { setMobilizationPartners([]); }
+    }
   }
 
   async function autenticar(incoming: Session, channel: AccessChannel = accessChannel) {
@@ -155,6 +173,10 @@ export default function Home() {
     if (channel === "coordenacao" && p.role !== "coordenador") {
       saveSession(null);
       throw new Error("Este link é exclusivo para coordenadores autorizados.");
+    }
+    if (channel === "supervisao" && p.role !== "supervisor") {
+      saveSession(null);
+      throw new Error("Este link é exclusivo para supervisores autorizados.");
     }
     if (channel === "observador" && p.role !== "observador") {
       saveSession(null);
@@ -175,12 +197,8 @@ export default function Home() {
     setView(p.role === "pesquisador" ? "portal" : "inicio");
   }
 
-  const aviso = (texto: string) => {
-    setToast(texto);
-    setTimeout(() => setToast(""), 2600);
-  };
   useEffect(() => {
-    if (!session || !profile || !(profile.role === "admin" || profile.role === "coordenador")) return;
+    if (!session || !profile || !(profile.role === "admin" || profile.role === "coordenador" || profile.role === "supervisor")) return;
     let known = fieldEvents.length;
     const checkEvents = async () => {
       try {
@@ -237,11 +255,12 @@ export default function Home() {
     }
     let role: Profile["role"] | undefined = profile?.role;
     if (founderPerspective === "administrador") role = "admin";
-    else if (founderPerspective === "pesquisador" || founderPerspective === "coordenador" || founderPerspective === "observador") role = founderPerspective;
+    else if (founderPerspective === "pesquisador" || founderPerspective === "supervisor" || founderPerspective === "coordenador" || founderPerspective === "observador") role = founderPerspective;
     const allowedByRole: Partial<Record<Profile["role"], View[]>> = {
       pesquisador: ["portal", "entrevista", "obrigado"],
+      supervisor: ["inicio", "pesquisas", "coordenacao", "rankings", "resultados", "ecossistema"],
       coordenador: ["inicio", "pesquisas", "coordenacao", "rankings", "resultados", "ecossistema", "portal", "entrevista", "obrigado"],
-      admin: ["inicio", "visoes", "pesquisas", "coordenacao", "equipe", "rankings", "resultados", "ecossistema", "cofre", "portal", "entrevista", "obrigado"],
+      admin: ["inicio", "visoes", "pesquisas", "coordenacao", "equipe", "rankings", "resultados", "mobilizacao", "ecossistema", "cofre", "portal", "entrevista", "obrigado"],
     };
     const allowed = role && role !== "observador" ? allowedByRole[role] : [];
     if (!allowed?.includes(destino)) setView(role === "pesquisador" ? "portal" : "inicio");
@@ -268,10 +287,10 @@ export default function Home() {
       aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível apagar o acesso");
     }
   };
-  const gerarConvite = async (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador", options?: { coordinatorId?: string; cities?: string[]; regions?: string[]; neighborhoods?: string[] }) => {
+  const gerarConvite = async (email: string, role: "admin" | "coordenador" | "supervisor" | "observador" | "pesquisador", options?: { coordinatorId?: string; cities?: string[]; regions?: string[]; neighborhoods?: string[] }) => {
     if (!session) throw new Error("Entre novamente para gerar o convite.");
     const code = await createAccessInvite(session, email, role, options);
-    const channel = role === "observador" ? "observador" : role === "pesquisador" ? "pesquisador" : role === "coordenador" ? "coordenacao" : "administracao";
+    const channel = role === "observador" ? "observador" : role === "pesquisador" ? "pesquisador" : role === "supervisor" ? "supervisao" : role === "coordenador" ? "coordenacao" : "administracao";
     return `${window.location.origin}/?acesso=${channel}&convite=${encodeURIComponent(code)}`;
   };
   const fila = () => {
@@ -290,7 +309,9 @@ export default function Home() {
     if (!session || !survey) return aviso("Pesquisa ainda não foi liberada para este acesso");
     let deviceId = localStorage.getItem("nortep-dispositivo");
     if (!deviceId) { deviceId = crypto.randomUUID(); localStorage.setItem("nortep-dispositivo", deviceId); }
-    const durationSeconds = interviewStartedAt ? Math.max(1, Math.round((Date.now() - interviewStartedAt) / 1000)) : 0;
+    // Lido somente no clique de finalização, nunca durante a renderização.
+    const finishedAt = Date.now();
+    const durationSeconds = interviewStartedAt ? Math.max(1, Math.round((finishedAt - interviewStartedAt) / 1000)) : 0;
     const item: PendingItem = { kind: "interview", id: crypto.randomUUID(), survey, responses: { ...respostas }, deviceId, durationSeconds, savedAt: new Date().toISOString(), attempts: 0 };
     try {
       if (!navigator.onLine) throw new Error("offline");
@@ -300,7 +321,7 @@ export default function Home() {
       if (profile && profile.role !== "pesquisador") setInterviews(await loadInterviews(session));
     } catch {
       guardarFila([...fila(), item]);
-      setSavedCode(`ENT-OFFLINE-${String(Date.now()).slice(-6)}`);
+      setSavedCode(`ENT-OFFLINE-${String(finishedAt).slice(-6)}`);
       setSavedSynced(false);
     }
     registrarTentativa("finalizada", survey);
@@ -351,15 +372,18 @@ export default function Home() {
   };
   const atualizarDadosAdmin = async () => {
     if (!session || !profile || !admin) return;
-    const [everySurvey, saved, events, profiles, memberships, territories] = await Promise.all([loadAllSurveys(session), loadInterviews(session), loadFieldEvents(session), loadProfiles(session), loadCoordinatorMemberships(session), loadCoordinatorTerritories(session)]);
-    setAdminSurveys(everySurvey); setInterviews(saved); setFieldEvents(events); setTeam(profiles); setCoordinatorMemberships(memberships); setCoordinatorTerritoriesState(territories);
+    const [everySurvey, saved, events, profiles, links, territories] = await Promise.all([loadAllSurveys(session), loadInterviews(session), loadFieldEvents(session), loadProfiles(session), loadTeamLinks(session), loadProfileTerritories(session)]);
+    setAdminSurveys(everySurvey); setInterviews(saved); setFieldEvents(events); setTeam(profiles); setTeamLinks(links); setProfileTerritoriesState(territories);
+    if (profile.role === "admin") {
+      try { setMobilizationPartners(await loadMobilizationPartners(session)); } catch { setMobilizationPartners([]); }
+    }
   };
   const atualizarTerritoriosCoordenador = async (coordinatorId: string, cities: string[], regions: string[], neighborhoods: string[]) => {
     if (!session) throw new Error("Entre novamente para definir os territórios.");
-    await setCoordinatorTerritories(session, coordinatorId, cities, regions, neighborhoods);
-    setCoordinatorTerritoriesState(await loadCoordinatorTerritories(session));
+    await setProfileTerritories(session, coordinatorId, cities, regions, neighborhoods);
+    setProfileTerritoriesState(await loadProfileTerritories(session));
   };
-  const atualizarPesquisasPesquisador = async (mostrarAviso = true) => {
+  async function atualizarPesquisasPesquisador(mostrarAviso = true) {
     if (!session) return;
     try {
       const atuais = await loadSurveys(session);
@@ -369,7 +393,7 @@ export default function Home() {
     } catch {
       if (mostrarAviso) aviso("Não foi possível atualizar agora. Verifique a conexão.");
     }
-  };
+  }
   const abrirPesquisa = async (selected: Survey, draft?: InterviewDraft, action: AttemptLog["action"] = "inicio") => {
     if (!session) return;
     setSurvey(selected);
@@ -398,7 +422,7 @@ export default function Home() {
     const timer = navigator.onLine && pendingCount ? window.setTimeout(autoSync, 1200) : 0;
     return () => { window.removeEventListener("online", autoSync); if (timer) window.clearTimeout(timer); };
   }, [session, pendingCount]);
-  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setTeam([]); setCoordinatorMemberships([]); setCoordinatorTerritoriesState([]); setObserverSummary(null); setFounderPerspective("fundadora"); setView("inicio"); };
+  const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setTeam([]); setTeamLinks([]); setProfileTerritoriesState([]); setMobilizationPartners([]); setObserverSummary(null); setFounderPerspective("fundadora"); setView("inicio"); };
   const descadastrarMeuAcesso = async () => {
     if (!session || !profile) return;
     if (profile.is_primary_admin) return aviso("A conta principal é protegida e não pode ser descadastrada.");
@@ -415,7 +439,7 @@ export default function Home() {
       aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível descadastrar este acesso");
     }
   };
-  const admin = profile?.role === "admin" || profile?.role === "coordenador";
+  const admin = profile?.role === "admin" || profile?.role === "coordenador" || profile?.role === "supervisor";
   useEffect(() => {
     if (!session || !admin) return;
     const refresh = () => { void atualizarDadosAdmin(); };
@@ -426,6 +450,7 @@ export default function Home() {
 
   if (!authReady) return <TelaCarregando />;
   if (!configured()) return <TelaConfigErro />;
+  if (publicMobilizationCode) return <PublicMobilization code={publicMobilizationCode} form={publicMobilizationForm} />;
   if (passwordRecoverySession) return <RedefinirSenha session={passwordRecoverySession} concluir={() => {
     saveSession(null);
     setPasswordRecoverySession(null);
@@ -488,6 +513,7 @@ export default function Home() {
     equipe: "Acessos e cadastros",
     rankings: "Rankings",
     resultados: "Resultados",
+    mobilizacao: "Mobilização e relacionamentos",
     ecossistema: "Ecossistema NorteP",
     cofre: "Cofre de contatos",
     portal: "Minhas pesquisas",
@@ -497,29 +523,30 @@ export default function Home() {
 
   return <div className={campo ? "app app-campo" : "app"}>
     <ControleFonte profile={visualProfile} sair={previewing ? leavePreview : sair} descadastrar={previewing ? async () => aviso("A prévia não altera a sua conta fundadora.") : descadastrarMeuAcesso} />
-    {previewing && <FounderPreviewBar label={founderPerspective === "pesquisador" ? "Pesquisador" : founderPerspective === "coordenador" ? "Coordenador" : "Administrador secundário"} voltar={leavePreview} />}
+    {previewing && <FounderPreviewBar label={founderPerspective === "pesquisador" ? "Pesquisador" : founderPerspective === "supervisor" ? "Supervisor" : founderPerspective === "coordenador" ? "Coordenador" : "Administrador secundário"} voltar={leavePreview} />}
     {!campo && <aside className={menu ? "open" : ""}>
       <div className="logo"><i>NP</i><span>NorteP <b>Pesquisa</b></span></div>
       <nav>{[
         ["inicio", "⌂", "Visão geral"],
         ...(founderAccess && !previewing ? [["visoes", "◉", "Ver todo o aplicativo"]] : []),
         ["pesquisas", "▤", "Pesquisas"],
-        ["coordenacao", "♟", visualProfile.role === "coordenador" ? "Minha coordenação" : "Coordenação"],
+        ["coordenacao", "♟", visualProfile.role === "supervisor" ? "Minha supervisão" : visualProfile.role === "coordenador" ? "Minha coordenação" : "Coordenação"],
         ...(visualProfile.role === "admin" ? [["equipe", "♙", "Acessos e cadastros"]] : []),
         ["rankings", "★", "Rankings"],
         ["resultados", "◫", "Resultados"],
+        ...(visualProfile.role === "admin" ? [["mobilizacao", "✦", "Mobilização"]] : []),
         ...(visualProfile.role === "admin" ? [["cofre", "◉", "Cofre de contatos"]] : []),
         ["ecossistema", "◇", "Ecossistema NorteP"],
       ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i>{item[1]}</i>{item[2]}</button>)}</nav>
       <div className="coleta"><b>● Coleta conectada</b><small>{interviews.length} de 100 entrevistas</small><div><i style={{ width: `${Math.min(interviews.length, 100)}%` }} /></div></div>
-      <div className="perfil"><i>{visualProfile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{visualProfile.name}</b><small>{visualProfile.is_primary_admin ? "Administradora fundadora" : visualProfile.role === "admin" ? "Administração" : "Coordenação de campo"}</small></span><button onClick={previewing ? leavePreview : sair}>{previewing ? "Voltar" : "Sair"}</button></div>
+      <div className="perfil"><i>{visualProfile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{visualProfile.name}</b><small>{visualProfile.is_primary_admin ? "Administradora fundadora" : visualProfile.role === "admin" ? "Administração" : visualProfile.role === "supervisor" ? "Supervisão de campo" : "Coordenação de campo"}</small></span><button onClick={previewing ? leavePreview : sair}>{previewing ? "Voltar" : "Sair"}</button></div>
     </aside>}
 
     <main>
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V44" : "NORTEP · DADOS QUE APROXIMAM · V44"}</small>
+          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V46" : "NORTEP · DADOS QUE APROXIMAM · V46"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -535,10 +562,11 @@ export default function Home() {
         {view === "inicio" && <><Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} fieldEvents={fieldEvents} currentProfile={visualProfile} /><AlertasSeguranca events={fieldEvents} /></>}
         {view === "visoes" && founderAccess && <FounderViews abrir={openFounderPerspective} ir={ir} aviso={aviso} />}
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} videoUrl={videoUrl} setVideoUrl={setVideoUrl} surveys={adminSurveys} profiles={team} session={session} currentProfile={profile} atualizar={atualizarDadosAdmin} />}
-        {view === "coordenacao" && <Coordenacao aviso={aviso} profiles={team} memberships={coordinatorMemberships} territories={coordinatorTerritories} interviews={interviews} currentProfile={visualProfile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onSetTerritories={atualizarTerritoriosCoordenador} onRefresh={atualizarDadosAdmin} />}
+        {view === "coordenacao" && <Coordenacao aviso={aviso} profiles={team} links={teamLinks} territories={profileTerritories} interviews={interviews} currentProfile={visualProfile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onSetTerritories={atualizarTerritoriosCoordenador} onRefresh={atualizarDadosAdmin} />}
         {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={visualProfile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onRefresh={atualizarDadosAdmin} />}
         {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
+        {view === "mobilizacao" && visualProfile.role === "admin" && <Mobilizacao aviso={aviso} session={session} partners={mobilizationPartners} atualizar={atualizarDadosAdmin} />}
         {view === "ecossistema" && <Ecossistema />}
         {view === "cofre" && visualProfile.role === "admin" && <CofreContatos session={session} profiles={team} aviso={aviso} />}
         {view === "portal" && <Portal profile={visualProfile} surveys={founderAccess && previewing ? adminSurveys.filter(item => item.status === "active" || item.status === "pilot") : surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
@@ -554,7 +582,7 @@ export default function Home() {
           registrarTentativa(outcome === "refused" ? "recusa" : "interrompida", survey);
           localStorage.removeItem(draftKey(survey.id)); setRespostas({}); ir("portal");
         }} />)}
-        {view === "obrigado" && <Obrigado nome={respostas.nome} videoUrl="" codigo={savedCode} sincronizado={savedSynced} concluir={() => {
+        {view === "obrigado" && <Obrigado nome={respostas.nome} videoUrl={survey?.thank_you_video_url || videoUrl} codigo={savedCode} sincronizado={savedSynced} concluir={() => {
           if (survey) localStorage.removeItem(draftKey(survey.id));
           setRespostas({});
           ir("portal");
@@ -581,6 +609,7 @@ function FounderViews({ abrir, ir, aviso }: { abrir: (perspective: FounderPerspe
     { perspective: "publico", icon: "⌂", title: "Capa pública", description: "Página institucional vista por quem ainda não possui acesso.", access: "publico" },
     { perspective: "pesquisador", icon: "▤", title: "Pesquisador", description: "Pesquisas liberadas, coleta, rascunho e sincronização.", access: "pesquisador" },
     { perspective: "observador", icon: "◉", title: "Observador", description: "Indicadores agrupados, sem respostas individuais nem contatos.", access: "observador" },
+    { perspective: "supervisor", icon: "◎", title: "Supervisor", description: "Pesquisadores, produção e ocorrências apenas da área vinculada.", access: "supervisao" },
     { perspective: "coordenador", icon: "♟", title: "Coordenador", description: "Equipe, território, produção e ocorrências sob sua coordenação.", access: "coordenacao" },
     { perspective: "administrador", icon: "♙", title: "Administrador secundário", description: "Operação administrativa sem controlar a conta fundadora.", access: "administracao" },
   ];
@@ -591,6 +620,7 @@ function FounderViews({ abrir, ir, aviso }: { abrir: (perspective: FounderPerspe
     { view: "equipe", label: "Acessos e cadastros" },
     { view: "rankings", label: "Rankings" },
     { view: "resultados", label: "Resultados" },
+    { view: "mobilizacao", label: "Mobilização" },
     { view: "cofre", label: "Cofre de contatos" },
     { view: "ecossistema", label: "Ecossistema NorteP" },
   ];
@@ -635,7 +665,7 @@ function CofreContatos({ session, profiles, aviso }: { session: Session; profile
 }
 
 function Cronometro({ inicio }: { inicio: number }) {
-  const [agora, setAgora] = useState(Date.now());
+  const [agora, setAgora] = useState(0);
   useEffect(() => { const timer = window.setInterval(() => setAgora(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
   const total = Math.max(0, Math.floor((agora - inicio) / 1000));
   return <span className="cronometro" aria-label="Tempo de entrevista">⏱ {String(Math.floor(total / 60)).padStart(2, "0")}:{String(total % 60).padStart(2, "0")}</span>;
@@ -667,7 +697,7 @@ function ControleFonte({ profile, sair, descadastrar }: { profile?: Profile; sai
     localStorage.setItem("nortep-tema", valor ? "escuro" : "claro");
     document.documentElement.dataset.tema = valor ? "escuro" : "claro";
   };
-  return <div className="visual-control"><button type="button" className="visual-trigger" aria-expanded={aberto} aria-label="Abrir configurações" onClick={() => setAberto(!aberto)}>⚙ <span>Configurações</span></button>{aberto && <div className="visual-menu" role="dialog" aria-label="Configurações do aplicativo"><div><b>Visual do aplicativo</b><small>Salvo neste aparelho</small></div><label> Tema <button type="button" className={!escuro ? "active" : ""} aria-pressed={!escuro} onClick={() => alterarTema(false)}>☀ Claro</button><button type="button" className={escuro ? "active" : ""} aria-pressed={escuro} onClick={() => alterarTema(true)}>◐ Noturno</button></label><label> Texto <button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A normal</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+ maior</button></label>{profile && sair && <section className="account-settings"><div><b>Minha conta</b><small>{profile.name} · {({ admin: "Administrador", coordenador: "Coordenador", pesquisador: "Pesquisador", observador: "Observador" } as const)[profile.role]}</small></div><button type="button" className="account-logout" onClick={sair}>Sair do aplicativo</button>{profile.is_primary_admin ? <small className="primary-account-note">A conta principal é protegida contra descadastramento.</small> : <button type="button" className="account-remove" onClick={() => void descadastrar?.()}>Descadastrar meu acesso</button>}</section>}</div>}</div>;
+  return <div className="visual-control"><button type="button" className="visual-trigger" aria-expanded={aberto} aria-label="Abrir configurações" onClick={() => setAberto(!aberto)}>⚙ <span>Configurações</span></button>{aberto && <div className="visual-menu" role="dialog" aria-label="Configurações do aplicativo"><div><b>Visual do aplicativo</b><small>Salvo neste aparelho</small></div><label> Tema <button type="button" className={!escuro ? "active" : ""} aria-pressed={!escuro} onClick={() => alterarTema(false)}>☀ Claro</button><button type="button" className={escuro ? "active" : ""} aria-pressed={escuro} onClick={() => alterarTema(true)}>◐ Noturno</button></label><label> Texto <button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A normal</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+ maior</button></label>{profile && sair && <section className="account-settings"><div><b>Minha conta</b><small>{profile.name} · {({ admin: "Administrador", coordenador: "Coordenador", supervisor: "Supervisor", pesquisador: "Pesquisador", observador: "Observador" } as const)[profile.role]}</small></div><button type="button" className="account-logout" onClick={sair}>Sair do aplicativo</button>{profile.is_primary_admin ? <small className="primary-account-note">A conta principal é protegida contra descadastramento.</small> : <button type="button" className="account-remove" onClick={() => void descadastrar?.()}>Descadastrar meu acesso</button>}</section>}</div>}</div>;
 }
 
 function TelaConfigErro() {
@@ -679,7 +709,7 @@ function PublicLanding() {
     <ControleFonte />
     <section className="public-copy">
       <small>NORTEP PESQUISA</small>
-      <h1><b>N</b>orte<b>P</b></h1>
+      <h1><b id="nortep-n" className="brand-gold">N</b>orte<b id="nortep-p" className="brand-gold">P</b></h1>
       <h2>Dados de campo protegidos.</h2>
       <p>Plataforma privada para pesquisas presenciais, organização territorial e acompanhamento de equipes autorizadas.</p>
       <div className="public-points"><span>✓ Coleta anônima</span><span>✓ Consentimento registrado</span><span>✓ Acesso controlado por função</span></div>
@@ -688,12 +718,12 @@ function PublicLanding() {
         <a className="public-contact" href="mailto:pesquisadecamponortep@gmail.com?subject=Acesso%20ou%20demonstra%C3%A7%C3%A3o%20NorteP">Falar com a NorteP</a>
       </div>
     </section>
-    <section className="public-shield"><div><i>NP</i><small>AMBIENTE RESTRITO</small><h3>Acesso somente para pessoas autorizadas.</h3><p>Pesquisadores e gestores recebem um link específico da coordenação. Caso tenha recebido um convite, utilize exatamente o endereço enviado.</p><span>Precisa de ajuda? <a href="mailto:pesquisadecamponortep@gmail.com">pesquisadecamponortep@gmail.com</a></span></div></section>
+    <section className="public-shield"><div><i>NP</i><small>AMBIENTE NORTEP</small><h3>Pesquisa, território e gestão em um só lugar.</h3><p>Use o endereço recebido para entrar. Em caso de dúvida, nossa equipe está disponível no canal institucional.</p><span>Precisa de ajuda? <a href="mailto:pesquisadecamponortep@gmail.com">pesquisadecamponortep@gmail.com</a></span></div></section>
   </div>;
 }
 
 function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel; inviteCode: string; onAuthenticated: (session: Session, channel?: AccessChannel) => Promise<void> }) {
-  const invited = (access === "administracao" || access === "coordenacao" || access === "observador") && Boolean(inviteCode);
+  const invited = (access === "administracao" || access === "coordenacao" || access === "supervisao" || access === "observador") && Boolean(inviteCode);
   const allowSignup = access === "pesquisador" || invited;
   const [modo, setModo] = useState<"entrar" | "criar" | "recuperar">(invited ? "criar" : "entrar");
   const [name, setName] = useState("");
@@ -735,8 +765,9 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
   const principalAccess = access === "principal";
   const adminAccess = access === "administracao" || principalAccess;
   const coordinatorAccess = access === "coordenacao";
+  const supervisorAccess = access === "supervisao";
   const observerAccess = access === "observador";
-  const accessName = principalAccess ? "administração principal" : adminAccess ? "administração" : coordinatorAccess ? "coordenação" : observerAccess ? "observação" : "pesquisa de campo";
+  const accessName = principalAccess ? "administração principal" : adminAccess ? "administração" : coordinatorAccess ? "coordenação" : supervisorAccess ? "supervisão" : observerAccess ? "observação" : "pesquisa de campo";
   if (confirmationEmail) return <div className="auth-shell"><ControleFonte />
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
@@ -780,14 +811,14 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
       <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
-      <p>{principalAccess ? "Seu acesso reservado à Administração Principal da NorteP." : adminAccess ? "Acesso administrativo reservado para pessoas autorizadas." : coordinatorAccess ? "Acesso de coordenação reservado para acompanhar equipes autorizadas." : observerAccess ? "Acompanhamento reservado para pessoas autorizadas." : "Dados de campo protegidos, organizados e prontos para a coleta."}</p>
-      <div>{principalAccess ? <><span>✓ Perfil principal obrigatório</span><span>✓ Controle total protegido</span><span>✓ Auditoria de acessos</span></> : adminAccess ? <><span>✓ Administração autorizada</span><span>✓ Controle de acessos</span><span>✓ Auditoria e privacidade</span></> : coordinatorAccess ? <><span>✓ Coordenação autorizada</span><span>✓ Equipes e territórios</span><span>✓ Acompanhamento protegido</span></> : observerAccess ? <><span>✓ Indicadores agrupados</span><span>✓ Sem dados pessoais</span><span>✓ Acesso protegido</span></> : <><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></>}</div>
+      <p>{principalAccess ? "Seu acesso reservado à Administração Principal da NorteP." : adminAccess ? "Acesso administrativo reservado para pessoas autorizadas." : coordinatorAccess ? "Acesso de coordenação reservado para acompanhar equipes autorizadas." : supervisorAccess ? "Acesso de supervisão reservado à equipe e ao território vinculados." : observerAccess ? "Acompanhamento reservado para pessoas autorizadas." : "Dados de campo protegidos, organizados e prontos para a coleta."}</p>
+      <div>{principalAccess ? <><span>✓ Perfil principal obrigatório</span><span>✓ Controle total protegido</span><span>✓ Auditoria de acessos</span></> : adminAccess ? <><span>✓ Administração autorizada</span><span>✓ Controle de acessos</span><span>✓ Auditoria e privacidade</span></> : coordinatorAccess ? <><span>✓ Coordenação autorizada</span><span>✓ Equipes e territórios</span><span>✓ Acompanhamento protegido</span></> : supervisorAccess ? <><span>✓ Supervisão autorizada</span><span>✓ Pesquisadores vinculados</span><span>✓ Território protegido</span></> : observerAccess ? <><span>✓ Indicadores agrupados</span><span>✓ Sem dados pessoais</span><span>✓ Acesso protegido</span></> : <><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></>}</div>
     </section>
     <form className="auth-card" onSubmit={e => { e.preventDefault(); void enviar(); }}>
       <div className="auth-logo">NP</div>
-      <small>{principalAccess ? "ADMINISTRAÇÃO PRINCIPAL" : adminAccess ? "ADMINISTRAÇÃO RESTRITA" : coordinatorAccess ? "COORDENAÇÃO RESTRITA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
-      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (principalAccess ? "Entrar no meu acesso principal" : adminAccess ? "Entrar na administração" : coordinatorAccess ? "Entrar na coordenação" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
-      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (principalAccess ? "Somente a conta marcada como administradora principal poderá entrar por este endereço." : adminAccess ? "Somente a administração responsável possui controle total." : coordinatorAccess ? "Acompanhe equipes e a coleta sem controlar a administração principal." : observerAccess ? "Este acesso mostra somente indicadores agrupados da coleta, sem respostas individuais." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela coordenação." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
+      <small>{principalAccess ? "ADMINISTRAÇÃO PRINCIPAL" : adminAccess ? "ADMINISTRAÇÃO RESTRITA" : coordinatorAccess ? "COORDENAÇÃO RESTRITA" : supervisorAccess ? "SUPERVISÃO RESTRITA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
+      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (principalAccess ? "Entrar no meu acesso principal" : adminAccess ? "Entrar na administração" : coordinatorAccess ? "Entrar na coordenação" : supervisorAccess ? "Entrar na supervisão" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
+      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (principalAccess ? "Somente a conta marcada como administradora principal poderá entrar por este endereço." : adminAccess ? "Somente a administração responsável possui controle total." : coordinatorAccess ? "Acompanhe equipes e a coleta sem controlar a administração principal." : supervisorAccess ? "Acompanhe somente seus pesquisadores e o território vinculado." : observerAccess ? "Este acesso mostra somente indicadores agrupados da coleta, sem respostas individuais." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela gestão." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
       {modo === "criar" && <div className="existing-account-note"><span><b>Já possui ou já teve uma conta?</b><small>Não faça outro cadastro com o mesmo e-mail. Entre com sua senha; se o acesso foi removido, este novo convite fará a reativação.</small></span><button type="button" onClick={() => { setModo("entrar"); setMessage(""); }}>Entrar e reativar</button></div>}
       {modo === "criar" && <><label htmlFor="auth-name">Nome completo</label><input id="auth-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}
       <label htmlFor="auth-email">E-mail</label>
@@ -803,7 +834,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || coordinatorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V44</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || supervisorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V46</small>
     </form>
   </div>;
 }
@@ -991,8 +1022,9 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, sessio
   const [assignmentSurvey, setAssignmentSurvey] = useState<Survey | null>(null);
   const [selectedResearchers, setSelectedResearchers] = useState<string[]>([]);
   const [territory, setTerritory] = useState({ team: "", city: "", region: "", neighborhood: "" });
-  const canEdit = currentProfile.is_primary_admin === true;
-  const typeLabels: Record<Survey["survey_type"], string> = { quantitative: "Quantitativa", qualitative: "Qualitativa", directional: "Direcional", electoral: "Eleitoral", data_collection: "Coleta de dados" };
+  const canEdit = currentProfile.role === "admin" || currentProfile.role === "coordenador";
+  const canDelete = currentProfile.role === "admin";
+  const typeLabels: Record<Survey["survey_type"], string> = { quantitative: "Quantitativa", qualitative: "Qualitativa", directional: "Direcional", electoral: "Eleitoral", data_collection: "Coleta de dados", relationship: "Relacionamento" };
   const statusLabels: Record<Survey["status"], string> = { draft: "Rascunho", pilot: "Teste", active: "Em campo", closed: "Arquivada" };
   const questionTypeLabels: Record<SurveyQuestion["type"], string> = { short_text: "Texto curto", long_text: "Texto longo", yes_no: "Sim ou não", single: "Escolha única", multiple: "Várias escolhas", scale: "Escala de 0 a 10", rating: "Péssimo a ótimo", region: "Bairro ou região", internal_note: "Observação interna" };
   const splitList = (value: string) => value.split(",").map(x => x.trim()).filter(Boolean);
@@ -1020,7 +1052,7 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, sessio
   return <>
     <Cabecalho titulo="Pesquisas de campo" sub="Crie questionários, defina territórios e libere para equipes específicas." botao={canEdit ? "＋ Criar pesquisa" : "Acompanhar resultados"} acao={canEdit ? openNew : () => ir("resultados")} />
     <div className="admin-guidance"><i>✓</i><span><b>Ambiente preparado para testes</b><small>Pausar apenas retira a pesquisa do campo. Respostas, perguntas e liberações permanecem guardadas.</small></span>{canEdit && <button className="pause-all" onClick={pauseAll} disabled={busy}>Pausar todas</button>}</div>
-    <div className="cards survey-admin-cards">{surveys.map(item => <article className={item.archived_at ? "survey-archived" : ""} key={item.id}><div><label className={item.status === "active" || item.status === "pilot" ? "status" : "rascunho"}>{statusLabels[item.status]}</label>{item.is_test && <label className="test-badge">TESTE</label>}</div><small className="survey-kind">{typeLabels[item.survey_type]}</small><h3>{item.title}</h3><p>{item.description || "Pesquisa sem descrição."}</p><div className="survey-target"><b>Território</b><span>{[...(item.target_cities || []), ...(item.target_regions || []), ...(item.target_neighborhoods || [])].join(" · ") || "Definido na liberação"}</span></div>{item.survey_type === "directional" && <div className="video-status"><i>▶</i><span><b>Vídeo permitido</b><small>{videoUrl ? "Link configurado" : "Somente após a conclusão"}</small></span></div>}<footer>{item.survey_type === "directional" && canEdit && <button onClick={configurarVideo}>▶ Vídeo</button>}<button onClick={() => openAssignments(item)} disabled={Boolean(item.archived_at)}>Liberar</button>{canEdit && item.status !== "closed" && <button className={item.status === "draft" ? "activate-survey" : "pause-survey"} onClick={() => togglePause(item)} disabled={busy}>{item.status === "draft" ? "Ativar" : "Pausar"}</button>}{canEdit && <button onClick={() => openEdit(item)}>Editar</button>}{canEdit && item.is_test && <button className="clear-test" onClick={() => clearTest(item)}>Limpar testes</button>}{canEdit && <button className="delete-survey" onClick={() => removeSurvey(item)}>Apagar</button>}</footer></article>)}</div>
+    <div className="cards survey-admin-cards">{surveys.map(item => <article className={item.archived_at ? "survey-archived" : ""} key={item.id}><div><label className={item.status === "active" || item.status === "pilot" ? "status" : "rascunho"}>{statusLabels[item.status]}</label>{item.is_test && <label className="test-badge">TESTE</label>}</div><small className="survey-kind">{typeLabels[item.survey_type]}</small><h3>{item.title}</h3><p>{item.description || "Pesquisa sem descrição."}</p><div className="survey-target"><b>Território</b><span>{[...(item.target_cities || []), ...(item.target_regions || []), ...(item.target_neighborhoods || [])].join(" · ") || "Definido na liberação"}</span></div>{item.survey_type === "directional" && <div className="video-status"><i>▶</i><span><b>Vídeo permitido</b><small>{videoUrl ? "Link configurado" : "Somente após a conclusão"}</small></span></div>}<footer>{item.survey_type === "directional" && canEdit && <button onClick={configurarVideo}>▶ Vídeo</button>}<button onClick={() => openAssignments(item)} disabled={Boolean(item.archived_at)}>Liberar</button>{canEdit && item.status !== "closed" && <button className={item.status === "draft" ? "activate-survey" : "pause-survey"} onClick={() => togglePause(item)} disabled={busy}>{item.status === "draft" ? "Ativar" : "Pausar"}</button>}{canEdit && <button onClick={() => openEdit(item)}>Editar</button>}{canDelete && item.is_test && <button className="clear-test" onClick={() => clearTest(item)}>Limpar testes</button>}{canDelete && <button className="delete-survey" onClick={() => removeSurvey(item)}>Apagar</button>}</footer></article>)}</div>
     {!surveys.length && <div className="painel resultado-vazio"><i>◎</i><h3>Nenhuma pesquisa cadastrada</h3><p>Crie a primeira pesquisa para iniciar os testes.</p></div>}
 
     {editorOpen && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Editor de pesquisa"><div className="survey-editor"><header><div><small>EDITOR ADMINISTRATIVO</small><h2>{draft.id ? "Editar pesquisa" : "Criar pesquisa"}</h2></div><button onClick={() => setEditorOpen(false)} aria-label="Fechar editor">×</button></header>{draft.slug === "betim-territorio-escolhas-2026" && <div className="editor-warning"><b>Roteiro eleitoral protegido para o teste de amanhã</b><span>Você pode editar informações e acrescentar perguntas. As sete etapas já preparadas continuarão funcionando.</span></div>}<div className="editor-grid"><label>Nome da pesquisa<input value={draft.title || ""} onChange={e => setDraft({ ...draft, title: e.target.value })} /></label><label>Tipo<select value={draft.survey_type || "quantitative"} onChange={e => setDraft({ ...draft, survey_type: e.target.value as Survey["survey_type"] })}>{Object.entries(typeLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label>Situação<select value={draft.status || "draft"} onChange={e => setDraft({ ...draft, status: e.target.value as Survey["status"] })}><option value="draft">Rascunho</option><option value="pilot">Teste</option><option value="active">Em campo</option><option value="closed">Arquivada</option></select></label><label>Duração estimada<input type="number" min="1" max="180" value={draft.estimated_minutes || 10} onChange={e => setDraft({ ...draft, estimated_minutes: Number(e.target.value) })} /></label><label className="wide">Descrição<textarea value={draft.description || ""} onChange={e => setDraft({ ...draft, description: e.target.value })} /></label><label>Cidades<input value={(draft.target_cities || []).join(", ")} onChange={e => setDraft({ ...draft, target_cities: splitList(e.target.value) })} placeholder="Betim, Contagem" /></label><label>Regiões<input value={(draft.target_regions || []).join(", ")} onChange={e => setDraft({ ...draft, target_regions: splitList(e.target.value) })} placeholder="Norte, Centro" /></label><label className="wide">Bairros<input value={(draft.target_neighborhoods || []).join(", ")} onChange={e => setDraft({ ...draft, target_neighborhoods: splitList(e.target.value) })} placeholder="Digite separados por vírgula" /></label><label className="wide">Texto de consentimento<textarea value={draft.consent_text || ""} onChange={e => setDraft({ ...draft, consent_text: e.target.value })} /></label><label className="test-toggle"><input type="checkbox" checked={Boolean(draft.is_test)} onChange={e => setDraft({ ...draft, is_test: e.target.checked })} /><span><b>Pesquisa em modo de teste</b><small>Permite limpar somente as respostas de teste antes do uso oficial.</small></span></label></div><div className="question-editor-head"><div><small>PERGUNTAS</small><h3>{questions.length} pergunta(s)</h3></div><button onClick={() => setQuestions([...questions, newQuestion()])}>＋ Adicionar pergunta</button></div><div className="question-editor-list">{questions.map((question, index) => <article key={question.code}><div className="question-number">{index + 1}</div><div className="question-fields"><label>Pergunta<input value={question.prompt} onChange={e => changeQuestion(index, { prompt: e.target.value })} placeholder="Escreva de forma simples e neutra" /></label><div><label>Tipo<select value={question.type} onChange={e => changeQuestion(index, { type: e.target.value as SurveyQuestion["type"] })}>{Object.entries(questionTypeLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label>Seção<input value={question.section} onChange={e => changeQuestion(index, { section: e.target.value })} /></label></div>{(["single", "multiple", "rating", "region"] as SurveyQuestion["type"][]).includes(question.type) && <label>Alternativas<input value={(question.options || []).join(", ")} onChange={e => changeQuestion(index, { options: splitList(e.target.value) })} placeholder="Separe por vírgula" /></label>}<div className="condition-row"><label><input type="checkbox" checked={question.required} onChange={e => changeQuestion(index, { required: e.target.checked })} /> Obrigatória</label><label>Mostrar se a pergunta<input value={question.condition?.field || ""} onChange={e => changeQuestion(index, { condition: e.target.value ? { field: e.target.value, equals: question.condition?.equals || "" } : null })} placeholder="código anterior" /></label><label>for igual a<input value={question.condition?.equals || ""} onChange={e => changeQuestion(index, { condition: question.condition?.field ? { field: question.condition.field, equals: e.target.value } : null })} placeholder="resposta" /></label></div></div><div className="question-actions"><button onClick={() => moveQuestion(index, -1)} disabled={index === 0}>↑</button><button onClick={() => moveQuestion(index, 1)} disabled={index === questions.length - 1}>↓</button><button className="danger" onClick={() => setQuestions(questions.filter((_, i) => i !== index))}>×</button></div></article>)}</div><footer><button onClick={() => setEditorOpen(false)}>Cancelar</button><button className="primary" onClick={saveSurvey} disabled={busy}>{busy ? "Salvando…" : "Salvar pesquisa"}</button></footer></div></div>}
@@ -1029,7 +1061,7 @@ function Pesquisas({ ir, aviso, videoUrl, setVideoUrl, surveys, profiles, sessio
   </>;
 }
 
-function Coordenacao({ aviso, profiles, memberships, territories, interviews, currentProfile, onToggle, onDelete, onInvite, onSetTerritories, onRefresh }: { aviso: (t: string) => void; profiles: Profile[]; memberships: CoordinatorMembership[]; territories: CoordinatorTerritory[]; interviews: SavedInterview[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador", options?: { coordinatorId?: string; cities?: string[]; regions?: string[]; neighborhoods?: string[] }) => Promise<string>; onSetTerritories: (coordinatorId: string, cities: string[], regions: string[], neighborhoods: string[]) => Promise<void>; onRefresh: () => Promise<void> }) {
+function Coordenacao({ aviso, profiles, links, territories, interviews, currentProfile, onToggle, onDelete, onInvite, onSetTerritories, onRefresh }: { aviso: (t: string) => void; profiles: Profile[]; links: TeamLink[]; territories: ProfileTerritory[]; interviews: SavedInterview[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "supervisor" | "observador" | "pesquisador", options?: { coordinatorId?: string; cities?: string[]; regions?: string[]; neighborhoods?: string[] }) => Promise<string>; onSetTerritories: (profileId: string, cities: string[], regions: string[], neighborhoods: string[]) => Promise<void>; onRefresh: () => Promise<void> }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [citiesText, setCitiesText] = useState("");
@@ -1037,14 +1069,22 @@ function Coordenacao({ aviso, profiles, memberships, territories, interviews, cu
   const [neighborhoodsText, setNeighborhoodsText] = useState("");
   const [generatedLink, setGeneratedLink] = useState("");
   const [busy, setBusy] = useState(false);
-  const [editingCoordinatorId, setEditingCoordinatorId] = useState("");
+  const [editingProfileId, setEditingProfileId] = useState("");
+  const isAdmin = currentProfile.role === "admin";
   const isCoordinator = currentProfile.role === "coordenador";
-  const [adminInviteRole, setAdminInviteRole] = useState<"coordenador" | "pesquisador">("coordenador");
-  const [responsibleCoordinatorId, setResponsibleCoordinatorId] = useState("");
-  const inviteRole: "coordenador" | "pesquisador" = isCoordinator ? "pesquisador" : adminInviteRole;
+  const isSupervisor = currentProfile.role === "supervisor";
+  const [inviteRole, setInviteRole] = useState<"coordenador" | "supervisor" | "pesquisador">(isAdmin ? "coordenador" : isCoordinator ? "supervisor" : "pesquisador");
+  const [responsibleManagerId, setResponsibleManagerId] = useState("");
   const coordinators = profiles.filter(person => person.role === "coordenador");
+  const supervisors = profiles.filter(person => person.role === "supervisor");
   const researchers = profiles.filter(person => person.role === "pesquisador");
+  const managers = [...coordinators, ...supervisors];
   const splitTerritories = (value: string) => Array.from(new Set(value.split(",").map(item => item.trim()).filter(Boolean)));
+  const managerOf = (profileId: string) => profiles.find(person => person.id === links.find(link => link.member_id === profileId && link.active)?.manager_id);
+  const territoryText = (profileId: string) => {
+    const own = territories.filter(item => item.profile_id === profileId && item.active);
+    return own.length ? own.map(item => `${item.scope_type}: ${item.scope_value}`).join(" · ") : "Território ainda não definido";
+  };
   const today = new Date().toDateString();
   const production = researchers.map(person => {
     const personInterviews = interviews.filter(item => item.researcher_id === person.id);
@@ -1056,17 +1096,22 @@ function Coordenacao({ aviso, profiles, memberships, territories, interviews, cu
   }).sort((a, b) => b.total - a.total || a.person.name.localeCompare(b.person.name));
   const generate = async () => {
     if (!inviteEmail.includes("@")) return aviso("Informe um e-mail válido.");
-    if (!isCoordinator && inviteRole === "pesquisador" && !responsibleCoordinatorId) return aviso("Escolha o coordenador responsável pelo pesquisador.");
+    if (isAdmin && inviteRole !== "coordenador" && !responsibleManagerId) return aviso("Escolha o responsável direto por este acesso.");
     setBusy(true);
     try {
       const link = await onInvite(inviteEmail.trim().toLowerCase(), inviteRole, inviteRole === "coordenador" ? {
         cities: splitTerritories(citiesText),
         regions: splitTerritories(regionsText),
         neighborhoods: splitTerritories(neighborhoodsText),
-      } : (!isCoordinator ? { coordinatorId: responsibleCoordinatorId } : undefined));
+      } : {
+        coordinatorId: isAdmin ? responsibleManagerId : undefined,
+        cities: inviteRole === "supervisor" ? splitTerritories(citiesText) : [],
+        regions: inviteRole === "supervisor" ? splitTerritories(regionsText) : [],
+        neighborhoods: inviteRole === "supervisor" ? splitTerritories(neighborhoodsText) : [],
+      });
       setGeneratedLink(link);
       await navigator.clipboard.writeText(link);
-      aviso(`Convite de ${inviteRole === "coordenador" ? "coordenação" : "pesquisador"} criado e copiado.`);
+      aviso(`Convite de ${inviteRole === "coordenador" ? "coordenação" : inviteRole === "supervisor" ? "supervisão" : "pesquisador"} criado e copiado.`);
     } catch (error) {
       aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível criar o convite.");
     } finally {
@@ -1082,51 +1127,53 @@ function Coordenacao({ aviso, profiles, memberships, territories, interviews, cu
   const remove = (person: Profile) => {
     if (window.confirm(`Apagar o acesso de ${person.name}? As entrevistas realizadas serão preservadas.`)) onDelete(person.id);
   };
-  const openTerritories = (coordinatorId: string) => {
-    setEditingCoordinatorId(coordinatorId);
-    const own = territories.filter(item => item.coordinator_id === coordinatorId && item.active);
+  const openTerritories = (profileId: string) => {
+    setEditingProfileId(profileId);
+    const own = territories.filter(item => item.profile_id === profileId && item.active);
     setCitiesText(own.filter(item => item.scope_type === "cidade").map(item => item.scope_value).join(", "));
     setRegionsText(own.filter(item => item.scope_type === "regiao").map(item => item.scope_value).join(", "));
     setNeighborhoodsText(own.filter(item => item.scope_type === "bairro").map(item => item.scope_value).join(", "));
   };
   const saveTerritories = async () => {
-    if (!editingCoordinatorId) return;
+    if (!editingProfileId) return;
     setBusy(true);
     try {
-      await onSetTerritories(editingCoordinatorId, splitTerritories(citiesText), splitTerritories(regionsText), splitTerritories(neighborhoodsText));
-      setEditingCoordinatorId("");
-      aviso("Territórios do coordenador atualizados.");
+      await onSetTerritories(editingProfileId, splitTerritories(citiesText), splitTerritories(regionsText), splitTerritories(neighborhoodsText));
+      setEditingProfileId("");
+      aviso("Territórios atualizados.");
     } catch (error) {
       aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível definir os territórios.");
     } finally {
       setBusy(false);
     }
   };
+  const allowedInviteRoles = isAdmin ? ["coordenador", "supervisor", "pesquisador"] as const : isCoordinator ? ["supervisor", "pesquisador"] as const : ["pesquisador"] as const;
+  const availableManagers = inviteRole === "supervisor" ? coordinators : managers;
   return <>
-    <Cabecalho titulo={isCoordinator ? "Minha coordenação" : "Coordenação de campo"} sub={isCoordinator ? "Sua equipe de campo, produção e acompanhamento da coleta." : `${coordinators.length} coordenador(es) · ${researchers.length} pesquisador(es)`} botao={isCoordinator ? "＋ Convidar pesquisador" : "＋ Novo acesso de campo"} acao={() => setInviteOpen(!inviteOpen)} />
+    <Cabecalho titulo={isSupervisor ? "Minha supervisão" : isCoordinator ? "Minha coordenação" : "Coordenação de campo"} sub={`${coordinators.length} coordenador(es) · ${supervisors.length} supervisor(es) · ${researchers.length} pesquisador(es)`} botao="＋ Novo acesso de campo" acao={() => setInviteOpen(!inviteOpen)} />
     <div className="coord-summary">
-      <article><small>{isCoordinator ? "MINHA EQUIPE" : "COORDENADORES ATIVOS"}</small><b>{isCoordinator ? researchers.filter(person => person.active).length : coordinators.filter(person => person.active).length}</b><span>{isCoordinator ? "pesquisadores vinculados" : "acessos de gestão de campo"}</span></article>
+      <article><small>GESTORES ATIVOS</small><b>{[...coordinators, ...supervisors].filter(person => person.active).length}</b><span>coordenação e supervisão visíveis</span></article>
       <article><small>PESQUISADORES ATIVOS</small><b>{researchers.filter(person => person.active).length}</b><span>aptos para receber pesquisas</span></article>
       <article><small>ENTREVISTAS SINCRONIZADAS</small><b>{interviews.length}</b><span>produção registrada no banco</span></article>
       <article><small>REALIZADAS HOJE</small><b>{interviews.filter(item => new Date(item.completed_at || item.created_at).toDateString() === today).length}</b><span>ritmo atual da operação</span></article>
     </div>
-    <div className="admin-guidance"><i>✓</i><span><b>Gestão organizada por equipe</b><small>{isCoordinator ? "Convide somente os pesquisadores da sua equipe e acompanhe a coleta do seu território." : "Administradores podem criar coordenadores ou incluir pesquisadores, sempre escolhendo a coordenação responsável."}</small></span><button className="pause-all" onClick={() => void refresh()} disabled={busy}>{busy ? "Atualizando…" : "Atualizar painel"}</button></div>
+    <div className="admin-guidance"><i>✓</i><span><b>Gestão por responsabilidade direta</b><small>{isSupervisor ? "Você vê e convida somente pesquisadores da sua supervisão." : isCoordinator ? "Você pode incluir supervisores e pesquisadores da sua coordenação." : "A administração define coordenadores, supervisores, equipes e territórios."}</small></span><button className="pause-all" onClick={() => void refresh()} disabled={busy}>{busy ? "Atualizando…" : "Atualizar painel"}</button></div>
     {inviteOpen && <div className="painel invite-panel coord-invite">
-      <div><small>{inviteRole === "coordenador" ? "NOVO COORDENADOR" : "NOVO PESQUISADOR"}</small><h3>Gerar convite individual</h3><p>{isCoordinator ? "O pesquisador será vinculado automaticamente à sua equipe." : inviteRole === "coordenador" ? "Crie o coordenador e informe os territórios sob sua responsabilidade." : "Inclua o pesquisador e escolha a coordenação que acompanhará seu trabalho."}</p></div>
-      {!isCoordinator && <label>Tipo de acesso<select value={adminInviteRole} onChange={event => { setAdminInviteRole(event.target.value as "coordenador" | "pesquisador"); setGeneratedLink(""); }}><option value="coordenador">Coordenador</option><option value="pesquisador">Pesquisador</option></select></label>}
-      {!isCoordinator && inviteRole === "pesquisador" && <label>Coordenador responsável<select value={responsibleCoordinatorId} onChange={event => setResponsibleCoordinatorId(event.target.value)}><option value="">Selecione uma coordenação</option>{coordinators.filter(person => person.active).map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</select></label>}
-      {!isCoordinator && inviteRole === "coordenador" && <><label>Cidade(s)<input value={citiesText} onChange={event => setCitiesText(event.target.value)} placeholder="Betim, Contagem" /></label><label>Região(ões)<input value={regionsText} onChange={event => setRegionsText(event.target.value)} placeholder="Centro, Norte" /></label><label>Bairro(s)<input value={neighborhoodsText} onChange={event => setNeighborhoodsText(event.target.value)} placeholder="Centro, Alterosas" /></label></>}
+      <div><small>NOVO ACESSO DE CAMPO</small><h3>Gerar convite individual</h3><p>O convite será vinculado ao e-mail, à função e ao responsável direto.</p></div>
+      {allowedInviteRoles.length > 1 && <label>Tipo de acesso<select value={inviteRole} onChange={event => { setInviteRole(event.target.value as "coordenador" | "supervisor" | "pesquisador"); setResponsibleManagerId(""); setGeneratedLink(""); }}>{allowedInviteRoles.map(role => <option value={role} key={role}>{role === "coordenador" ? "Coordenador" : role === "supervisor" ? "Supervisor" : "Pesquisador"}</option>)}</select></label>}
+      {isAdmin && inviteRole !== "coordenador" && <label>Responsável direto<select value={responsibleManagerId} onChange={event => setResponsibleManagerId(event.target.value)}><option value="">Selecione</option>{availableManagers.filter(person => person.active).map(person => <option key={person.id} value={person.id}>{person.name} · {person.role}</option>)}</select></label>}
+      {(inviteRole === "coordenador" || inviteRole === "supervisor") && <><label>Cidade(s)<input value={citiesText} onChange={event => setCitiesText(event.target.value)} placeholder="Betim, Contagem" /></label><label>Região(ões)<input value={regionsText} onChange={event => setRegionsText(event.target.value)} placeholder="Centro, Norte" /></label><label>Bairro(s)<input value={neighborhoodsText} onChange={event => setNeighborhoodsText(event.target.value)} placeholder="Centro, Alterosas" /></label></>}
       <label>E-mail autorizado<input type="email" value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} placeholder="pessoa@exemplo.com" /></label>
-      <button className="primary" disabled={busy || !inviteEmail || (!isCoordinator && inviteRole === "pesquisador" && !responsibleCoordinatorId)} onClick={() => void generate()}>{busy ? "Gerando…" : "Gerar e copiar convite"}</button>
+      <button className="primary" disabled={busy || !inviteEmail || (isAdmin && inviteRole !== "coordenador" && !responsibleManagerId)} onClick={() => void generate()}>{busy ? "Gerando…" : "Gerar e copiar convite"}</button>
       {generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}.</span><div className="link-row"><input readOnly value={generatedLink} /><button onClick={() => void navigator.clipboard.writeText(generatedLink).then(() => aviso("Convite copiado novamente."))}>Copiar</button></div></div>}
     </div>}
-    {!isCoordinator && <section className="painel coord-list"><Topo sup="RESPONSÁVEIS PELA COLETA" titulo="Coordenadores cadastrados" />{coordinators.length ? coordinators.map(person => { const memberCount = memberships.filter(item => item.coordinator_id === person.id && item.active).length; const ownTerritories = territories.filter(item => item.coordinator_id === person.id && item.active); return <div className="coord-person" key={person.id}><span className="pessoa"><i>{person.name.split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase()}</i><span><b>{person.name}</b><small>{person.email} · {memberCount} pesquisador(es)</small><small>{ownTerritories.length ? ownTerritories.map(item => `${item.scope_type}: ${item.scope_value}`).join(" · ") : "Território ainda não definido"}</small></span></span><strong className={person.active ? "ok" : "pendente"}>● {person.active ? "Ativo" : "Suspenso"}</strong><div className="access-actions"><button onClick={() => openTerritories(person.id)}>Definir territórios</button><button className={person.active ? "suspender" : "aprovar"} onClick={() => onToggle(person.id, !person.active)}>{person.active ? "Suspender" : "Reativar"}</button><button className="apagar-acesso" onClick={() => remove(person)}>Apagar acesso</button></div></div>; }) : <div className="ranking-empty">Nenhum coordenador cadastrado. Use “Novo acesso de campo” para gerar o primeiro convite.</div>}</section>}
+    <section className="painel coord-list"><Topo sup="RESPONSÁVEIS PELA COLETA" titulo="Coordenação e supervisão" />{[...coordinators, ...supervisors].length ? [...coordinators, ...supervisors].map(person => { const memberCount = links.filter(item => item.manager_id === person.id && item.active).length; const parent = managerOf(person.id); return <div className="coord-person" key={person.id}><span className="pessoa"><i>{person.name.split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase()}</i><span><b>{person.name}</b><small>{person.role === "coordenador" ? "Coordenador" : "Supervisor"} · {memberCount} vínculo(s){parent ? ` · responsável: ${parent.name}` : ""}</small><small>{territoryText(person.id)}</small></span></span><strong className={person.active ? "ok" : "pendente"}>● {person.active ? "Ativo" : "Suspenso"}</strong><div className="access-actions"><button onClick={() => openTerritories(person.id)}>Territórios</button><button className={person.active ? "suspender" : "aprovar"} onClick={() => onToggle(person.id, !person.active)}>{person.active ? "Suspender" : "Reativar"}</button><button className="apagar-acesso" onClick={() => remove(person)}>Apagar acesso</button></div></div>; }) : <div className="ranking-empty">Nenhum responsável cadastrado.</div>}</section>
     <section className="painel coord-production"><Topo sup="PRODUÇÃO DA EQUIPE" titulo="Entrevistas por pesquisador" />{production.length ? <div className="coord-table"><div className="coord-row coord-head"><span>Pesquisador</span><span>Hoje</span><span>Total</span><span>Tempo médio</span><span>Última coleta</span><span>Acesso</span></div>{production.map(({ person, total, todayTotal, average, latest }, index) => <div className="coord-row" key={person.id}><span className="coord-name"><i>{index + 1}</i><span><b>{person.name}</b><small>{person.region || "Território não vinculado"}</small></span></span><strong>{todayTotal}</strong><strong>{total}</strong><span>{average ? `${average} min` : "—"}</span><span>{latest ? new Date(latest).toLocaleDateString("pt-BR") : "Sem coleta"}</span><span className={person.active ? "ok" : "pendente"}>● {person.active ? "Ativo" : "Suspenso"}</span></div>)}</div> : <div className="ranking-empty">Os pesquisadores e suas pontuações aparecerão aqui quando forem cadastrados.</div>}</section>
-    {editingCoordinatorId && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Definir territórios do coordenador"><div className="assignment-editor"><header><div><small>TERRITÓRIOS DA COORDENAÇÃO</small><h2>{coordinators.find(person => person.id === editingCoordinatorId)?.name || "Coordenador"}</h2></div><button onClick={() => setEditingCoordinatorId("")}>×</button></header><p>Separe por vírgulas quando houver mais de uma cidade, região ou bairro.</p><div className="assignment-territory"><label>Cidade(s)<input value={citiesText} onChange={event => setCitiesText(event.target.value)} placeholder="Betim, Contagem" /></label><label>Região(ões)<input value={regionsText} onChange={event => setRegionsText(event.target.value)} placeholder="Centro, Norte" /></label><label>Bairro(s)<input value={neighborhoodsText} onChange={event => setNeighborhoodsText(event.target.value)} placeholder="Alterosas, Centro" /></label></div><footer><button onClick={() => setEditingCoordinatorId("")}>Cancelar</button><button className="primary" disabled={busy} onClick={() => void saveTerritories()}>{busy ? "Salvando…" : "Salvar territórios"}</button></footer></div></div>}
+    {editingProfileId && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Definir territórios"><div className="assignment-editor"><header><div><small>TERRITÓRIOS DE RESPONSABILIDADE</small><h2>{profiles.find(person => person.id === editingProfileId)?.name || "Responsável"}</h2></div><button onClick={() => setEditingProfileId("")}>×</button></header><p>Separe por vírgulas quando houver mais de uma cidade, região ou bairro.</p><div className="assignment-territory"><label>Cidade(s)<input value={citiesText} onChange={event => setCitiesText(event.target.value)} placeholder="Betim, Contagem" /></label><label>Região(ões)<input value={regionsText} onChange={event => setRegionsText(event.target.value)} placeholder="Centro, Norte" /></label><label>Bairro(s)<input value={neighborhoodsText} onChange={event => setNeighborhoodsText(event.target.value)} placeholder="Alterosas, Centro" /></label></div><footer><button onClick={() => setEditingProfileId("")}>Cancelar</button><button className="primary" disabled={busy} onClick={() => void saveTerritories()}>{busy ? "Salvando…" : "Salvar territórios"}</button></footer></div></div>}
   </>;
 }
 
-function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite, onRefresh }: { aviso: (t: string) => void; profiles: Profile[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "observador" | "pesquisador") => Promise<string>; onRefresh: () => Promise<void> }) {
+function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite, onRefresh }: { aviso: (t: string) => void; profiles: Profile[]; currentProfile: Profile; onToggle: (id: string, active: boolean) => void; onDelete: (id: string) => void; onInvite: (email: string, role: "admin" | "coordenador" | "supervisor" | "observador" | "pesquisador") => Promise<string>; onRefresh: () => Promise<void> }) {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "coordenador" | "observador" | "pesquisador">("observador");
@@ -1151,7 +1198,7 @@ function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite,
     }
     setInviteBusy(false);
   };
-  const roleLabel = (role: Profile["role"]) => ({ admin: "Administrador", coordenador: "Coordenador", pesquisador: "Pesquisador", observador: "Observador" })[role];
+  const roleLabel = (role: Profile["role"]) => ({ admin: "Administrador", coordenador: "Coordenador", supervisor: "Supervisor", pesquisador: "Pesquisador", observador: "Observador" })[role];
   const canManage = (target: Profile) => {
     if (target.id === currentProfile.id || target.is_primary_admin) return false;
     if (currentProfile.is_primary_admin) return true;
@@ -1210,6 +1257,141 @@ function Resultados({ aviso, interviews, surveys, fieldEvents }: { aviso: (t: st
   return <><Cabecalho titulo="Resultados" sub={`${filtered.length} entrevista(s) nos filtros selecionados`} botao="⇩ Exportar CSV" acao={exportar} /><div className="filtros result-filters"><select value={surveyFilter} onChange={e => setSurveyFilter(e.target.value)}><option value="todos">Todas as pesquisas</option>{surveys.map(s => <option value={s.id} key={s.id}>{s.title}</option>)}</select><select value={periodFilter} onChange={e => setPeriodFilter(e.target.value)}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="todos">Todo o período</option></select><select value={dataMode} onChange={e => setDataMode(e.target.value)}><option value="todos">Testes e oficiais</option><option value="teste">Somente testes</option><option value="oficial">Somente oficiais</option></select><input value={territoryFilter} onChange={e => setTerritoryFilter(e.target.value)} placeholder="Cidade, região ou bairro" /></div>{!filtered.length && !filteredEvents.length ? <div className="painel resultado-vazio"><i>◎</i><h3>Nenhum dado encontrado</h3><p>Ajuste os filtros ou aguarde a próxima sincronização.</p></div> : <><div className="result-summary"><article><small>ENTREVISTAS</small><b>{filtered.length}</b></article><article><small>ABORDAGENS SEM ENTREVISTA</small><b>{filteredEvents.length}</b></article><article className={alerts.length ? "alert" : ""}><small>ALERTAS DE QUALIDADE</small><b>{alerts.length}</b></article><article><small>TAXA DE CONCLUSÃO</small><b>{filtered.length + filteredEvents.length ? Math.round(filtered.length / (filtered.length + filteredEvents.length) * 100) : 0}%</b></article></div><div className="duas resultados"><div className="painel"><Topo sup="PRIORIDADE DA CIDADE" titulo="O que deveria melhorar primeiro?" />{prioridades.length ? prioridades.map(([nome, valor]) => <div className="barra" key={nome}><span>{nome}</span><em><i style={{ width: `${valor / Math.max(filtered.length, 1) * 100}%` }} /></em><b>{Math.round(valor / Math.max(filtered.length, 1) * 100)}%</b></div>) : <div className="ranking-empty">Esta pergunta não existe nas pesquisas filtradas.</div>}</div><div className="painel outcome-panel"><Topo sup="RESULTADO DAS ABORDAGENS" titulo="Ocorrências de campo" /><div><span>Recusas</span><b>{outcomes.refused}</b></div><div><span>Fora do público</span><b>{outcomes.ineligible}</b></div><div><span>Interrompidas</span><b>{outcomes.interrupted}</b></div><div><span>Ninguém atendeu</span><b>{outcomes.no_answer}</b></div></div></div><div className="duas resultados"><div className="painel recentes"><Topo sup="ÚLTIMAS RESPOSTAS" titulo="Entrevistas sincronizadas" />{filtered.slice(0, 8).map(x => <div key={x.id}><span><b>{x.code} {x.is_test && <mark>TESTE</mark>}</b><small>{x.responses.bairro || "Bairro não informado"}</small></span><time>{new Date(x.completed_at).toLocaleDateString("pt-BR")}</time></div>)}</div><div className="painel quality-panel"><Topo sup="AUDITORIA AUTOMÁTICA" titulo="Entrevistas para conferir" />{alerts.length ? alerts.slice(0, 8).map(item => <div key={item.id}><span><b>{item.code}</b><small>{(item.quality_flags || []).map(flag => flag === "muito_rapida" ? "Entrevista muito rápida" : "Possível resposta repetida").join(" · ")}</small></span><strong>{item.duration_seconds ? `${Math.round(item.duration_seconds / 60)} min` : "—"}</strong></div>) : <div className="ranking-empty">Nenhum alerta automático nos filtros atuais.</div>}</div></div></>}</>;
 }
 
+function Mobilizacao({ aviso, session, partners, atualizar }: { aviso: (text: string) => void; session: Session; partners: MobilizationPartner[]; atualizar: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState<"apoiador" | "lideranca">("lideranca");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [generatedLink, setGeneratedLink] = useState("");
+  const total = partners.reduce((sum, item) => sum + Number(item.responses || 0), 0);
+  const content = partners.reduce((sum, item) => sum + Number(item.content_opt_ins || 0), 0);
+  const volunteers = partners.reduce((sum, item) => sum + Number(item.volunteer_opt_ins || 0), 0);
+  const create = async () => {
+    if (name.trim().length < 2) return aviso("Informe o nome do apoiador ou liderança.");
+    setBusy(true);
+    try {
+      const created = await createMobilizationPartner(session, { name: name.trim(), kind, city, region, neighborhood, videoUrl });
+      const link = `${window.location.origin}/?mobilizacao=${encodeURIComponent(created.code)}`;
+      setGeneratedLink(link);
+      await navigator.clipboard.writeText(link);
+      await atualizar();
+      aviso("Link público criado e copiado.");
+    } catch (error) {
+      aviso(error instanceof Error ? traduzErro(error.message) : "Não foi possível criar o link.");
+    } finally { setBusy(false); }
+  };
+  const copyLink = async (code: string) => {
+    await navigator.clipboard.writeText(`${window.location.origin}/?mobilizacao=${encodeURIComponent(code)}`);
+    aviso("Link copiado.");
+  };
+  return <>
+    <Cabecalho titulo="Mobilização e relacionamentos" sub="Links públicos sem cadastro, com consentimentos separados e resultado por apoiador ou liderança." botao="＋ Novo link" acao={() => setOpen(!open)} />
+    <div className="coord-summary mobilization-summary">
+      <article><small>LINKS ATIVOS</small><b>{partners.filter(item => item.active).length}</b><span>apoiadores e lideranças</span></article>
+      <article><small>FORMULÁRIOS RECEBIDOS</small><b>{total}</b><span>respostas identificadas pelo link</span></article>
+      <article><small>ACEITARAM CONTEÚDO</small><b>{content}</b><span>autorização específica</span></article>
+      <article><small>INTERESSE VOLUNTÁRIO</small><b>{volunteers}</b><span>sem promessa de contratação</span></article>
+    </div>
+    <div className="admin-guidance"><i>i</i><span><b>Relacionamento transparente</b><small>O eleitor não cria conta. Nome e contato são opcionais, ficam no Cofre e só são usados conforme cada autorização marcada.</small></span><button className="pause-all" onClick={() => void atualizar()}>Atualizar</button></div>
+    {open && <section className="painel mobilization-create">
+      <div><small>NOVO LINK INDIVIDUAL</small><h3>Apoiador ou liderança</h3><p>Cada link permite acompanhar o volume e o território de origem sem misturar equipes.</p></div>
+      <label>Nome<input value={name} onChange={event => setName(event.target.value)} placeholder="Nome da pessoa responsável pelo link" /></label>
+      <label>Tipo<select value={kind} onChange={event => setKind(event.target.value as "apoiador" | "lideranca")}><option value="lideranca">Liderança</option><option value="apoiador">Apoiador</option></select></label>
+      <label>Cidade<input value={city} onChange={event => setCity(event.target.value)} placeholder="Ex.: Betim" /></label>
+      <label>Região<input value={region} onChange={event => setRegion(event.target.value)} /></label>
+      <label>Bairro<input value={neighborhood} onChange={event => setNeighborhood(event.target.value)} /></label>
+      <label className="wide">Vídeo de agradecimento (YouTube)<input value={videoUrl} onChange={event => setVideoUrl(event.target.value)} placeholder="https://youtu.be/..." /></label>
+      <button className="primary" onClick={() => void create()} disabled={busy}>{busy ? "Criando…" : "Criar e copiar link"}</button>
+      {generatedLink && <div className="generated-link wide"><b>Link pronto</b><span>Envie por WhatsApp. O eleitor abre e responde sem cadastro.</span><div className="link-row"><input readOnly value={generatedLink} /><button onClick={() => void navigator.clipboard.writeText(generatedLink)}>Copiar</button></div></div>}
+    </section>}
+    <section className="painel mobilization-list"><Topo sup="DESEMPENHO POR LINK" titulo="Apoiadores e lideranças" />{partners.length ? partners.map(item => <article key={item.id}>
+      <span><i>{item.kind === "lideranca" ? "L" : "A"}</i><span><b>{item.name}</b><small>{item.kind === "lideranca" ? "Liderança" : "Apoiador"} · {[item.city, item.region, item.neighborhood].filter(Boolean).join(" · ") || "território não informado"}</small></span></span>
+      <strong>{item.responses}<small>respostas</small></strong>
+      <strong>{item.content_opt_ins}<small>conteúdo</small></strong>
+      <strong>{item.volunteer_opt_ins}<small>voluntariado</small></strong>
+      <button onClick={() => void copyLink(item.code)}>Copiar link</button>
+    </article>) : <div className="ranking-empty">Nenhum link criado. Use “Novo link” para começar.</div>}</section>
+  </>;
+}
+
+function PublicMobilization({ code, form }: { code: string; form: PublicMobilizationForm | null }) {
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [name, setName] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [email, setEmail] = useState("");
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [contentOptIn, setContentOptIn] = useState(false);
+  const [meetingsOptIn, setMeetingsOptIn] = useState(false);
+  const [volunteerOptIn, setVolunteerOptIn] = useState(false);
+  const [academicConsent, setAcademicConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<{ code: string; video_url?: string | null } | null>(null);
+  if (!form) return <div className="public-mobilization unavailable"><div className="auth-logo">NP</div><h1>Este formulário não está disponível.</h1><p>O link pode ter expirado ou sido pausado. Fale com quem enviou o convite.</p></div>;
+  const visible = form.questions.filter(question => !question.condition?.field || answers[question.condition.field] === question.condition.equals);
+  const requiredOk = visible.filter(question => question.required).every(question => Boolean(answers[question.code]?.trim()));
+  const wantsContact = contentOptIn || meetingsOptIn || volunteerOptIn;
+  const contactOk = !wantsContact || Boolean(whatsapp.trim() || email.trim());
+  const set = (key: string, value: string) => setAnswers(previous => ({ ...previous, [key]: value }));
+  const choose = (question: SurveyQuestion, value: string) => set(question.code, answers[question.code] === value ? "" : value);
+  const multiple = (question: SurveyQuestion, value: string) => {
+    const current = (answers[question.code] || "").split("||").filter(Boolean);
+    set(question.code, (current.includes(value) ? current.filter(item => item !== value) : [...current, value]).join("||"));
+  };
+  const submit = async () => {
+    if (!requiredOk || !privacyConsent || !contactOk) return;
+    setBusy(true); setError("");
+    try {
+      setResult(await submitPublicMobilizationResponse(code, {
+        answers, name, whatsapp, email, privacyConsent, contentOptIn, meetingsOptIn,
+        volunteerOptIn, academicConsent, city: answers.cidade, region: answers.regiao,
+        neighborhood: answers.bairro,
+      }));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (problem) {
+      setError(problem instanceof Error ? traduzErro(problem.message) : "Não foi possível enviar.");
+    } finally { setBusy(false); }
+  };
+  const render = (question: SurveyQuestion) => <div className="public-question" key={question.code}><label>{question.prompt} {question.required && <b>*</b>}</label>{question.help_text && <small>{question.help_text}</small>}
+    {question.type === "short_text" && <input value={answers[question.code] || ""} onChange={event => set(question.code, event.target.value)} />}
+    {(question.type === "long_text" || question.type === "internal_note") && <textarea value={answers[question.code] || ""} onChange={event => set(question.code, event.target.value)} />}
+    {question.type === "yes_no" && <div className="public-options">{["Sim", "Não"].map(value => <button type="button" className={answers[question.code] === value ? "selected" : ""} onClick={() => choose(question, value)} key={value}>{value}</button>)}</div>}
+    {(question.type === "single" || question.type === "rating" || question.type === "region") && <div className="public-options">{question.options.map(value => <button type="button" className={answers[question.code] === value ? "selected" : ""} onClick={() => choose(question, value)} key={value}>{value}</button>)}</div>}
+    {question.type === "multiple" && <div className="public-options multiple">{question.options.map(value => { const active = (answers[question.code] || "").split("||").includes(value); return <button type="button" className={active ? "selected" : ""} onClick={() => multiple(question, value)} key={value}>{active ? "✓ " : "+ "}{value}</button>; })}</div>}
+    {question.type === "scale" && <div className="public-options scale">{Array.from({ length: 11 }, (_, index) => String(index)).map(value => <button type="button" className={answers[question.code] === value ? "selected" : ""} onClick={() => choose(question, value)} key={value}>{value}</button>)}</div>}
+  </div>;
+  if (result) {
+    const videoId = getYoutubeId(result.video_url || form.survey.video_url || "");
+    return <div className="public-mobilization public-thanks"><div className="check-final">✓</div><small>NORTEP PESQUISA</small><h1>Obrigado por participar.</h1><p>Sua resposta foi registrada com o código <b>{result.code}</b>.</p>{videoId && <div className="video-frame"><iframe src={`https://www.youtube-nocookie.com/embed/${videoId}`} title="Vídeo de agradecimento" allowFullScreen /></div>}<small>Você pode retirar autorizações de contato pelo e-mail pesquisadecamponortep@gmail.com.</small></div>;
+  }
+  const sections = Array.from(new Set(visible.map(question => question.section || "Perguntas")));
+  return <div className="public-mobilization">
+    <header><div className="auth-logo">NP</div><span><small>NORTEP PESQUISA</small><h1>{form.survey.title}</h1><p>{form.survey.description}</p></span></header>
+    <div className="public-partner"><small>LINK DE {form.partner.kind === "lideranca" ? "LIDERANÇA" : "APOIADOR"}</small><b>{form.partner.name}</b><span>{[form.partner.city, form.partner.region, form.partner.neighborhood].filter(Boolean).join(" · ")}</span></div>
+    <section className="public-consent"><h2>Antes de começar</h2><p>{form.survey.consent_text}</p></section>
+    {sections.map(section => <section className="public-section" key={section}><h2>{section}</h2>{visible.filter(question => (question.section || "Perguntas") === section).map(render)}</section>)}
+    <section className="public-section public-contact"><h2>Contato e participação — opcionais</h2><p>Marque somente o que você deseja. Participação voluntária não é contratação e não cria promessa de pagamento.</p>
+      <label>Nome (opcional)<input value={name} onChange={event => setName(event.target.value)} /></label>
+      <label>WhatsApp (opcional)<input value={whatsapp} onChange={event => setWhatsapp(event.target.value)} placeholder="(00) 00000-0000" /></label>
+      <label>E-mail (opcional)<input value={email} onChange={event => setEmail(event.target.value)} type="email" /></label>
+      <label className="public-check"><input type="checkbox" checked={contentOptIn} onChange={event => setContentOptIn(event.target.checked)} /><span><b>Quero receber conteúdos e atualizações.</b><small>Posso cancelar a qualquer momento.</small></span></label>
+      <label className="public-check"><input type="checkbox" checked={meetingsOptIn} onChange={event => setMeetingsOptIn(event.target.checked)} /><span><b>Quero receber convites para reuniões e encontros.</b><small>On-line ou presenciais.</small></span></label>
+      <label className="public-check"><input type="checkbox" checked={volunteerOptIn} onChange={event => setVolunteerOptIn(event.target.checked)} /><span><b>Tenho interesse em conhecer atividades voluntárias.</b><small>Sem vínculo de emprego ou promessa de contratação.</small></span></label>
+      <label className="public-check"><input type="checkbox" checked={academicConsent} onChange={event => setAcademicConsent(event.target.checked)} /><span><b>Autorizo o uso acadêmico anonimizado das respostas.</b><small>Esta escolha é separada e não interfere na participação.</small></span></label>
+      <label className="public-check required"><input type="checkbox" checked={privacyConsent} onChange={event => setPrivacyConsent(event.target.checked)} /><span><b>Li e aceito o aviso de privacidade. *</b><small>Autorizo o registro das respostas e, se informados, dos contatos para as finalidades marcadas.</small></span></label>
+      {!contactOk && <div className="faltam">Informe WhatsApp ou e-mail para receber o que marcou.</div>}
+    </section>
+    {error && <div className="auth-message">{error}</div>}
+    <button className="primary public-submit" onClick={() => void submit()} disabled={busy || !requiredOk || !privacyConsent || !contactOk}>{busy ? "Enviando…" : "Enviar respostas"}</button>
+    {!requiredOk && <div className="faltam">Preencha os campos marcados com *.</div>}
+    <footer>Privacidade: pesquisadecamponortep@gmail.com</footer>
+  </div>;
+}
+
 function Ecossistema() {
   const produtos = [
     ["NorteP Pesquisa", "Ativo", "Pesquisa de campo, coleta e resultados."],
@@ -1227,7 +1409,7 @@ function Portal({ iniciar, profile, surveys, interviews, pending, sincronizar, r
   const [eventSurveyId, setEventSurveyId] = useState(surveys[0]?.id || "");
   const [outcome, setOutcome] = useState<FieldEvent["outcome"]>("no_answer");
   const [reason, setReason] = useState("");
-  const typeName = (type: Survey["survey_type"]) => ({ quantitative: "Quantitativa", qualitative: "Qualitativa", directional: "Direcional", electoral: "Eleitoral", data_collection: "Coleta de dados" })[type];
+  const typeName = (type: Survey["survey_type"]) => ({ quantitative: "Quantitativa", qualitative: "Qualitativa", directional: "Direcional", electoral: "Eleitoral", data_collection: "Coleta de dados", relationship: "Relacionamento" })[type];
   const sendEvent = () => { const selected = surveys.find(s => s.id === eventSurveyId); if (!selected) return; registrar(outcome, reason, selected); setEventOpen(false); setReason(""); };
   return <div className="portal"><div className="portal-boas"><span><small>OLÁ, {profile.name.split(" ")[0].toUpperCase()}</small><h2>Pronto para continuar o trabalho de campo?</h2><p>Escolha uma pesquisa e continue a coleta.</p></span><div className="campo-metricas"><i><b>{hoje}</b><small>hoje</small></i><i><b>{interviews.length}</b><small>no total</small></i><i><b>{pending}</b><small>pendentes</small></i></div></div>{pending > 0 && <button className="sync-pending" onClick={sincronizar}>↻ Sincronizar {pending} item(ns) pendente(s)</button>}<div className="portal-surveys">{surveys.map(item => <article className="pesquisa-atribuida" key={item.id}><div className="pesquisa-capa"><span>{item.is_test ? "MODO TESTE" : "EM CAMPO"}</span><i><b>N</b>P</i></div><div className="pesquisa-info"><small>{typeName(item.survey_type).toUpperCase()}</small><h3>{item.title}</h3><p>Duração estimada de {item.estimated_minutes} minutos · {[...(item.target_cities || []), ...(item.target_regions || []), ...(item.target_neighborhoods || [])].join(" · ") || "território da coleta"}</p><div className="instrucoes"><span>✓ Leia exatamente como está escrito</span><span>✓ Não sugira respostas</span><span>✓ Consentimento antes da coleta</span></div><button className="primary" onClick={() => void iniciar(item)}>＋ Iniciar nova entrevista</button></div></article>)}</div>{!surveys.length && <div className="painel resultado-vazio"><i>◎</i><h3>Nenhuma pesquisa disponível</h3><p>Atualize a página ou fale com a equipe.</p></div>}{surveys.length > 0 && <div className="painel field-event-call"><span><b>A abordagem não virou entrevista?</b><small>Registre recusa, pessoa fora do público, interrupção ou local sem resposta. Isso permite calcular a taxa real da coleta.</small></span><button onClick={() => { setEventSurveyId(surveys[0]?.id || ""); setEventOpen(true); }}>Registrar ocorrência</button></div>}<div className="painel ajuda-campo"><span><b>Dúvida durante a entrevista?</b><small>Não improvise a pergunta. Anote a ocorrência e fale com a coordenação.</small></span><button>Falar com a equipe</button></div>{eventOpen && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Registrar ocorrência de campo"><div className="field-event-modal"><header><div><small>OCORRÊNCIA DE CAMPO</small><h2>O que aconteceu?</h2></div><button onClick={() => setEventOpen(false)}>×</button></header><label>Pesquisa<select value={eventSurveyId} onChange={e => setEventSurveyId(e.target.value)}>{surveys.map(item => <option value={item.id} key={item.id}>{item.title}</option>)}</select></label><label>Resultado da abordagem<select value={outcome} onChange={e => setOutcome(e.target.value as FieldEvent["outcome"])}><option value="no_answer">Ninguém atendeu</option><option value="refused">Pessoa não quis participar</option><option value="ineligible">Pessoa fora do público da pesquisa</option><option value="interrupted">Entrevista interrompida</option></select></label><label>Observação opcional<textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Não registre opinião política nem dados pessoais" /></label><footer><button onClick={() => setEventOpen(false)}>Cancelar</button><button className="primary" onClick={sendEvent}>Salvar ocorrência</button></footer></div></div>}</div>;
 }

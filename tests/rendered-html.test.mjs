@@ -5,62 +5,77 @@ import { readFile } from "node:fs/promises";
 const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const worker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
-const migration = await readFile(new URL("../supabase/migrations/20260728090000_founder_and_role_boundaries.sql", import.meta.url), "utf8");
-const structureGuard = await readFile(new URL("../supabase/migrations/20260728100000_founder_survey_structure_guard.sql", import.meta.url), "utf8");
-const teamScope = await readFile(new URL("../supabase/migrations/20260728130000_coordinator_team_scope.sql", import.meta.url), "utf8");
-const territoryScope = await readFile(new URL("../supabase/migrations/20260729100000_coordinator_territories_and_invite_hierarchy.sql", import.meta.url), "utf8");
-const managedInvites = await readFile(new URL("../supabase/migrations/20260729173000_secondary_admin_researcher_invites.sql", import.meta.url), "utf8");
+const hierarchy = await readFile(new URL("../supabase/migrations/20260730100000_supervisor_territory_and_mobilization.sql", import.meta.url), "utf8");
+const officialPilot = await readFile(new URL("../supabase/migrations/20260730110000_reset_pilot_and_seed_surveys.sql", import.meta.url), "utf8");
+const questionScope = await readFile(new URL("../supabase/migrations/20260730112000_fix_question_scope.sql", import.meta.url), "utf8");
 
-test("V44 mantém entradas separadas por função, equipes próprias e visão exclusiva da fundadora", () => {
-  for (const channel of ["principal", "administracao", "coordenacao", "observador", "pesquisador"]) {
+test("V46 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
+  for (const channel of ["principal", "administracao", "coordenacao", "supervisao", "observador", "pesquisador"]) {
     assert.match(page, new RegExp(`"${channel}"`));
   }
   assert.match(page, /Administradora fundadora/);
-  assert.match(page, /Novo acesso de campo/);
-  assert.match(page, /Minha coordenação/);
+  assert.match(page, /Minha supervisão/);
+  assert.match(page, /Mobilização e relacionamentos/);
   assert.match(page, /Ver todo o aplicativo/);
   assert.match(page, /Prévia exclusiva da fundadora/);
   assert.match(page, /bussolanortep@gmail\.com/);
-  assert.match(page, /Entrar ou cadastrar/);
-  assert.doesNotMatch(page, /Decisões mais próximas das pessoas/);
   assert.match(page, /pesquisadecamponortep@gmail\.com/);
 });
 
 test("service worker e interface usam a mesma versão", () => {
-  assert.match(page, /V44/);
-  assert.match(layout, /sw\.js\?v=43/);
-  assert.match(worker, /nortep-pesquisa-v44/);
+  assert.match(page, /V46/);
+  assert.match(layout, /sw\.js\?v=46/);
+  assert.match(worker, /nortep-pesquisa-v46/);
+  assert.match(layout, /location\.hostname === 'localhost'/);
 });
 
-test("permissões críticas ficam protegidas no banco", () => {
-  assert.match(migration, /Somente a administradora fundadora pode criar outro administrador/);
-  assert.match(migration, /revoke all on function public\.create_access_invite\(text, text\) from public, anon/);
-  assert.match(structureGuard, /survey_questions_founder_guard/);
-  assert.match(structureGuard, /public\.is_primary_admin\(\)/);
+test("hierarquia territorial aplica menor privilégio", () => {
+  assert.match(hierarchy, /create table if not exists public\.team_links/);
+  assert.match(hierarchy, /create table if not exists public\.profile_territories/);
+  assert.match(hierarchy, /Todo supervisor deve estar vinculado a um coordenador/);
+  assert.match(hierarchy, /Supervisores podem convidar somente pesquisadores/);
+  assert.match(hierarchy, /Somente a administradora fundadora pode criar outro administrador/);
+  assert.match(hierarchy, /manager_can_access_profile/);
+  assert.match(hierarchy, /revoke all on function public\.create_managed_access_invite/);
+  assert.doesNotMatch(hierarchy, /delete from public\.profiles/);
+  assert.doesNotMatch(hierarchy, /delete from public\.interviews/);
 });
 
-test("V42 limita coordenadores à própria equipe sem apagar dados", () => {
-  assert.match(teamScope, /drop trigger if exists profiles_assign_on_activation/);
-  assert.match(teamScope, /create table if not exists public\.coordinator_memberships/);
-  assert.match(teamScope, /Coordenadores podem convidar somente pesquisadores da própria equipe/);
-  assert.match(teamScope, /coordinator_can_access_researcher/);
-  assert.match(teamScope, /Somente a administradora fundadora pode criar outro administrador/);
-  assert.doesNotMatch(teamScope, /delete from public\.profiles/);
-  assert.doesNotMatch(teamScope, /delete from public\.interviews/);
+test("mobilização pública não expõe tabelas e exige consentimento", () => {
+  assert.match(page, /O eleitor não cria conta/);
+  assert.match(page, /Participação voluntária não é contratação/);
+  assert.match(page, /Autorizo o uso acadêmico anonimizado/);
+  assert.match(hierarchy, /submit_public_mobilization_response/);
+  assert.match(hierarchy, /grant execute on function public\.get_public_mobilization_form\(text\) to anon/);
+  assert.match(hierarchy, /revoke all on table public\.team_links, public\.profile_territories/);
 });
 
-test("V44 organiza convites e territórios pela hierarquia correta", () => {
-  assert.match(page, /Administradores podem criar coordenadores ou incluir pesquisadores/);
-  assert.match(page, /O pesquisador será vinculado automaticamente à sua equipe/);
-  assert.match(page, /Coordenador responsável/);
-  assert.match(page, /Definir territórios/);
-  assert.match(managedInvites, /Escolha o coordenador responsável pelo pesquisador/);
-  assert.match(managedInvites, /Somente a administradora fundadora pode criar outro administrador/);
-  assert.match(managedInvites, /create_managed_access_invite/);
-  assert.match(territoryScope, /create table if not exists public\.coordinator_territories/);
-  assert.match(territoryScope, /Somente a administradora fundadora pode criar outro administrador/);
-  assert.doesNotMatch(managedInvites, /delete from public\.profiles/);
-  assert.doesNotMatch(managedInvites, /delete from public\.interviews/);
-  assert.doesNotMatch(territoryScope, /delete from public\.profiles/);
-  assert.doesNotMatch(territoryScope, /delete from public\.interviews/);
+test("limpeza oficial preserva as contas autorizadas e cria quatro pesquisas", () => {
+  assert.match(officialPilot, /bussolanortep@gmail\.com/);
+  assert.match(officialPilot, /taniaracristine49@gmail\.com/);
+  assert.match(officialPilot, /Betim: Saúde, Cuidado e Futuro/);
+  assert.match(officialPilot, /Minas Gerais: Prioridades e Escolhas 2026/);
+  assert.match(officialPilot, /Escuta Territorial: Bairro e Cidade/);
+  assert.match(officialPilot, /NorteP: Participação, Apoio e Voluntariado/);
+  assert.match(officialPilot, /'draft', 'electoral'/);
+});
+
+test("pesquisador vê somente perguntas das pesquisas liberadas", () => {
+  assert.match(questionScope, /a\.survey_id = survey_questions\.survey_id/);
+  assert.match(questionScope, /a\.researcher_id = auth\.uid\(\)/);
+  assert.doesNotMatch(questionScope, /a\.survey_id = a\.survey_id/);
+});
+
+test("rascunho e fila offline permanecem no mesmo aparelho até sincronizar", () => {
+  assert.match(page, /nortep-pendentes/);
+  assert.match(page, /nortep-rascunho-/);
+  assert.match(page, /Continuar de onde parou/);
+  assert.match(page, /window\.addEventListener\("online", autoSync\)/);
+  assert.match(worker, /\/\?acesso=pesquisador/);
+});
+
+test("capa pública não exibe instruções internas ou mapa físico", () => {
+  assert.doesNotMatch(page, /Acesso somente para pessoas autorizadas/);
+  assert.match(page, /Pesquisa, território e gestão em um só lugar/);
+  assert.match(page, /Leitura operacional sem mapa físico/);
 });
