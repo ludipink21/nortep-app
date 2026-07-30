@@ -198,3 +198,34 @@ html[data-tema="escuro"] .public-copy h1 .brand-gold,
   color:#d8aa32!important;
   -webkit-text-fill-color:#d8aa32!important
 }
+
+/* V47 · marca exclusiva NorteP em todos os pontos principais do aplicativo. */
+.logo>i,
+.auth-logo,
+.observer-logo>i,
+.public-shield i,
+.eco.ativo>i,
+.pesquisa-capa>i{
+  overflow:hidden;
+  color:transparent!important;
+  -webkit-text-fill-color:transparent!important;
+  font-size:0!important;
+  background-color:#35101f!important;
+  background-image:url("/nortep-icon-v1.png")!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  background-size:cover!important
+}
+.pesquisa-capa>i{
+  width:76px;
+  height:76px;
+  border-radius:19px;
+  box-shadow:0 8px 24px #35101f26
+}
+.public-shield i,
+.auth-logo,
+.logo>i,
+.observer-logo>i,
+.eco.ativo>i{
+  box-shadow:0 5px 16px #35101f20
+}

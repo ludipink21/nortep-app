@@ -12,8 +12,9 @@ export async function generateMetadata(): Promise<Metadata> {
     title: "NorteP Pesquisa",
     description: "Pesquisa de campo. Dados que aproximam.",
     icons: {
-      icon: "/favicon.svg",
-      shortcut: "/favicon.svg",
+      icon: "/nortep-icon-v1.png",
+      shortcut: "/nortep-icon-v1.png",
+      apple: "/nortep-icon-v1.png",
     },
     manifest: "/manifest.webmanifest",
     openGraph: {
@@ -45,13 +46,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         }
         var reloading = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (reloading || sessionStorage.getItem('nortep-reload-v46')) return;
+          if (reloading || sessionStorage.getItem('nortep-reload-v47')) return;
           reloading = true;
-          sessionStorage.setItem('nortep-reload-v46', '1');
+          sessionStorage.setItem('nortep-reload-v47', '1');
           window.location.reload();
         });
         try {
-          var registration = await navigator.serviceWorker.register('/sw.js?v=46', { updateViaCache: 'none' });
+          var registration = await navigator.serviceWorker.register('/sw.js?v=47', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });

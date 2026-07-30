@@ -23,6 +23,7 @@ RED = "9C3D47"
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "documentos_oficiais"
+ICON = ROOT / "public" / "nortep-icon-v1.png"
 OUT.mkdir(parents=True, exist_ok=True)
 
 
@@ -146,22 +147,19 @@ def configure_document(doc: Document, subtitle: str) -> None:
 def cover(doc: Document, title: str, subtitle: str, edition: str = "Versão 2026") -> None:
     for _ in range(3):
         doc.add_paragraph()
-    logo = doc.add_table(rows=1, cols=1)
-    set_repeat_table_header(logo.rows[0])
-    logo.alignment = WD_TABLE_ALIGNMENT.CENTER
-    logo.autofit = False
-    logo.columns[0].width = Cm(4.2)
-    cell = logo.cell(0, 0)
-    cell.width = Cm(4.2)
-    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-    shade(cell, PURPLE)
-    p = cell.paragraphs[0]
+    p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run("N P")
-    r.font.name = "Aptos Display"
-    r.font.size = Pt(30)
-    r.font.bold = True
-    r.font.color.rgb = RGBColor.from_string(GOLD)
+    r = p.add_run()
+    if ICON.exists():
+        picture = r.add_picture(str(ICON), width=Cm(3.6))
+        picture._inline.docPr.set("title", "Marca NorteP Pesquisa")
+        picture._inline.docPr.set("descr", "Símbolo NorteP em púrpura e ouro: bússola, monograma NP, pessoas e dados.")
+    else:
+        r.text = "N P"
+        r.font.name = "Aptos Display"
+        r.font.size = Pt(30)
+        r.font.bold = True
+        r.font.color.rgb = RGBColor.from_string(GOLD)
     doc.add_paragraph()
     p = doc.add_paragraph(style="Title")
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -422,6 +420,54 @@ def build_field_manual() -> Path:
             "Se a resposta for crítica, agradeça e registre com o mesmo cuidado.",
         ],
     )
+    add_heading(doc, "8.1 Método ACOLHER para uma conversa respeitosa", 2)
+    add_table(
+        doc,
+        ["Passo", "Comportamento esperado", "Evite"],
+        [
+            ["A — Aproximar", "Cumprimente, mantenha distância confortável e observe se é um bom momento.", "Bloquear passagem ou tocar na pessoa."],
+            ["C — Contextualizar", "Diga quem é, qual é o tema, a duração e para que os dados serão usados.", "Começar perguntando opinião política sem apresentação."],
+            ["O — Ouvir", "Dê tempo para a resposta e aceite silêncio, dúvida ou crítica.", "Completar a frase ou interromper."],
+            ["L — Ler com fidelidade", "Leia pergunta e alternativas conforme o questionário.", "Trocar palavras para obter determinada resposta."],
+            ["H — Humanizar", "Reconheça a fala sem concordar nem discordar: “Obrigado por explicar”.", "Debater, corrigir ou prometer solução."],
+            ["E — Encerrar com respeito", "Agradeça, explique o próximo passo e confirme contato somente se autorizado.", "Insistir em apoio, conteúdo ou compartilhamento."],
+            ["R — Registrar", "Salve resposta, local, recusa ou ocorrência de forma fiel.", "Interpretar ou esconder resposta desfavorável."],
+        ],
+        [0.9, 3.0, 1.9],
+    )
+
+    add_heading(doc, "8.2 Formas de começar o diálogo", 2)
+    add_table(
+        doc,
+        ["Situação", "Exemplo de abertura"],
+        [
+            ["Porta ou residência", "“Boa tarde. Sou [nome], da NorteP Pesquisa. Estamos ouvindo moradores sobre [tema]. A participação é voluntária e dura cerca de [tempo]. Este é um bom momento?”"],
+            ["Praça, rua ou comércio", "“Olá. Posso explicar em 20 segundos uma pesquisa que estamos fazendo nesta região? Depois você decide se quer participar.”"],
+            ["Pessoa com pressa", "“Entendo. Posso registrar que agora não é um bom momento ou você prefere receber apenas o contato institucional?”"],
+            ["Pessoa desconfiada", "“É correto conferir antes de participar. Posso mostrar minha identificação e explicar como seus dados são protegidos. Você não precisa informar nome.”"],
+            ["Pessoa crítica ou insatisfeita", "“Sua crítica também é importante para a pesquisa. Vou registrar com as suas palavras, sem discutir ou alterar.”"],
+            ["Pessoa que pergunta sua opinião", "“Para não influenciar sua resposta, durante a entrevista eu não apresento minha opinião. Quero compreender a sua.”"],
+        ],
+        [1.55, 4.25],
+    )
+
+    add_heading(doc, "8.3 Aprofundamento permitido em respostas abertas", 2)
+    add_bullets(
+        doc,
+        [
+            "“Você poderia explicar um pouco mais?”",
+            "“O que faz esse tema ser importante para você?”",
+            "“Pode dar um exemplo, sem informar nomes ou dados pessoais?”",
+            "“Entendi corretamente que o principal ponto é [resumo curto]?”",
+            "Use essas frases somente quando a pergunta permitir aprofundamento. Nunca apresente uma alternativa escondida dentro da pergunta.",
+        ],
+    )
+    callout(
+        doc,
+        "Vínculo não é convencimento",
+        "Na pesquisa, vínculo significa segurança, clareza e respeito. A qualidade aumenta quando a pessoa se sente ouvida, não quando é persuadida a concordar com o pesquisador.",
+        "gold",
+    )
 
     add_heading(doc, "9. Aplicação correta do questionário")
     add_steps(
@@ -486,6 +532,24 @@ def build_field_manual() -> Path:
         ],
         [1.1, 2.2, 2.45],
     )
+    add_heading(doc, "12.1 Ciclo de treino antes do campo", 2)
+    add_steps(
+        doc,
+        [
+            "Demonstração: o supervisor realiza uma abertura completa e explica cada decisão.",
+            "Roleplay guiado: dupla alterna entrevistador e entrevistado, incluindo uma recusa e uma dúvida.",
+            "Operação do app: iniciar, responder, salvar rascunho, simular queda, retomar e sincronizar.",
+            "Situação difícil: praticar crítica, pressa, desconfiança, interrupção e ocorrência de segurança.",
+            "Avaliação: usar a rubrica do manual; registrar um ponto forte e um ajuste observável.",
+            "Autorização: liberar para campo somente após consentimento correto, fidelidade das perguntas e domínio básico do app.",
+        ],
+    )
+    callout(
+        doc,
+        "Feedback Fato — Impacto — Ajuste",
+        "Fato: descreva o comportamento observado. Impacto: explique o efeito na qualidade ou segurança. Ajuste: combine uma ação concreta para a próxima abordagem. Evite rótulos como “fraco”, “lento” ou “não leva jeito”.",
+        "green",
+    )
 
     add_heading(doc, "13. Indicadores que fazem sentido")
     add_table(
@@ -536,6 +600,19 @@ def build_field_manual() -> Path:
         "Roleplay aprovado + entrevista acompanhada + nota mínima de 80%. Em falha de consentimento, falsificação ou segurança, interromper a coleta e reciclar antes do retorno.",
         "red",
     )
+    add_heading(doc, "15.1 Escala de desempenho para supervisão", 2)
+    add_table(
+        doc,
+        ["Nível", "Descrição", "Decisão"],
+        [
+            ["4 — Consistente", "Executa corretamente sem ajuda e explica o procedimento.", "Pode atuar e apoiar colegas."],
+            ["3 — Adequado", "Executa com pequena correção que não compromete a entrevista.", "Pode atuar com acompanhamento normal."],
+            ["2 — Em desenvolvimento", "Repete erro operacional ou de roteiro, mas aceita correção.", "Treino dirigido e nova observação."],
+            ["1 — Crítico", "Compromete consentimento, fidelidade, segurança ou dados.", "Suspender coleta e reciclar."],
+            ["0 — Inaceitável", "Falsificação, pressão, discriminação, ocultação de ocorrência ou compartilhamento de dados.", "Bloquear acesso e abrir apuração."],
+        ],
+        [1.25, 3.25, 1.3],
+    )
 
     add_heading(doc, "16. Cartão de bolso")
     add_checklist(
@@ -549,6 +626,31 @@ def build_field_manual() -> Path:
             "Registrei recusa, interrupção ou ocorrência?",
             "O rascunho está salvo e a fila está sincronizada?",
             "Nenhum dado pessoal ficou fora do cofre NorteP?",
+        ],
+    )
+
+    add_heading(doc, "17. Plano de aula sugerido para pesquisadores")
+    add_table(
+        doc,
+        ["Módulo", "Duração", "Atividade", "Evidência de aprendizagem"],
+        [
+            ["1. Ética, consentimento e LGPD", "45 min", "Explicação, exemplos e análise de situações.", "Distingue pesquisa, relacionamento e mobilização."],
+            ["2. Abordagem e vínculo", "60 min", "Roteiros ACOLHER e roleplays.", "Realiza abertura clara e aceita recusa."],
+            ["3. Questionário e registro", "60 min", "Perguntas fechadas, abertas e espontâneas.", "Não induz e registra resposta completa."],
+            ["4. Aplicativo NorteP", "60 min", "Cadastro, pesquisa, rascunho, offline e sincronização.", "Conclui uma entrevista de teste sem ajuda."],
+            ["5. Segurança e ocorrências", "30 min", "Simulação de conflito, erro e interrupção.", "Prioriza saída segura e registra ocorrência."],
+            ["6. Avaliação prática", "45 min", "Entrevista observada e feedback.", "Alcança 80% e não apresenta falha crítica."],
+        ],
+        [1.65, 0.7, 2.2, 1.25],
+    )
+    add_checklist(
+        doc,
+        [
+            "Lista de presença e versão do treinamento registradas.",
+            "Cada participante realizou ao menos dois roleplays.",
+            "Cada participante concluiu entrevista de teste on-line e offline.",
+            "Dúvidas e ajustes do questionário foram documentados antes do campo.",
+            "Aprovação, reciclagem ou restrição de acesso foi registrada pelo responsável.",
         ],
     )
 
@@ -836,7 +938,39 @@ def build_app_manual() -> Path:
     add_heading(doc, "Administração", 2)
     add_checklist(doc, ["Acessos por menor privilégio", "Pesquisas revisadas", "Exportações protegidas", "Cofre auditado", "Mudanças e incidentes documentados"])
 
-    add_heading(doc, "16. Canal de suporte")
+    add_heading(doc, "16. Treinamento do aplicativo por perfil")
+    add_table(
+        doc,
+        ["Perfil", "Treino mínimo", "Demonstração obrigatória"],
+        [
+            ["Fundadora", "60 min", "Visões de todos os perfis, administradores, auditoria, cofre e publicação de pesquisas."],
+            ["Administrador", "60 min", "Criar coordenação, território, pesquisa, liberação, relatório e controle de acesso."],
+            ["Coordenador", "50 min", "Convidar supervisor/pesquisador, delimitar equipe, acompanhar produção e corrigir pendências."],
+            ["Supervisor", "45 min", "Convidar pesquisador, acompanhar qualidade, ocorrências, rascunhos e sincronização."],
+            ["Pesquisador", "60 min", "Entrar, atualizar pesquisa, coletar, registrar recusa, trabalhar offline, retomar e sincronizar."],
+            ["Observador", "20 min", "Abrir indicadores agregados, aplicar filtros e sair sem alterar dados."],
+        ],
+        [1.25, 0.85, 3.8],
+    )
+    add_heading(doc, "16.1 Simulação de certificação", 2)
+    add_steps(
+        doc,
+        [
+            "Entrar pelo link correto e explicar qual é o limite do perfil.",
+            "Realizar a tarefa principal do perfil sem usar senha ou conta de outra pessoa.",
+            "Simular um erro de conexão e demonstrar a recuperação adequada.",
+            "Localizar configurações, aumentar texto, alternar tema e sair com segurança.",
+            "Explicar para quem deve encaminhar dúvida, ocorrência ou pedido sobre dados.",
+        ],
+    )
+    callout(
+        doc,
+        "Aprovação para uso",
+        "O treinamento termina quando a pessoa consegue executar sua rotina, explicar seus limites de acesso e resolver um cenário simples de erro. A coordenação registra aprovado, reciclagem ou acesso suspenso.",
+        "green",
+    )
+
+    add_heading(doc, "17. Canal de suporte")
     doc.add_paragraph(
         "Ao relatar erro, informe: perfil, aparelho, navegador, horário, pesquisa, etapa, condição on-line/offline e mensagem exibida. "
         "Não envie senha, chave do cofre ou dados do entrevistado."

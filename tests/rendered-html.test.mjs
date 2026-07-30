@@ -9,7 +9,7 @@ const hierarchy = await readFile(new URL("../supabase/migrations/20260730100000_
 const officialPilot = await readFile(new URL("../supabase/migrations/20260730110000_reset_pilot_and_seed_surveys.sql", import.meta.url), "utf8");
 const questionScope = await readFile(new URL("../supabase/migrations/20260730112000_fix_question_scope.sql", import.meta.url), "utf8");
 
-test("V46 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
+test("V47 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
   for (const channel of ["principal", "administracao", "coordenacao", "supervisao", "observador", "pesquisador"]) {
     assert.match(page, new RegExp(`"${channel}"`));
   }
@@ -23,9 +23,11 @@ test("V46 mantém entradas separadas, supervisão e visão exclusiva da fundador
 });
 
 test("service worker e interface usam a mesma versão", () => {
-  assert.match(page, /V46/);
-  assert.match(layout, /sw\.js\?v=46/);
-  assert.match(worker, /nortep-pesquisa-v46/);
+  assert.match(page, /V47/);
+  assert.match(layout, /sw\.js\?v=47/);
+  assert.match(worker, /nortep-pesquisa-v47/);
+  assert.match(layout, /nortep-icon-v1\.png/);
+  assert.match(worker, /nortep-icon-v1\.png/);
   assert.match(layout, /location\.hostname === 'localhost'/);
 });
 

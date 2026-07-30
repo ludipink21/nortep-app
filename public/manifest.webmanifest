@@ -6,5 +6,12 @@
   "display": "standalone",
   "background_color": "#f7f3e9",
   "theme_color": "#35101f",
-  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "icons": [
+    {
+      "src": "/nortep-icon-v1.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
