@@ -1,0 +1,1646 @@
+{
+  "version": "3.0.0",
+  "title": "Academia NorteP",
+  "subtitle": "Formação estadual por perfil e modo operacional, com ética, segurança, governança, proteção de dados, qualidade e comunicação profissional responsável",
+  "commonModules": [
+    {
+      "id": "comum-etica",
+      "title": "Base comum: ética, respeito e proteção de dados",
+      "icon": "🛡️",
+      "lessons": [
+        {
+          "id": "comum-01",
+          "title": "Missão da Academia NorteP",
+          "duration": 8,
+          "objective": "Compreender que a qualidade da pesquisa depende de procedimento, respeito e registro correto.",
+          "content": [
+            "A Academia NorteP organiza a formação por função e registra o progresso de cada pessoa.",
+            "O aplicativo apoia o trabalho, mas não substitui a responsabilidade de quem coleta, supervisiona ou analisa.",
+            "Cada perfil deve usar apenas sua própria conta, respeitar seus limites e encaminhar dúvidas pelo fluxo correto."
+          ],
+          "speak": "Abra a aula dizendo: “O dado só tem valor quando foi coletado com respeito, método e segurança.” Peça que cada participante cite uma atitude que protege a qualidade.",
+          "example": "Exemplo: uma pesquisadora encontra uma pergunta obrigatória sem resposta. Ela não inventa; usa a opção autorizada ou pede orientação.",
+          "activity": "Escreva três atitudes que demonstram profissionalismo em campo.",
+          "quiz": {
+            "question": "Qual atitude protege melhor a qualidade da pesquisa?",
+            "options": [
+              "Responder pelo entrevistado",
+              "Usar a própria conta e registrar fielmente",
+              "Compartilhar senha com a equipe"
+            ],
+            "answer": 1,
+            "feedback": "Correto: conta individual e registro fiel permitem segurança e auditoria."
+          }
+        },
+        {
+          "id": "comum-02",
+          "title": "Consentimento, privacidade e uso responsável",
+          "duration": 12,
+          "objective": "Aplicar consentimento, finalidade e cuidado com dados pessoais.",
+          "content": [
+            "Explique o objetivo da atividade antes de iniciar e respeite a decisão de participar ou não.",
+            "Contato pessoal só deve ser registrado quando houver autorização clara e finalidade definida.",
+            "Nunca envie senha, chave do cofre ou dados do entrevistado em mensagens, grupos ou planilhas pessoais."
+          ],
+          "speak": "Diga: “Consentimento não é um botão; é uma decisão informada.” Diferencie resposta de pesquisa, contato opcional e autorização para receber conteúdo.",
+          "example": "Exemplo: a pessoa aceita responder, mas não quer deixar WhatsApp. A entrevista continua sem contato.",
+          "activity": "Explique, com suas palavras, a diferença entre participar da pesquisa e autorizar contato posterior.",
+          "quiz": {
+            "question": "A pessoa pode responder sem fornecer WhatsApp?",
+            "options": [
+              "Não",
+              "Sim, quando o contato é opcional",
+              "Somente se o supervisor autorizar"
+            ],
+            "answer": 1,
+            "feedback": "Correto: participação e autorização de contato são decisões separadas."
+          }
+        },
+        {
+          "id": "comum-03",
+          "title": "Esquerda, direita e centro: introdução neutra",
+          "duration": 15,
+          "objective": "Reconhecer termos políticos sem rotular pessoas ou transformar a entrevista em debate.",
+          "content": [
+            "Esquerda, direita e centro são rótulos amplos e variam entre países, épocas e partidos.",
+            "Em geral, debates sobre esquerda e direita envolvem diferenças sobre papel do Estado, economia, igualdade, ordem e costumes; nenhuma pessoa cabe perfeitamente em uma única caixa.",
+            "Durante pesquisa ou mobilização institucional, não presuma a posição de alguém pela aparência, bairro, religião, idade ou profissão.",
+            "A função da equipe é ouvir, registrar e manter neutralidade. Discussão partidária deve ser evitada durante a coleta."
+          ],
+          "speak": "Apresente o tema como alfabetização política, não como disputa. Diga: “Nosso trabalho não é definir quem está certo; é entender opiniões sem distorcer.”",
+          "example": "Exemplo: alguém diz “sou de direita, mas defendo um serviço público forte”. A pesquisadora registra a resposta prevista e não tenta corrigir a pessoa.",
+          "activity": "Escreva uma frase neutra para responder quando alguém perguntar sua opinião partidária durante a pesquisa.",
+          "quiz": {
+            "question": "Como agir quando o entrevistado pergunta em quem você vota?",
+            "options": [
+              "Informar e tentar convencê-lo",
+              "Mudar a resposta da pesquisa",
+              "Explicar que sua função é ouvir com neutralidade"
+            ],
+            "answer": 2,
+            "feedback": "Correto: a postura profissional preserva a neutralidade da coleta."
+          }
+        }
+      ]
+    },
+    {
+      "id": "comum-comunicacao",
+      "title": "Comunicação e segurança com públicos diversos",
+      "icon": "🤝",
+      "lessons": [
+        {
+          "id": "comum-04",
+          "title": "Escuta ativa e linguagem acessível",
+          "duration": 12,
+          "objective": "Ouvir sem interromper e adaptar a linguagem sem alterar o sentido das perguntas.",
+          "content": [
+            "Apresente-se, fale em ritmo adequado e confirme se a pessoa compreendeu o convite.",
+            "Leia a pergunta conforme o questionário. Quando permitido, esclareça termos sem sugerir resposta.",
+            "Não infantilize idosos, não use gírias com quem não as utiliza e respeite formas de tratamento."
+          ],
+          "speak": "Faça uma demonstração ruim e outra boa. Na ruim, interrompa. Na boa, espere, confirme e agradeça.",
+          "example": "“Posso repetir a pergunta com mais calma, mantendo o mesmo sentido?”",
+          "activity": "Reescreva uma saudação respeitosa para: pessoa idosa, comerciante e jovem.",
+          "quiz": {
+            "question": "Adaptar a comunicação significa:",
+            "options": [
+              "Mudar a pergunta para obter resposta",
+              "Falar com clareza sem induzir",
+              "Usar o mesmo tom com todas as pessoas"
+            ],
+            "answer": 1,
+            "feedback": "Correto: clareza e respeito sem alterar o instrumento."
+          }
+        },
+        {
+          "id": "comum-05",
+          "title": "Saída segura e desescalada",
+          "duration": 15,
+          "objective": "Encerrar interações tensas sem confronto e registrar ocorrências.",
+          "content": [
+            "Diante de hostilidade, mantenha distância segura, voz calma e não discuta ideologia.",
+            "Use uma saída simples: “Respeito sua decisão. Obrigado pelo seu tempo. Tenha um bom dia.”",
+            "Se houver ameaça, violência, grupo se aproximando ou risco físico, afaste-se e acione o supervisor.",
+            "Nunca grave pessoas sem autorização e nunca permaneça no local para “provar um ponto”."
+          ],
+          "speak": "Treine em duplas. Uma pessoa faz a abordagem e a outra recusa de forma intensa. O objetivo é sair com calma em até 20 segundos.",
+          "example": "A pessoa eleva a voz. A pesquisadora dá um passo para trás, agradece, encerra e registra a ocorrência longe do local.",
+          "activity": "Escreva sua frase de saída segura e um sinal que indica que é hora de interromper.",
+          "quiz": {
+            "question": "Qual é a prioridade diante de ameaça?",
+            "options": [
+              "Concluir a entrevista",
+              "Explicar a metodologia",
+              "Sair com segurança e avisar o responsável"
+            ],
+            "answer": 2,
+            "feedback": "Correto: integridade física vem antes da meta."
+          }
+        },
+        {
+          "id": "comum-06",
+          "title": "Como lidar com públicos diferentes sem estereótipos",
+          "duration": 14,
+          "objective": "Atender diferentes públicos com respeito, acessibilidade e limites profissionais.",
+          "content": [
+            "Idosos: ofereça tempo, boa iluminação e letra maior, sem presumir incapacidade.",
+            "Jovens: explique finalidade e privacidade; evite excesso de informalidade.",
+            "Comerciantes: seja breve, pergunte o melhor momento e não interrompa atendimento.",
+            "Lideranças religiosas ou comunitárias: respeite o espaço e não use a relação para pressionar terceiros.",
+            "Pessoas com deficiência: pergunte qual apoio é necessário; fale diretamente com a pessoa."
+          ],
+          "speak": "Pergunte à turma: “Qual é a diferença entre adaptar e estereotipar?” A resposta esperada: adaptar parte de uma necessidade expressa, não de uma suposição.",
+          "example": "Em vez de falar com o acompanhante, a pesquisadora pergunta diretamente à pessoa com deficiência como prefere participar.",
+          "activity": "Escolha um público e registre duas adaptações respeitosas e uma atitude a evitar.",
+          "quiz": {
+            "question": "A melhor forma de saber se alguém precisa de adaptação é:",
+            "options": [
+              "Presumir pela aparência",
+              "Perguntar com respeito",
+              "Falar somente com o acompanhante"
+            ],
+            "answer": 1,
+            "feedback": "Correto: pergunte e respeite a autonomia."
+          }
+        }
+      ]
+    },
+    {
+      "id": "comum-comunicacao-estrategica",
+      "title": "Comunicação política profissional: diagnóstico, reputação e crise",
+      "icon": "🧭",
+      "notice": "Conteúdo original da Academia NorteP, elaborado a partir de temas públicos divulgados por Marcelo Vitorino. Não é curso oficial, não reproduz aulas pagas e não representa parceria ou endosso.",
+      "lessons": [
+        {
+          "id": "estrat-01",
+          "title": "Diagnóstico antes da execução",
+          "duration": 14,
+          "objective": "Aprender a fazer perguntas, reunir evidências e definir o problema antes de agir.",
+          "content": [
+            "Profissionalismo começa pelo diagnóstico: o que sabemos, o que ainda não sabemos e qual decisão precisa ser tomada.",
+            "Pesquisa, escuta de campo e indicadores devem orientar o planejamento; opinião isolada não substitui evidência.",
+            "No NorteP, registre fatos observáveis, local, horário, território e contexto sem completar lacunas por suposição.",
+            "Separe três níveis: dado coletado, interpretação possível e recomendação a verificar."
+          ],
+          "speak": "Abra com a pergunta: “Antes de fazer um post, mudar uma rota ou cobrar uma equipe, qual problema estamos tentando resolver?” Desenhe no quadro: Dado → Leitura → Decisão.",
+          "example": "Dado: 32 pessoas citaram iluminação em três ruas. Leitura: o tema é recorrente nesses locais. Decisão: validar horários e encaminhar análise, sem afirmar que representa todo o bairro.",
+          "activity": "Pegue uma frase de achismo e transforme em dado, hipótese e próximo passo.",
+          "quiz": {
+            "question": "Qual é a primeira etapa de uma decisão profissional?",
+            "options": [
+              "Executar rapidamente",
+              "Diagnosticar com evidências",
+              "Escolher uma narrativa pronta"
+            ],
+            "answer": 1,
+            "feedback": "Correto: diagnóstico reduz improviso e orienta a ação."
+          }
+        },
+        {
+          "id": "estrat-02",
+          "title": "Reputação, coerência e confiança",
+          "duration": 12,
+          "objective": "Entender reputação como resultado contínuo de comportamento, comunicação e entrega.",
+          "content": [
+            "Reputação não nasce em uma única fala; ela se forma pela repetição coerente entre promessa, conduta e entrega.",
+            "A equipe de campo representa a instituição: pontualidade, identificação, respeito e registro correto comunicam antes de qualquer discurso.",
+            "Não invente informação para preencher silêncio. Quando não souber, diga que vai registrar e encaminhar.",
+            "Comunicação clara fortalece confiança; exagero, pressão e engano produzem risco jurídico e reputacional."
+          ],
+          "speak": "Diga: “A reputação da NorteP começa antes da primeira pergunta: começa no horário, no crachá, no tom de voz e na honestidade.”",
+          "example": "Um morador pergunta algo fora do questionário. A resposta profissional é: “Não tenho essa informação confirmada. Posso registrar sua pergunta e encaminhar.”",
+          "activity": "Liste três comportamentos que constroem confiança e três que destroem.",
+          "quiz": {
+            "question": "Qual resposta protege melhor a reputação quando você não sabe algo?",
+            "options": [
+              "Inventar uma resposta provável",
+              "Mudar de assunto",
+              "Reconhecer o limite e encaminhar"
+            ],
+            "answer": 2,
+            "feedback": "Correto: transparência é parte da competência."
+          }
+        },
+        {
+          "id": "estrat-03",
+          "title": "Planejamento integrado: rua, aplicativo e comunicação",
+          "duration": 15,
+          "objective": "Conectar coleta, coordenação, análise e comunicação sem perder rastreabilidade.",
+          "content": [
+            "O campo capta sinais; o aplicativo organiza registros; a análise identifica padrões; a coordenação decide prioridades.",
+            "Cada canal deve carregar a mesma informação factual, adaptada ao formato, sem contradições entre equipe de rua, painel e comunicação institucional.",
+            "Planeje responsáveis, prazos, critérios de qualidade e forma de retorno ao território.",
+            "Não use dados de pesquisa para abordar individualmente pessoas sem consentimento e finalidade autorizada."
+          ],
+          "speak": "Monte o fluxo no quadro: Pessoa → Pesquisador/Mobilizador → NorteP → Supervisor → Analista → Coordenação → Retorno responsável.",
+          "example": "Uma ocorrência de segurança entra no app, é revisada pelo supervisor, agregada pelo analista e gera ajuste de rota pela coordenação.",
+          "activity": "Desenhe o fluxo de uma demanda desde a rua até a decisão, indicando quem pode ver cada informação.",
+          "quiz": {
+            "question": "O que garante integração responsável?",
+            "options": [
+              "Todo mundo acessar tudo",
+              "Papéis definidos e rastreabilidade",
+              "Copiar contatos para planilhas pessoais"
+            ],
+            "answer": 1,
+            "feedback": "Correto: integração exige fluxo, permissão e registro."
+          }
+        },
+        {
+          "id": "estrat-04",
+          "title": "Comunicação de crise e resposta rápida",
+          "duration": 15,
+          "objective": "Reconhecer sinais de crise, preservar evidências e responder sem aumentar o problema.",
+          "content": [
+            "Crise pode começar por incidente de campo, informação incorreta, exposição de dados, vídeo de conflito ou falha operacional.",
+            "Primeiro proteja pessoas e dados; depois registre fatos, horário, local, envolvidos e evidências autorizadas.",
+            "Não responda no impulso, não discuta publicamente e não apague registros necessários à apuração.",
+            "Use um fluxo de escalonamento: equipe → supervisor → coordenação/administração → jurídico ou comunicação responsável."
+          ],
+          "speak": "Apresente a regra PAUSA: Proteger, Afastar, Unificar fatos, Subir o alerta, Agir com responsável definido.",
+          "example": "Um vídeo mostra uma discussão com a equipe. O supervisor retira o grupo, registra o ocorrido e encaminha ao responsável; ninguém publica defesa pessoal nas redes.",
+          "activity": "Simule uma crise de 10 minutos e preencha: fato confirmado, risco, responsável, primeira ação e mensagem provisória.",
+          "quiz": {
+            "question": "Qual é a melhor primeira reação a uma crise?",
+            "options": [
+              "Responder imediatamente nas redes",
+              "Proteger, registrar e escalar",
+              "Apagar tudo e continuar"
+            ],
+            "answer": 1,
+            "feedback": "Correto: velocidade sem verificação pode ampliar o dano."
+          }
+        },
+        {
+          "id": "estrat-05",
+          "title": "Métricas para aprender, não para pressionar",
+          "duration": 13,
+          "objective": "Usar indicadores para melhorar processos sem transformar meta em coerção.",
+          "content": [
+            "Métrica útil responde a uma pergunta de gestão: qualidade, cobertura, tempo, pendências, recusas, ocorrências ou aprendizagem.",
+            "Volume sozinho não mede qualidade. Compare duração, taxa de interrupção, sincronização, consistência e feedback.",
+            "Indicadores devem gerar correção, apoio e reciclagem; não devem incentivar fraude, insistência indevida ou ocultação de recusas.",
+            "Revise os indicadores periodicamente e retire métricas que não orientam decisão."
+          ],
+          "speak": "Pergunte: “O que a equipe pode fazer de errado para bater esta meta?” Se houver resposta perigosa, a métrica precisa de proteção ou revisão.",
+          "example": "Meta de entrevistas sem indicador de recusa pode estimular pressão. Solução: acompanhar qualidade, recusas registradas e segurança junto com volume.",
+          "activity": "Escolha uma meta e escreva um indicador de qualidade e um limite de segurança.",
+          "quiz": {
+            "question": "Uma boa métrica deve:",
+            "options": [
+              "Premiar apenas quantidade",
+              "Orientar decisão e proteger qualidade",
+              "Ocultar interrupções"
+            ],
+            "answer": 1,
+            "feedback": "Correto: medir serve para aprender e decidir."
+          }
+        },
+        {
+          "id": "estrat-06",
+          "title": "Política, eleição e governo: funções diferentes",
+          "duration": 15,
+          "objective": "Distinguir formação política, comunicação eleitoral, pesquisa e comunicação pública.",
+          "content": [
+            "Formação política explica conceitos e instituições; não deve dizer ao aluno em quem votar.",
+            "Comunicação eleitoral ocorre em contexto de disputa e precisa seguir legislação e responsabilidades próprias.",
+            "Pesquisa deve preservar neutralidade do instrumento, consentimento e fidelidade da resposta.",
+            "Comunicação de governo deve informar serviços, direitos, resultados e acesso do cidadão, sem transformar atendimento público em pressão partidária.",
+            "Na Academia NorteP, técnicas de manipulação, engano, segmentação sensível e conversão individual de voto ficam fora do treinamento."
+          ],
+          "speak": "Use quatro cartões: Formação, Pesquisa, Campanha e Governo. Leia situações e peça à turma para identificar em qual cartão se encaixam.",
+          "example": "Informar horário de vacinação é comunicação pública. Perguntar opinião em questionário é pesquisa. Pedir voto é atividade eleitoral e não deve ser misturada à coleta.",
+          "activity": "Classifique seis exemplos e explique os limites entre as funções.",
+          "quiz": {
+            "question": "Durante uma pesquisa, o profissional deve:",
+            "options": [
+              "Convencer o entrevistado",
+              "Registrar com neutralidade",
+              "Misturar serviço público e pedido de apoio"
+            ],
+            "answer": 1,
+            "feedback": "Correto: pesquisa exige neutralidade e separação de finalidades."
+          }
+        }
+      ]
+    },
+    {
+      "id": "comum-governanca-escala",
+      "title": "Governança, escala estadual e replicabilidade",
+      "icon": "🧭",
+      "lessons": [
+        {
+          "id": "escala-01",
+          "title": "Um padrão estadual com adaptação regional",
+          "duration": 10,
+          "objective": "Distinguir o núcleo obrigatório das adaptações regionais autorizadas.",
+          "content": [
+            "A Academia NorteP mantém uma base estadual única para ética, segurança, dados, uso do aplicativo e limites dos perfis.",
+            "Cada regional pode acrescentar território, contatos, logística, riscos e exemplos locais, mas não retirar controles obrigatórios.",
+            "Toda adaptação deve indicar responsável, versão, data de vigência e aprovação."
+          ],
+          "speak": "Diga: “Nós queremos crescer sem criar várias NorteP diferentes.” Mostre a sequência: padrão estadual, trilha por função, anexo regional e validação em campo.",
+          "example": "Uma regional pode incluir pontos de apoio e riscos locais; não pode remover a aula de neutralidade ou autorizar compartilhamento de senha.",
+          "activity": "Escreva um conteúdo que deve ser estadual e outro que pode ser regional.",
+          "quiz": {
+            "question": "Qual adaptação regional é permitida?",
+            "options": [
+              "Retirar o módulo de proteção de dados",
+              "Adicionar contatos e riscos locais sem remover o núcleo obrigatório",
+              "Liberar a mesma senha para a equipe"
+            ],
+            "answer": 1,
+            "feedback": "Correto: a regional acrescenta contexto local, mas preserva o padrão obrigatório."
+          }
+        },
+        {
+          "id": "escala-02",
+          "title": "Pesquisa, Mandato e Eleição: modos separados",
+          "duration": 14,
+          "objective": "Reconhecer a finalidade e os limites de cada modo operacional.",
+          "content": [
+            "Pesquisa busca informação confiável e exige neutralidade e instrumento versionado.",
+            "Mandato organiza escuta cidadã, atendimento e gestão de demandas com comunicação institucional responsável.",
+            "Eleição envolve atividade político-eleitoral identificada e exige revisão jurídica específica.",
+            "Dados, contas, materiais e permissões não migram automaticamente entre os modos."
+          ],
+          "speak": "Mostre três cartões: Pesquisa, Mandato e Eleição. Pergunte o que muda em finalidade, identificação, dados e aprovação.",
+          "example": "Uma resposta dada em pesquisa não pode virar automaticamente contato de campanha.",
+          "activity": "Classifique três situações propostas pelo instrutor em Pesquisa, Mandato ou Eleição.",
+          "quiz": {
+            "question": "Qual regra protege a separação dos modos?",
+            "options": [
+              "Usar a mesma base para tudo",
+              "Migrar contatos automaticamente",
+              "Exigir justificativa e aprovação antes de qualquer migração"
+            ],
+            "answer": 2,
+            "feedback": "Correto: finalidade e acesso precisam ser controlados."
+          }
+        },
+        {
+          "id": "escala-03",
+          "title": "Governança, responsabilidades e aprovações",
+          "duration": 12,
+          "objective": "Identificar quem aprova, executa, consulta e recebe informação em decisões críticas.",
+          "content": [
+            "O Comitê da Academia aprova currículo, versões e expansão.",
+            "Responsáveis pedagógicos, técnicos, jurídicos e de dados revisam o que pertence à sua área.",
+            "Coordenações regionais executam o padrão e documentam adaptações.",
+            "Acesso e suspensão devem ser decididos por pessoas autorizadas e registrados."
+          ],
+          "speak": "Apresente a matriz RACI. Explique: “Quando todos são responsáveis, ninguém é responsável.”",
+          "example": "Uma mudança de permissão é executada pela administração técnica, mas deve consultar proteção de dados e o dono do processo.",
+          "activity": "Defina quem aprova, executa e consulta em uma nova regional.",
+          "quiz": {
+            "question": "Quem pode alterar conteúdo estadual por conta própria?",
+            "options": [
+              "Qualquer instrutor",
+              "Nenhuma regional sem fluxo de aprovação",
+              "Qualquer supervisor"
+            ],
+            "answer": 1,
+            "feedback": "Correto: mudanças precisam de governança e controle de versão."
+          }
+        },
+        {
+          "id": "escala-04",
+          "title": "Certificação vinculada à função e à versão",
+          "duration": 12,
+          "objective": "Entender quando uma pessoa pode ser liberada, reciclada ou temporariamente restringida.",
+          "content": [
+            "A certificação combina conclusão, conhecimento, simulação e prática supervisionada.",
+            "A pessoa deve demonstrar a rotina principal, explicar seus limites e resolver um erro simples.",
+            "Mudança crítica de aplicativo, norma, função ou incidente pode exigir atualização obrigatória.",
+            "O sistema registra a versão da trilha concluída."
+          ],
+          "speak": "Diga: “Certificado não é lembrança; é autorização baseada em competência.”",
+          "example": "Uma pesquisadora certificada na versão anterior recebe uma aula obrigatória antes de voltar a coletar após mudança crítica.",
+          "activity": "Liste dois eventos que devem gerar reciclagem.",
+          "quiz": {
+            "question": "Quando o acesso pode depender de nova capacitação?",
+            "options": [
+              "Nunca",
+              "Após mudança crítica ou incidente relevante",
+              "Somente quando a pessoa pedir"
+            ],
+            "answer": 1,
+            "feedback": "Correto: atualização protege a operação e o público."
+          }
+        },
+        {
+          "id": "escala-05",
+          "title": "Formar quem forma",
+          "duration": 14,
+          "objective": "Aplicar o modelo de instrutor mestre, instrutor regional e supervisor formador.",
+          "content": [
+            "O instrutor mestre forma multiplicadores e audita a qualidade pedagógica.",
+            "O instrutor regional aplica a versão oficial e registra dúvidas e resultados.",
+            "O supervisor formador usa “Eu faço, nós fazemos, você faz” para validar a prática.",
+            "A aula deve ser observável, acessível e fiel ao conteúdo aprovado."
+          ],
+          "speak": "Faça uma demonstração breve: explique uma tarefa, pratique junto e peça que a pessoa execute sozinha.",
+          "example": "O supervisor mostra a sincronização, acompanha a primeira tentativa e depois observa a execução autônoma.",
+          "activity": "Planeje uma microaula de cinco minutos usando as três etapas.",
+          "quiz": {
+            "question": "Qual é a função do supervisor formador?",
+            "options": [
+              "Apenas cobrar volume",
+              "Demonstrar, acompanhar e validar a prática",
+              "Alterar o currículo estadual"
+            ],
+            "answer": 1,
+            "feedback": "Correto: supervisão também é formação em campo."
+          }
+        },
+        {
+          "id": "escala-06",
+          "title": "Qualidade sem pressão indevida",
+          "duration": 13,
+          "objective": "Usar indicadores equilibrados sem incentivar fraude, pressa ou risco.",
+          "content": [
+            "Indicadores devem combinar aprendizagem, qualidade, operação, segurança, dados e equidade.",
+            "Volume não pode justificar resposta induzida, entrevista acelerada, recusa omitida ou permanência em área perigosa.",
+            "Qualidade e segurança possuem poder de veto sobre metas.",
+            "Auditorias devem gerar correção e aprendizagem, não humilhação pública."
+          ],
+          "speak": "Pergunte: “O que acontece quando só medimos quantidade?” Registre os riscos citados pela turma.",
+          "example": "Uma equipe com volume alto e duração impossível deve ser revisada, não premiada automaticamente.",
+          "activity": "Crie um indicador de qualidade e um de segurança.",
+          "quiz": {
+            "question": "Qual indicador deve prevalecer diante de risco físico?",
+            "options": [
+              "Volume",
+              "Velocidade",
+              "Segurança"
+            ],
+            "answer": 2,
+            "feedback": "Correto: integridade física vem antes de metas."
+          }
+        },
+        {
+          "id": "escala-07",
+          "title": "Proteção de dados e resposta a incidentes",
+          "duration": 16,
+          "objective": "Aplicar prevenção, contenção, avaliação, escalonamento e aprendizagem após incidentes.",
+          "content": [
+            "A expansão exige inventário de dados, menor privilégio, logs, retenção e separação de bases.",
+            "Perda de aparelho, acesso indevido, exportação errada ou indisponibilidade podem ser incidentes.",
+            "A primeira resposta é conter sem destruir evidências.",
+            "Tecnologia, proteção de dados, jurídico e controlador seguem o plano de resposta e comunicação aplicável."
+          ],
+          "speak": "Simule a perda de um celular. Peça à turma para ordenar: registrar, bloquear, avaliar, escalar, comunicar e aprender.",
+          "example": "A pesquisadora perde o aparelho e avisa imediatamente, sem tentar esconder o fato.",
+          "activity": "Escreva as três primeiras ações diante de perda de aparelho.",
+          "quiz": {
+            "question": "Qual é a primeira prioridade após confirmar perda de aparelho?",
+            "options": [
+              "Ocultar o incidente",
+              "Conter o acesso e avisar pelo fluxo correto",
+              "Comprar outro e continuar"
+            ],
+            "answer": 1,
+            "feedback": "Correto: contenção rápida reduz o risco."
+          }
+        },
+        {
+          "id": "escala-08",
+          "title": "Prontidão regional e implantação por ondas",
+          "duration": 12,
+          "objective": "Avaliar se uma regional está pronta antes da liberação.",
+          "content": [
+            "A regional precisa de coordenação, instrutor, ponto de apoio, kit, suporte, territórios, usuários e plano de incidente.",
+            "A expansão deve ocorrer por ondas: preparação, piloto, multiplicadores, lotes e operação contínua.",
+            "O piloto deve representar realidades territoriais diferentes.",
+            "Uma regional não pronta deve ser corrigida antes de receber mais usuários."
+          ],
+          "speak": "Use o checklist de prontidão. Peça à turma para decidir se uma regional fictícia pode iniciar.",
+          "example": "A regional tem equipe, mas não possui ponto de apoio nem teste offline: a liberação é adiada.",
+          "activity": "Marque cinco condições indispensáveis para iniciar uma regional.",
+          "quiz": {
+            "question": "Uma regional sem teste offline deve:",
+            "options": [
+              "Iniciar e corrigir depois",
+              "Ser liberada apenas para coleta real",
+              "Concluir o teste antes da liberação"
+            ],
+            "answer": 2,
+            "feedback": "Correto: prontidão deve ser comprovada antes da operação."
+          }
+        },
+        {
+          "id": "escala-09",
+          "title": "Controle de versão e atualização normativa",
+          "duration": 11,
+          "objective": "Registrar mudanças de conteúdo e garantir revisão antes de cada ciclo.",
+          "content": [
+            "Toda aula deve possuir versão, responsável e data de vigência.",
+            "Mudanças grandes exigem recertificação; correções pequenas mantêm histórico.",
+            "Regras eleitorais, de dados, trabalho e segurança podem mudar e precisam de revisão formal.",
+            "Materiais antigos devem ser arquivados e retirados da publicação ativa."
+          ],
+          "speak": "Mostre o formato MAJOR.MINOR.PATCH e dê exemplos. Reforce que arquivo com nome “final_final” não é controle de versão.",
+          "example": "Uma nova regra eleitoral altera o módulo de campanha; a versão principal é atualizada e os perfis afetados recebem reciclagem.",
+          "activity": "Classifique três mudanças como principal, secundária ou correção.",
+          "quiz": {
+            "question": "O que deve ocorrer com material antigo após nova versão crítica?",
+            "options": [
+              "Continuar circulando",
+              "Ser arquivado e retirado da publicação ativa",
+              "Ser enviado em grupos pessoais"
+            ],
+            "answer": 1,
+            "feedback": "Correto: uma única versão vigente reduz erro e conflito."
+          }
+        }
+      ]
+    }
+  ],
+  "roles": {
+    "pesquisador": {
+      "title": "Pesquisador(a)",
+      "icon": "📋",
+      "description": "Coleta, rascunho, modo offline, ocorrências e sincronização.",
+      "modules": [
+        {
+          "id": "pesq-acesso",
+          "title": "Acesso e preparação do turno",
+          "icon": "🔐",
+          "lessons": [
+            {
+              "id": "pesq-01",
+              "title": "Cadastro e primeiro acesso",
+              "duration": 12,
+              "objective": "Entrar pelo canal correto e proteger a conta.",
+              "content": [
+                "Abra o convite enviado ao seu e-mail.",
+                "Cadastre nome, e-mail correto e senha forte; confirme a mensagem recebida.",
+                "Aguarde aprovação e, depois, saia e entre novamente pelo canal do perfil de pesquisador.",
+                "Não compartilhe senha ou código."
+              ],
+              "speak": "Mostre o fluxo Convite → Cadastro → Confirmação → Aprovação → Uso. Peça que a turma repita o que nunca deve ser compartilhado.",
+              "example": "Se confirmou, mas ainda aguarda, o gestor precisa ativar e vincular o perfil.",
+              "activity": "Anote os cinco passos do primeiro acesso.",
+              "quiz": {
+                "question": "Depois da aprovação, qual é a ação recomendada?",
+                "options": [
+                  "Compartilhar a conta",
+                  "Sair e entrar pelo canal correto",
+                  "Limpar o navegador"
+                ],
+                "answer": 1,
+                "feedback": "Correto: novo acesso garante que o perfil aprovado seja carregado."
+              }
+            },
+            {
+              "id": "pesq-02",
+              "title": "Checklist antes de sair",
+              "duration": 8,
+              "objective": "Preparar aparelho, pesquisa e pendências.",
+              "content": [
+                "Confirme pesquisa correta, bateria, acesso e navegador.",
+                "Revise rascunhos e sincronize pendências antes do turno.",
+                "Abra a pesquisa com internet antes de entrar em área sem sinal."
+              ],
+              "speak": "Faça a turma montar um checklist de 30 segundos.",
+              "example": "Celular com 20% de bateria e 4 pendências não é pronto para campo.",
+              "activity": "Marque o que falta no seu preparo atual.",
+              "quiz": {
+                "question": "O que deve estar zerado antes do turno, quando possível?",
+                "options": [
+                  "Contatos do cofre",
+                  "Pendências de sincronização",
+                  "Histórico do navegador"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        },
+        {
+          "id": "pesq-coleta",
+          "title": "Coleta de qualidade",
+          "icon": "🧾",
+          "lessons": [
+            {
+              "id": "pesq-03",
+              "title": "Abrir, atualizar e iniciar uma pesquisa",
+              "duration": 10,
+              "objective": "Localizar apenas pesquisas liberadas e iniciar corretamente.",
+              "content": [
+                "Abra a área do pesquisador e toque em atualizar.",
+                "Escolha uma pesquisa explicitamente liberada.",
+                "Leia o consentimento antes das perguntas.",
+                "Perguntas obrigatórias exigem resposta válida ou opção autorizada."
+              ],
+              "speak": "Demonstre no celular e peça que a turma localize o botão de atualizar.",
+              "example": "Pesquisa ativa não aparece? Verifique liberação individual e atualize.",
+              "activity": "Descreva o que fazer quando uma pesquisa não aparece.",
+              "quiz": {
+                "question": "Pesquisa ativa é liberada automaticamente para todos?",
+                "options": [
+                  "Sim",
+                  "Não, depende da liberação",
+                  "Somente offline"
+                ],
+                "answer": 1,
+                "feedback": "Correto: a liberação é específica."
+              }
+            },
+            {
+              "id": "pesq-04",
+              "title": "Recusa, interrupção e ocorrência",
+              "duration": 12,
+              "objective": "Distinguir e registrar eventos de campo.",
+              "content": [
+                "Recusa: a pessoa não inicia.",
+                "Interrompida: começou e não terminou.",
+                "Ocorrência: problema técnico, conflito ou risco.",
+                "Alerta de segurança deve ser encaminhado à gestão; sem internet, sincroniza depois."
+              ],
+              "speak": "Leia quatro cenários e peça que a turma classifique.",
+              "example": "A pessoa respondeu metade e precisou sair: entrevista interrompida.",
+              "activity": "Crie um exemplo para cada tipo de registro.",
+              "quiz": {
+                "question": "A entrevista começou, mas não terminou. Como registrar?",
+                "options": [
+                  "Recusa",
+                  "Interrompida",
+                  "Concluída"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "pesq-05",
+              "title": "Concluir e conferir",
+              "duration": 8,
+              "objective": "Finalizar verificando código, duração e sincronização.",
+              "content": [
+                "Ao concluir, confira o código da entrevista.",
+                "Veja a duração e o status de sincronização.",
+                "Não anote dados pessoais em papel solto ou aplicativo pessoal."
+              ],
+              "speak": "Mostre onde fica o status final e pergunte o que deve ser informado ao suporte em caso de erro.",
+              "example": "Código ENT-AAAA-000001 e status pendente: manter no mesmo aparelho até sincronizar.",
+              "activity": "Liste três itens da conferência final.",
+              "quiz": {
+                "question": "Qual informação ajuda a localizar uma entrevista com problema?",
+                "options": [
+                  "Código da entrevista",
+                  "Senha do pesquisador",
+                  "Chave do cofre"
+                ],
+                "answer": 0,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        },
+        {
+          "id": "pesq-offline",
+          "title": "Offline, rascunho e suporte",
+          "icon": "📶",
+          "lessons": [
+            {
+              "id": "pesq-06",
+              "title": "Trabalhar sem internet",
+              "duration": 12,
+              "objective": "Preservar dados offline e sincronizar com segurança.",
+              "content": [
+                "Sem internet, o formulário pode permanecer aberto e salvar no aparelho.",
+                "Não use aba anônima, não limpe cache e não troque navegador com pendências.",
+                "Quando o sinal voltar, toque em sincronizar e aguarde zero pendências."
+              ],
+              "speak": "Simule a queda de conexão. O participante deve explicar o que não fazer.",
+              "example": "A página fechou: escolha continuar para preservar respostas.",
+              "activity": "Escreva as quatro regras do modo offline.",
+              "quiz": {
+                "question": "Com entrevistas pendentes, posso limpar o cache?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Somente em outro aparelho"
+                ],
+                "answer": 1,
+                "feedback": "Correto: isso pode apagar dados locais."
+              }
+            },
+            {
+              "id": "pesq-07",
+              "title": "Relatar um erro ao suporte",
+              "duration": 8,
+              "objective": "Enviar contexto técnico sem expor dados sensíveis.",
+              "content": [
+                "Informe perfil, aparelho, navegador, horário, pesquisa, etapa e condição online/offline.",
+                "Inclua a mensagem exibida e o código da entrevista, quando houver.",
+                "Não envie senha, chave do cofre ou dados do entrevistado."
+              ],
+              "speak": "Dê um exemplo de relato ruim (“não funciona”) e transforme em relato útil.",
+              "example": "“Pesquisador, Android, Chrome, 14h20, Pesquisa X, etapa 3, offline, mensagem Y.”",
+              "activity": "Redija um relato completo de erro fictício.",
+              "quiz": {
+                "question": "O que nunca deve ir no relato de suporte?",
+                "options": [
+                  "Horário",
+                  "Navegador",
+                  "Senha"
+                ],
+                "answer": 2,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "supervisor": {
+      "title": "Supervisor(a)",
+      "icon": "🧭",
+      "description": "Equipe, qualidade, ocorrências, rascunhos e treinamento em campo.",
+      "modules": [
+        {
+          "id": "sup-equipe",
+          "title": "Equipe e limites do perfil",
+          "icon": "👥",
+          "lessons": [
+            {
+              "id": "sup-01",
+              "title": "O que o supervisor pode fazer",
+              "duration": 10,
+              "objective": "Atuar apenas na própria equipe e área.",
+              "content": [
+                "O supervisor vê sua equipe e seu território.",
+                "Pode convidar pesquisador e acompanhar qualidade e ocorrências.",
+                "Não cria coordenador nem outro supervisor."
+              ],
+              "speak": "Explique menor privilégio: cada pessoa recebe apenas o acesso necessário.",
+              "example": "Pedido para ver equipe de outra regional deve ser encaminhado ao coordenador ou administração.",
+              "activity": "Liste duas permissões e duas limitações.",
+              "quiz": {
+                "question": "Supervisor pode criar coordenador?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Somente offline"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "sup-02",
+              "title": "Convidar e vincular pesquisador",
+              "duration": 10,
+              "objective": "Criar convite com vínculo e território corretos.",
+              "content": [
+                "Abra Acessos e cadastros.",
+                "Escolha pesquisador e responsável direto.",
+                "Defina o território dentro da própria estrutura.",
+                "Após confirmação, verifique papel, vínculo, território e status ativo."
+              ],
+              "speak": "Mostre que convite errado gera problema de acesso e visibilidade.",
+              "example": "Pesquisador vinculado ao supervisor errado não aparece na equipe correta.",
+              "activity": "Monte um checklist de validação do convite.",
+              "quiz": {
+                "question": "O que deve ser conferido após a confirmação?",
+                "options": [
+                  "Somente nome",
+                  "Papel, vínculo, território e status",
+                  "Senha do usuário"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        },
+        {
+          "id": "sup-qualidade",
+          "title": "Qualidade e desenvolvimento",
+          "icon": "✅",
+          "lessons": [
+            {
+              "id": "sup-03",
+              "title": "Revisar produção e pendências",
+              "duration": 12,
+              "objective": "Acompanhar qualidade sem pressionar por respostas artificiais.",
+              "content": [
+                "Revise duração, pendências, recusas, interrupções e ocorrências.",
+                "Procure padrões: duração impossível, muitas pendências ou respostas repetidas.",
+                "Meta nunca justifica indução, invenção ou pressão indevida."
+              ],
+              "speak": "Use um caso: 40 entrevistas em tempo incompatível. Pergunte quais verificações fazer antes de acusar alguém.",
+              "example": "Conversar, checar aparelho, horários e amostra antes de decidir.",
+              "activity": "Liste três sinais de qualidade e três sinais de risco.",
+              "quiz": {
+                "question": "Qual é uma resposta adequada a um possível problema de qualidade?",
+                "options": [
+                  "Apagar tudo sem verificar",
+                  "Analisar evidências e orientar",
+                  "Aumentar a pressão por meta"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "sup-04",
+              "title": "Eu faço, nós fazemos, você faz",
+              "duration": 15,
+              "objective": "Treinar por demonstração, prática apoiada e autonomia.",
+              "content": [
+                "Eu faço: o supervisor demonstra.",
+                "Nós fazemos: supervisor e aprendiz executam juntos.",
+                "Você faz: a pessoa realiza e recebe feedback técnico.",
+                "Use roleplay para recusa, falha de conexão e saída segura."
+              ],
+              "speak": "Aplique uma simulação de 5 minutos e dê feedback com um ponto forte, um ajuste e uma nova tentativa.",
+              "example": "Primeiro demonstre a abordagem, depois acompanhe e por fim observe sem interferir.",
+              "activity": "Planeje uma microaula em três etapas.",
+              "quiz": {
+                "question": "Em qual etapa o aprendiz executa sozinho?",
+                "options": [
+                  "Eu faço",
+                  "Nós fazemos",
+                  "Você faz"
+                ],
+                "answer": 2,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "sup-05",
+              "title": "Feedback e cuidado com a equipe",
+              "duration": 10,
+              "objective": "Corrigir conduta sem humilhar e identificar sinais de estresse.",
+              "content": [
+                "Dê feedback longe do público.",
+                "Descreva comportamento observado, impacto e próximo passo.",
+                "Diante de fadiga, faça pausa segura, ofereça água e reorganize a atividade.",
+                "Hostilidade do público não deve virar hostilidade da equipe contra o território."
+              ],
+              "speak": "Modelo: “Observei X; isso pode causar Y; na próxima abordagem faça Z.”",
+              "example": "“Vi que você interrompeu duas vezes; isso pode alterar a resposta; aguarde a pessoa concluir.”",
+              "activity": "Transforme uma bronca em feedback técnico.",
+              "quiz": {
+                "question": "Feedback deve ser baseado em:",
+                "options": [
+                  "Rótulos pessoais",
+                  "Comportamentos observáveis",
+                  "Boatos"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        },
+        {
+          "id": "sup-incidentes",
+          "title": "Incidentes e sincronização",
+          "icon": "🚨",
+          "lessons": [
+            {
+              "id": "sup-06",
+              "title": "Triagem de ocorrências",
+              "duration": 12,
+              "objective": "Classificar, proteger a equipe e encaminhar casos.",
+              "content": [
+                "Problema técnico: registre aparelho, navegador, etapa e mensagem.",
+                "Conflito ou ameaça: retire a equipe, registre sem exposição e avise a coordenação.",
+                "Dados pessoais ou cofre: acione administração; não copie para canais informais."
+              ],
+              "speak": "Monte três cartões: técnico, segurança e dados. A turma deve escolher o fluxo correto.",
+              "example": "Agressão verbal em grupo: saída imediata, local seguro, alerta à coordenação.",
+              "activity": "Crie uma árvore de decisão com três tipos de ocorrência.",
+              "quiz": {
+                "question": "Em risco físico, a primeira ação é:",
+                "options": [
+                  "Continuar filmando",
+                  "Retirar a equipe",
+                  "Discutir com o grupo"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "mobilizador": {
+      "title": "Mobilizador(a)",
+      "icon": "📣",
+      "description": "Escuta comunitária, mobilização transparente e registro autorizado.",
+      "modules": [
+        {
+          "id": "mob-papel",
+          "title": "Papel e transparência",
+          "icon": "🗣️",
+          "lessons": [
+            {
+              "id": "mob-01",
+              "title": "Mobilização não é contratação",
+              "duration": 10,
+              "objective": "Explicar participação, voluntariado e autorizações separadas.",
+              "content": [
+                "O participante abre link público sem cadastro.",
+                "Participação e voluntariado não são contratação nem promessa de pagamento.",
+                "Autorizações para conteúdo, reuniões, voluntariado e uso acadêmico são separadas.",
+                "Compartilhar ou apoiar é sempre opcional."
+              ],
+              "speak": "Diga claramente o que a pessoa está aceitando e o que não está.",
+              "example": "A pessoa aceita receber informações, mas não autoriza vídeo. Registre apenas a primeira autorização.",
+              "activity": "Escreva uma explicação de 20 segundos, sem promessa e sem pressão.",
+              "quiz": {
+                "question": "Autorizar reunião significa autorizar vídeo?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Somente para liderança"
+                ],
+                "answer": 1,
+                "feedback": "Correto: autorizações são separadas."
+              }
+            },
+            {
+              "id": "mob-02",
+              "title": "Escuta comunitária sem pressão",
+              "duration": 12,
+              "objective": "Ouvir demandas e registrar fatos, sem manipulação.",
+              "content": [
+                "Pergunte sobre necessidades locais com linguagem aberta.",
+                "Registre o problema com local, horário e impacto, quando a pessoa informar.",
+                "Não prometa solução, cargo, pagamento ou benefício.",
+                "Não classifique pessoas politicamente com base em aparência ou grupo."
+              ],
+              "speak": "Troque “o povo está bravo” por uma descrição verificável: tema, local, situação e frequência.",
+              "example": "“Falta iluminação na praça X depois das 18h” é mais útil que “bairro abandonado”.",
+              "activity": "Transforme três opiniões vagas em registros objetivos.",
+              "quiz": {
+                "question": "Qual registro é mais objetivo?",
+                "options": [
+                  "O bairro está horrível",
+                  "Morador relatou falta de luz na Rua X às noites",
+                  "Todos odeiam o governo"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        },
+        {
+          "id": "mob-abordagem",
+          "title": "Abordagem e segurança",
+          "icon": "🤝",
+          "lessons": [
+            {
+              "id": "mob-03",
+              "title": "Abertura respeitosa",
+              "duration": 10,
+              "objective": "Apresentar finalidade e pedir permissão para conversar.",
+              "content": [
+                "Identifique-se e informe a finalidade.",
+                "Pergunte se é um bom momento.",
+                "Se a pessoa recusar, agradeça e encerre.",
+                "Em comércio, não interrompa atendimento."
+              ],
+              "speak": "Treine uma abertura de até 20 segundos.",
+              "example": "“Boa tarde. Sou da equipe NorteP e estamos ouvindo moradores sobre necessidades do bairro. É um bom momento para uma pergunta breve?”",
+              "activity": "Grave ou escreva sua abertura.",
+              "quiz": {
+                "question": "A pessoa diz que está ocupada. O que fazer?",
+                "options": [
+                  "Insistir",
+                  "Perguntar se prefere outro momento ou encerrar",
+                  "Bloquear a passagem"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "mob-04",
+              "title": "Registrar contato com autorização",
+              "duration": 10,
+              "objective": "Proteger contatos e respeitar finalidade.",
+              "content": [
+                "Explique por que o contato está sendo solicitado.",
+                "Registre somente após autorização.",
+                "Não compartilhe em grupo ou planilha pessoal.",
+                "Acesso deve ser revogado quando a função terminar."
+              ],
+              "speak": "Faça a turma praticar um pedido de autorização sem pressão.",
+              "example": "“Posso registrar seu WhatsApp apenas para enviar o retorno desta pauta?”",
+              "activity": "Escreva uma frase de consentimento para contato.",
+              "quiz": {
+                "question": "Onde guardar contato autorizado?",
+                "options": [
+                  "Cofre ou sistema controlado",
+                  "Grupo de WhatsApp",
+                  "Bloco de notas pessoal"
+                ],
+                "answer": 0,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "coordenador": {
+      "title": "Coordenador(a)",
+      "icon": "🗺️",
+      "description": "Territórios, equipes, liberação de pesquisas e correção de pendências.",
+      "modules": [
+        {
+          "id": "coord-gestao",
+          "title": "Gestão da estrutura",
+          "icon": "🧩",
+          "lessons": [
+            {
+              "id": "coord-01",
+              "title": "Limites e responsabilidades",
+              "duration": 10,
+              "objective": "Gerir apenas a área autorizada.",
+              "content": [
+                "O coordenador vê sua área e acompanha sua equipe.",
+                "Pode convidar supervisor ou pesquisador e editar pesquisa permitida.",
+                "Não vê equipe de outro coordenador."
+              ],
+              "speak": "Use um organograma simples e explique vínculo direto.",
+              "example": "Uma pessoa pode receber mais de um território, mas continua dentro da estrutura autorizada.",
+              "activity": "Desenhe sua estrutura de equipe.",
+              "quiz": {
+                "question": "Coordenador pode ver outra coordenação?",
+                "options": [
+                  "Sempre",
+                  "Não, salvo autorização administrativa",
+                  "Somente no celular"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "coord-02",
+              "title": "Territórios e vínculos",
+              "duration": 12,
+              "objective": "Configurar cidade, região e bairro corretamente.",
+              "content": [
+                "Defina território no convite ou depois.",
+                "Supervisor herda somente a área atribuída.",
+                "Pesquisador pode responder diretamente ao coordenador quando configurado.",
+                "Revise vínculo, território e status após confirmação."
+              ],
+              "speak": "Mostre um erro típico: território correto com responsável errado.",
+              "example": "Coordenador A não deve vincular pesquisador da estrutura B sem ajuste administrativo.",
+              "activity": "Crie um caso de vínculo correto e um incorreto.",
+              "quiz": {
+                "question": "Supervisor herda qual área?",
+                "options": [
+                  "Todas",
+                  "Somente a atribuída",
+                  "Nenhuma"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        },
+        {
+          "id": "coord-operacao",
+          "title": "Operação e qualidade",
+          "icon": "📈",
+          "lessons": [
+            {
+              "id": "coord-03",
+              "title": "Liberar e pausar pesquisas",
+              "duration": 12,
+              "objective": "Controlar disponibilidade sem apagar dados.",
+              "content": [
+                "Pesquisa ativa não vai automaticamente para todos.",
+                "Use Liberar para escolher pessoas específicas.",
+                "Teste no celular antes do piloto.",
+                "Pausar retira da coleta sem apagar."
+              ],
+              "speak": "Explique diferença entre rascunho, piloto, ativa, pausada e apagada.",
+              "example": "Uma correção urgente pode exigir pausa, nova versão e atualização antes do turno.",
+              "activity": "Monte o fluxo de publicação segura.",
+              "quiz": {
+                "question": "Pausar uma pesquisa apaga respostas?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Somente offline"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "coord-04",
+              "title": "Painel da equipe e feedback",
+              "duration": 10,
+              "objective": "Acompanhar volume, tempo, alertas e qualidade.",
+              "content": [
+                "Observe volume, duração, recusas, interrupções e alertas.",
+                "Compare por território sem expor contatos pessoais.",
+                "Documente feedback e ações corretivas."
+              ],
+              "speak": "Evite ranking humilhante. Use indicadores para orientar melhoria.",
+              "example": "Duração muito baixa vira investigação de processo, não acusação automática.",
+              "activity": "Escolha três indicadores para a reunião diária.",
+              "quiz": {
+                "question": "Contato do cofre deve aparecer no CSV operacional?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Só para pesquisador"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "administrador": {
+      "title": "Administrador(a)",
+      "icon": "⚙️",
+      "description": "Acessos, pesquisas, territórios, relatórios e segurança operacional.",
+      "modules": [
+        {
+          "id": "adm-acessos",
+          "title": "Acessos e menor privilégio",
+          "icon": "🔑",
+          "lessons": [
+            {
+              "id": "adm-01",
+              "title": "Criar e revisar acessos",
+              "duration": 14,
+              "objective": "Conceder apenas o necessário e manter vínculo auditável.",
+              "content": [
+                "Abra Acessos e cadastros, escolha papel, responsável e território.",
+                "Envie convite somente ao e-mail indicado.",
+                "Após confirmação, confira papel, vínculo, território e status.",
+                "Administrador secundário não cria outro administrador; esse caminho é exclusivo da fundadora."
+              ],
+              "speak": "Explique que o link escolhe a porta de entrada, mas não concede poder sozinho.",
+              "example": "Link correto com papel errado deve continuar bloqueado pelas políticas do banco.",
+              "activity": "Faça uma revisão de acesso usando quatro campos.",
+              "quiz": {
+                "question": "Quem cria administrador secundário?",
+                "options": [
+                  "Qualquer administrador",
+                  "Fundadora",
+                  "Supervisor"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "adm-02",
+              "title": "Suspender, apagar e preservar histórico",
+              "duration": 10,
+              "objective": "Encerrar acesso sem perder histórico autorizado.",
+              "content": [
+                "Suspender interrompe temporariamente.",
+                "Apagar acesso encerra a conta sem apagar o histórico autorizado.",
+                "Revogue acesso quando a função mudar ou o trabalho terminar."
+              ],
+              "speak": "Diferencie usuário, permissão e dado histórico.",
+              "example": "Pessoa afastada: suspender. Pessoa que encerrou vínculo: revogar/apagar conforme política.",
+              "activity": "Classifique três cenários entre suspender e encerrar.",
+              "quiz": {
+                "question": "Apagar acesso deve apagar automaticamente o histórico da coleta?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Sempre que o usuário pedir verbalmente"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        },
+        {
+          "id": "adm-pesquisas",
+          "title": "Pesquisas e publicação",
+          "icon": "📝",
+          "lessons": [
+            {
+              "id": "adm-03",
+              "title": "Criar e testar questionários",
+              "duration": 15,
+              "objective": "Publicar instrumento revisado e testado.",
+              "content": [
+                "Defina título, descrição, tipo, duração, consentimento e território.",
+                "Crie seções, perguntas obrigatórias e condições.",
+                "Salve como rascunho e teste no celular.",
+                "Separe e limpe dados de teste antes do uso oficial."
+              ],
+              "speak": "Mostre por que testar no computador não substitui testar no celular.",
+              "example": "Uma condição que pula a pergunta errada só aparece ao executar caminhos diferentes.",
+              "activity": "Crie um checklist de revisão do questionário.",
+              "quiz": {
+                "question": "Quando ativar uma pesquisa?",
+                "options": [
+                  "Antes de testar",
+                  "Após revisão e piloto",
+                  "Assim que criar o título"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "adm-04",
+              "title": "Cofre e auditoria",
+              "duration": 14,
+              "objective": "Controlar contatos com chave própria, finalidade e registro.",
+              "content": [
+                "Cofre usa chave diferente da senha do aplicativo.",
+                "Cada responsável cria sua própria chave; não compartilhar.",
+                "Aberturas e consultas ficam registradas.",
+                "Não exporte para grupos, planilhas pessoais ou e-mail sem controle."
+              ],
+              "speak": "Faça uma pergunta: “Quem precisa realmente ver este contato?” Use a resposta para ensinar menor privilégio.",
+              "example": "Relatório operacional usa identificadores e agregados, não contatos do cofre.",
+              "activity": "Liste cinco controles para o cofre.",
+              "quiz": {
+                "question": "A chave do cofre deve ser igual à senha do app?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Somente para fundadora"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "analista": {
+      "title": "Analista",
+      "icon": "📊",
+      "description": "Qualidade, indicadores, CSV, território e relatórios responsáveis.",
+      "modules": [
+        {
+          "id": "ana-dados",
+          "title": "Da coleta ao indicador",
+          "icon": "📉",
+          "lessons": [
+            {
+              "id": "ana-01",
+              "title": "Indicadores operacionais",
+              "duration": 12,
+              "objective": "Interpretar volume, tempo, recusas, interrupções e alertas.",
+              "content": [
+                "Indicador descreve o processo; não substitui contexto.",
+                "Compare períodos e territórios com denominadores adequados.",
+                "Taxa de recusa ajuda a entender adesão, sem pressionar a equipe ou o público.",
+                "Alertas de segurança exigem prioridade e proteção de identidade."
+              ],
+              "speak": "Mostre que 20 recusas não significam o mesmo em 30 e em 300 abordagens.",
+              "example": "Taxa = recusas / abordagens registradas, quando o instrumento permite.",
+              "activity": "Escreva uma interpretação que inclua número e contexto.",
+              "quiz": {
+                "question": "Qual leitura é mais responsável?",
+                "options": [
+                  "A equipe é ruim porque teve recusas",
+                  "A taxa subiu; verificar território, horário e abordagem",
+                  "Excluir recusas do painel"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "ana-02",
+              "title": "Cobertura territorial e respostas",
+              "duration": 12,
+              "objective": "Analisar cidade, região e bairro sem expor pessoas.",
+              "content": [
+                "Cobertura territorial pode ser apresentada por cidade, região e bairro.",
+                "Resultados fechados usam percentuais; respostas abertas devem ser preservadas e tratadas com cuidado.",
+                "Evite publicar células pequenas que possam identificar alguém."
+              ],
+              "speak": "Demonstre uma tabela agregada e pergunte quando ocultar uma categoria com poucos casos.",
+              "example": "Um bairro com uma única resposta sensível não deve ser divulgado isoladamente.",
+              "activity": "Defina uma regra simples para pequenos grupos.",
+              "quiz": {
+                "question": "Qual é o maior risco de divulgar grupos muito pequenos?",
+                "options": [
+                  "Aumentar a bateria",
+                  "Reidentificar pessoas",
+                  "Perder o login"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        },
+        {
+          "id": "ana-relatorios",
+          "title": "Exportação e relatório",
+          "icon": "📤",
+          "lessons": [
+            {
+              "id": "ana-03",
+              "title": "CSV e proteção de dados",
+              "duration": 12,
+              "objective": "Exportar somente o necessário e manter rastreabilidade.",
+              "content": [
+                "CSV é compatível com Excel, Power BI, Python e Looker Studio.",
+                "CSV operacional não deve incluir contatos do cofre.",
+                "Registre finalidade, responsável, data e destino da exportação.",
+                "Proteja arquivos com acesso controlado e descarte seguro."
+              ],
+              "speak": "Pergunte: “Qual é o mínimo de colunas necessário para esta análise?”",
+              "example": "Para duração por bairro, não é necessário exportar nome ou WhatsApp.",
+              "activity": "Escolha colunas mínimas para um relatório de produtividade.",
+              "quiz": {
+                "question": "CSV operacional pode incluir contatos do cofre?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Somente em grupos privados"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "ana-04",
+              "title": "Relatório de inteligência territorial responsável",
+              "duration": 15,
+              "objective": "Transformar achados em decisões sem manipular ou estigmatizar.",
+              "content": [
+                "Diferencie dado, interpretação e recomendação.",
+                "Use evidências, limites da amostra e incerteza.",
+                "Não rotule bairros ou grupos como “inimigos”, “compráveis” ou “incapazes”.",
+                "Recomendações devem focar serviço, comunicação pública transparente, segurança e melhoria operacional."
+              ],
+              "speak": "Use três colunas no quadro: “O dado mostra”, “Pode significar”, “Precisamos verificar”.",
+              "example": "Dado: 35 relatos sobre iluminação. Interpretação: tema recorrente. Próximo passo: validar localização e encaminhar ao responsável.",
+              "activity": "Transforme um achismo em relatório com evidência e limite.",
+              "quiz": {
+                "question": "Um relatório responsável deve separar:",
+                "options": [
+                  "Dado, interpretação e recomendação",
+                  "Pessoas amigas e inimigas",
+                  "Senha e chave"
+                ],
+                "answer": 0,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "observador": {
+      "title": "Observador(a)",
+      "icon": "👁️",
+      "description": "Consulta indicadores agregados sem alterar pessoas, pesquisas ou contatos.",
+      "modules": [
+        {
+          "id": "obs-painel",
+          "title": "Consulta segura",
+          "icon": "🔎",
+          "lessons": [
+            {
+              "id": "obs-01",
+              "title": "Abrir painel e aplicar filtros",
+              "duration": 10,
+              "objective": "Consultar somente indicadores autorizados.",
+              "content": [
+                "O observador vê painel agregado autorizado.",
+                "Pode aplicar filtros e consultar resultados dentro do escopo.",
+                "Não altera pessoas, pesquisas ou contatos."
+              ],
+              "speak": "Demonstre filtros e destaque que acesso de leitura ainda exige confidencialidade.",
+              "example": "Aplicar filtro de bairro sem baixar contatos pessoais.",
+              "activity": "Liste três ações permitidas e três proibidas.",
+              "quiz": {
+                "question": "Observador pode editar pesquisa?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Somente a própria"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "obs-02",
+              "title": "Sair e proteger a tela",
+              "duration": 8,
+              "objective": "Evitar exposição de dados em equipamentos compartilhados.",
+              "content": [
+                "Não deixe painel aberto sem supervisão.",
+                "Use sair do aplicativo ao terminar.",
+                "Em tela pública, evite exibir respostas abertas sensíveis."
+              ],
+              "speak": "Mostre um cenário de reunião com projetor e peça medidas de proteção.",
+              "example": "Antes de projetar, use dados agregados e feche notificações pessoais.",
+              "activity": "Crie um checklist de apresentação segura.",
+              "quiz": {
+                "question": "Ao terminar em computador compartilhado, faça:",
+                "options": [
+                  "Fechar só a aba",
+                  "Sair do aplicativo",
+                  "Salvar senha no navegador"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "fundadora": {
+      "title": "Fundadora / Administração principal",
+      "icon": "🏛️",
+      "description": "Governança completa, auditoria, administradores, cofre e publicação.",
+      "modules": [
+        {
+          "id": "fund-governanca",
+          "title": "Governança e continuidade",
+          "icon": "🛡️",
+          "lessons": [
+            {
+              "id": "fund-01",
+              "title": "Acesso principal e separação de funções",
+              "duration": 12,
+              "objective": "Proteger o acesso principal e delegar com menor privilégio.",
+              "content": [
+                "O acesso principal é pessoal e não deve ser compartilhado.",
+                "Somente a fundadora cria administrador secundário.",
+                "Distribua tarefas sem distribuir a conta principal.",
+                "Mantenha inventário de acessos e revisão periódica."
+              ],
+              "speak": "Compare conta compartilhada com crachá coletivo: ninguém sabe quem fez a ação.",
+              "example": "Crie administrador secundário com conta própria, nunca usando a conta principal.",
+              "activity": "Defina uma rotina mensal de revisão de acessos.",
+              "quiz": {
+                "question": "A conta principal pode ser compartilhada para agilizar?",
+                "options": [
+                  "Sim",
+                  "Não",
+                  "Somente por mensagem privada"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "fund-02",
+              "title": "Auditoria, incidentes e backup",
+              "duration": 15,
+              "objective": "Garantir rastreabilidade e recuperação do serviço.",
+              "content": [
+                "Audite acessos, cofre, exportações, mudanças e incidentes.",
+                "Defina responsáveis e prazos de resposta.",
+                "Mantenha backup testado do banco, conteúdo da Academia e configurações.",
+                "Documente versão publicada e plano de reversão."
+              ],
+              "speak": "Pergunte: “Se o aplicativo parar amanhã, quais dados e acessos precisamos recuperar?”",
+              "example": "Backup sem teste não é garantia; faça restauração em ambiente separado.",
+              "activity": "Monte uma lista de ativos críticos e responsáveis.",
+              "quiz": {
+                "question": "Um backup confiável é aquele que:",
+                "options": [
+                  "Existe em algum lugar",
+                  "Foi testado e pode ser restaurado",
+                  "Está no celular de uma pessoa"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        },
+        {
+          "id": "fund-certificacao",
+          "title": "Academia e certificação",
+          "icon": "🎓",
+          "lessons": [
+            {
+              "id": "fund-03",
+              "title": "Critérios de liberação por perfil",
+              "duration": 12,
+              "objective": "Vincular formação à execução segura.",
+              "content": [
+                "Cada perfil realiza sua tarefa principal, explica limites e resolve erro simples.",
+                "Resultado pode ser aprovado, reciclagem ou acesso suspenso.",
+                "Certificação deve registrar versão do curso e data.",
+                "Mudanças críticas no app exigem reciclagem direcionada."
+              ],
+              "speak": "Explique que certificado não é só presença; deve haver demonstração prática.",
+              "example": "Pesquisador precisa demonstrar coleta offline e sincronização.",
+              "activity": "Defina evidências de aprovação para dois perfis.",
+              "quiz": {
+                "question": "Qual é uma evidência prática de certificação?",
+                "options": [
+                  "Somente assistir slides",
+                  "Executar a tarefa e resolver cenário simples",
+                  "Compartilhar a senha"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "instrutor": {
+      "title": "Instrutor(a) / Facilitador(a)",
+      "icon": "🎓",
+      "description": "Aplica aulas, roleplays, exercícios e certificação prática.",
+      "modules": [
+        {
+          "id": "inst-aula",
+          "title": "Condução da aula",
+          "icon": "🧑‍🏫",
+          "lessons": [
+            {
+              "id": "inst-01",
+              "title": "Planejar uma aula móvel e prática",
+              "duration": 12,
+              "objective": "Alternar explicação, demonstração, prática e verificação.",
+              "content": [
+                "Use blocos curtos para acompanhamento pelo celular.",
+                "A cada conceito, inclua exemplo e exercício.",
+                "Reserve espaço para rascunho e dúvidas.",
+                "Finalize com tarefa observável, não apenas pergunta de memória."
+              ],
+              "speak": "Estrutura sugerida: 5 min contexto, 10 min demonstração, 15 min prática, 5 min feedback.",
+              "example": "Aula offline termina com simulação de queda e sincronização.",
+              "activity": "Planeje um bloco de 30 minutos.",
+              "quiz": {
+                "question": "Qual formato tende a gerar mais aprendizagem prática?",
+                "options": [
+                  "Somente palestra",
+                  "Demonstração e prática com feedback",
+                  "Leitura sem exercício"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            },
+            {
+              "id": "inst-02",
+              "title": "Observar e registrar respostas",
+              "duration": 12,
+              "objective": "Acompanhar progresso, notas e necessidades de reciclagem.",
+              "content": [
+                "Revise respostas abertas e resultados de quiz.",
+                "Use rubrica: executa, explica limites, resolve erro e protege dados.",
+                "Registre feedback objetivo e plano de melhoria.",
+                "Não exponha notas individuais em público."
+              ],
+              "speak": "Mostre o painel e peça que a turma diferencie erro de conteúdo, procedimento e segurança.",
+              "example": "Pessoa sabe clicar, mas compartilha senha: ainda não está pronta.",
+              "activity": "Crie uma rubrica com quatro critérios.",
+              "quiz": {
+                "question": "O que deve orientar a aprovação?",
+                "options": [
+                  "Simpatia do instrutor",
+                  "Evidências de competência e segurança",
+                  "Quantidade de fala"
+                ],
+                "answer": 1,
+                "feedback": "Correto."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "certification": {
+    "minimumScore": 70,
+    "requirements": [
+      "Concluir módulos comuns",
+      "Concluir trilha do perfil",
+      "Obter ao menos 70% no quiz",
+      "Realizar atividade prática registrada"
+    ]
+  }
+}

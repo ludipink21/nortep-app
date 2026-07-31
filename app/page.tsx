@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import AcademiaNorteP from "./academia";
 import { CandidateOperation, clearSurveyTestData, configured, createAccessInvite, createCandidateObserverInvite, createMobilizationPartner, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadCandidateOperations, loadFieldEvents, loadInterviews, loadMobilizationPartners, loadObserverSummary, loadProfile, loadProfiles, loadProfileTerritories, loadPublicMobilizationForm, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadTeamLinks, loadVaultAudit, loadVaultContacts, MobilizationPartner, ObserverSummary, Profile, ProfileTerritory, PublicMobilizationForm, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setMobilizationPartnerActive, setProfileActive, setProfileTerritories, setSurveyAssignments, setupVaultKey, signIn, signUp, submitPublicMobilizationResponse, Survey, SurveyQuestion, TeamLink, unlockVault, updatePassword, updateSurveyStatusAdmin, updateSurveyThankYouVideo, VaultAudit, VaultContact } from "./supabase";
 
 type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "mobilizacao" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
@@ -635,7 +636,7 @@ export default function Home() {
         {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "mobilizacao" && visualProfile.role === "admin" && <Mobilizacao aviso={aviso} session={session} partners={mobilizationPartners} atualizar={atualizarDadosAdmin} />}
-        {view === "ecossistema" && <Ecossistema />}
+        {view === "ecossistema" && <Ecossistema profile={visualProfile} profiles={team} />}
         {view === "cofre" && visualProfile.role === "admin" && <CofreContatos session={session} profiles={team} aviso={aviso} />}
         {view === "portal" && <Portal profile={visualProfile} surveys={founderAccess && previewing ? adminSurveys.filter(item => item.status === "active" || item.status === "pilot") : surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
         {view === "entrevista" && survey && (survey.slug === "betim-territorio-escolhas-2026" ? <Entrevista extraQuestions={surveyQuestions} passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={() => {
@@ -1564,15 +1565,22 @@ function PublicMobilization({ code, form }: { code: string; form: PublicMobiliza
   </div>;
 }
 
-function Ecossistema() {
+function Ecossistema({ profile, profiles }: { profile: Profile; profiles: Profile[] }) {
+  const [area, setArea] = useState<"produtos" | "academia">("produtos");
   const produtos = [
     ["NorteP Pesquisa", "Ativo", "Pesquisa de campo, coleta e resultados."],
+    ["Formação NorteP", "Prévia", "Academia por perfil, prática, avaliação e certificação."],
     ["NorteP Comunicação", "Em breve", "Comunicação política e relacionamento."],
     ["NorteP Gestão", "Em breve", "Operação de campanha e mandato."],
     ["NorteP Auditoria", "Em breve", "Controle, conferência e acompanhamento."],
     ["NorteP Financeiro", "Futuro", "Gestão financeira em ambiente separado."],
   ];
-  return <><Cabecalho titulo="Ecossistema NorteP" sub="Política, povo e pesquisa em uma operação integrada." botao="Dados que aproximam" acao={() => undefined} /><div className="ecos-grid">{produtos.map((p, i) => <article className={i === 0 ? "eco ativo" : "eco"} key={p[0]}><i>{i === 0 ? "NP" : "◇"}</i><label>{p[1]}</label><h3>{p[0]}</h3><p>{p[2]}</p>{i === 0 ? <button>Produto atual</button> : <button disabled>Planejado</button>}</article>)}</div></>;
+  if (area === "academia") return <><Cabecalho titulo="Formação NorteP" sub="Aprendizado prático integrado ao ecossistema e organizado por perfil." botao="← Voltar ao ecossistema" acao={() => setArea("produtos")} /><AcademiaNorteP key={`${profile.id}-${profile.role}-${profile.is_primary_admin ? "principal" : "padrao"}`} profile={profile} profiles={profiles} /></>;
+  return <><Cabecalho titulo="Ecossistema NorteP" sub="Política, povo e pesquisa em uma operação integrada." botao="Abrir Formação NorteP" acao={() => setArea("academia")} /><div className="ecos-grid">{produtos.map((p, i) => {
+    const academy = i === 1;
+    const active = i === 0 || academy;
+    return <article className={`${active ? "eco ativo" : "eco"}${academy ? " ecos-academy-card" : ""}`} key={p[0]}><i>{i === 0 ? "NP" : academy ? "N+" : "◇"}</i><label>{p[1]}</label><h3>{p[0]}</h3><p>{p[2]}</p>{i === 0 ? <button>Produto atual</button> : academy ? <button onClick={() => setArea("academia")}>Abrir academia →</button> : <button disabled>Planejado</button>}</article>;
+  })}</div></>;
 }
 
 function Portal({ iniciar, profile, surveys, interviews, pending, sincronizar, registrar }: { iniciar: (survey: Survey) => void; profile: Profile; surveys: Survey[]; interviews: SavedInterview[]; pending: number; sincronizar: () => void; registrar: (outcome: FieldEvent["outcome"], reason?: string, survey?: Survey | null) => void }) {

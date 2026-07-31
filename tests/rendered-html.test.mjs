@@ -11,6 +11,9 @@ const officialPilot = await readFile(new URL("../supabase/migrations/20260730110
 const questionScope = await readFile(new URL("../supabase/migrations/20260730112000_fix_question_scope.sql", import.meta.url), "utf8");
 const strategyObserver = await readFile(new URL("../supabase/migrations/20260730140000_strategy_observer_network.sql", import.meta.url), "utf8");
 const candidateMobilization = await readFile(new URL("../supabase/migrations/20260730170000_candidate_mobilization_control.sql", import.meta.url), "utf8");
+const academy = await readFile(new URL("../app/academia.tsx", import.meta.url), "utf8");
+const academyStyles = await readFile(new URL("../app/academia.css", import.meta.url), "utf8");
+const academyContent = JSON.parse(await readFile(new URL("../app/academia-content.json", import.meta.url), "utf8"));
 
 test("V49 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
   for (const channel of ["principal", "administracao", "coordenacao", "supervisao", "observador", "pesquisador"]) {
@@ -117,4 +120,35 @@ test("capa pública não exibe instruções internas ou mapa físico", () => {
   assert.doesNotMatch(page, /Acesso somente para pessoas autorizadas/);
   assert.match(page, /Pesquisa, território e gestão em um só lugar/);
   assert.match(page, /Leitura operacional sem mapa físico/);
+});
+
+test("Formação NorteP está integrada ao Ecossistema sem substituir a V49", () => {
+  assert.match(page, /import AcademiaNorteP from "\.\/academia"/);
+  assert.match(page, /Formação NorteP/);
+  assert.match(page, /<AcademiaNorteP/);
+  assert.match(layout, /\.\/academia\.css/);
+  assert.match(academy, /Prévia segura para revisão/);
+  assert.match(academy, /Esta revisão não altera o banco/);
+  assert.match(academyStyles, /--academy-purple:#5b1734/);
+  assert.match(academyStyles, /--academy-gold:#c69a3a/);
+});
+
+test("Academia contém trilhas, prática, avaliação, biblioteca e certificação", () => {
+  const expectedRoles = ["pesquisador", "mobilizador", "supervisor", "coordenador", "administrador", "analista", "observador", "fundadora", "instrutor"];
+  for (const role of expectedRoles) assert.ok(academyContent.roles[role], `trilha ausente: ${role}`);
+  const commonLessons = academyContent.commonModules.flatMap(module => module.lessons);
+  const roleLessons = Object.values(academyContent.roles).flatMap(track => track.modules.flatMap(module => module.lessons));
+  assert.equal(commonLessons.length + roleLessons.length, 57);
+  assert.match(academy, /EXERCÍCIO/);
+  assert.match(academy, /AVALIAÇÃO RÁPIDA/);
+  assert.match(academy, /Biblioteca/);
+  assert.match(academy, /Certificação/);
+  assert.match(academy, /Acompanhamento/);
+});
+
+test("Academia respeita o perfil atual e não contém credenciais administrativas", () => {
+  assert.match(academy, /profile\.is_primary_admin/);
+  assert.match(academy, /profile\.role === "admin"/);
+  assert.doesNotMatch(academy, /service_role|SUPABASE_SERVICE_ROLE|secret[_-]?key/i);
+  assert.doesNotMatch(JSON.stringify(academyContent), /service_role|SUPABASE_SERVICE_ROLE|secret[_-]?key/i);
 });
