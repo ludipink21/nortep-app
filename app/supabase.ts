@@ -207,6 +207,20 @@ export type FieldEvent = {
 export type VaultContact = { interview_id: string; respondent_name?: string | null; contact_choice?: string | null; contact_whatsapp?: string | null; contact_email?: string | null; created_at: string };
 export type VaultAudit = { actor_name: string; actor_email: string; action: string; occurred_at: string };
 
+export type AcademyLessonProgress = {
+  lesson_id: string;
+  role_key: string;
+  answer_index?: number | null;
+  answer_correct: boolean;
+  draft_text: string;
+  completed_at?: string | null;
+  updated_at: string;
+  certificate_issued?: boolean;
+};
+
+export type AcademyCertificate = { id: string; role_key: string; issued_at: string; status: "active" | "revoked" };
+export type AcademyTeamSummary = { role_key: string; people: number; started: number; completed: number; average_progress: number };
+
 let url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 let key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 const sessionKey = "nortep-sessao";
@@ -452,6 +466,45 @@ export async function loadTeamLinks(session: Session) {
 
 export async function loadProfileTerritories(session: Session) {
   return rest<ProfileTerritory[]>(session, "profile_territories?select=*&active=eq.true&order=scope_type.asc,scope_value.asc");
+}
+
+export async function loadAcademyProgress(session: Session, curriculumVersion: string) {
+  return rest<AcademyLessonProgress[]>(session, "rpc/get_own_academy_progress", {
+    method: "POST",
+    body: JSON.stringify({ p_curriculum_version: curriculumVersion }),
+  });
+}
+
+export async function saveAcademyLessonProgress(
+  session: Session,
+  input: { curriculumVersion: string; lessonId: string; answerIndex?: number | null; draftText: string; completed: boolean },
+) {
+  const rows = await rest<AcademyLessonProgress[]>(session, "rpc/save_academy_lesson_progress", {
+    method: "POST",
+    body: JSON.stringify({
+      p_curriculum_version: input.curriculumVersion,
+      p_lesson_id: input.lessonId,
+      p_answer_index: input.answerIndex ?? null,
+      p_draft_text: input.draftText,
+      p_completed: input.completed,
+    }),
+  });
+  return rows[0];
+}
+
+export async function loadAcademyCertificate(session: Session, curriculumVersion: string) {
+  const rows = await rest<AcademyCertificate[]>(session, "rpc/get_own_academy_certificate", {
+    method: "POST",
+    body: JSON.stringify({ p_curriculum_version: curriculumVersion }),
+  });
+  return rows[0] ?? null;
+}
+
+export async function loadAcademyTeamSummary(session: Session, curriculumVersion: string) {
+  return rest<AcademyTeamSummary[]>(session, "rpc/get_academy_team_summary", {
+    method: "POST",
+    body: JSON.stringify({ p_curriculum_version: curriculumVersion }),
+  });
 }
 
 export async function setProfileTerritories(session: Session, profileId: string, cities: string[], regions: string[], neighborhoods: string[]) {

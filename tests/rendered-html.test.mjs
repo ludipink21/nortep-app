@@ -14,6 +14,7 @@ const candidateMobilization = await readFile(new URL("../supabase/migrations/202
 const academy = await readFile(new URL("../app/academia.tsx", import.meta.url), "utf8");
 const academyStyles = await readFile(new URL("../app/academia.css", import.meta.url), "utf8");
 const academyContent = JSON.parse(await readFile(new URL("../app/academia-content.json", import.meta.url), "utf8"));
+const academyMigration = await readFile(new URL("../supabase/migrations/20260731150000_academia_nortep.sql", import.meta.url), "utf8");
 
 test("V49 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
   for (const channel of ["principal", "administracao", "coordenacao", "supervisao", "observador", "pesquisador"]) {
@@ -127,8 +128,10 @@ test("Formação NorteP está integrada ao Ecossistema sem substituir a V49", ()
   assert.match(page, /Formação NorteP/);
   assert.match(page, /<AcademiaNorteP/);
   assert.match(layout, /\.\/academia\.css/);
-  assert.match(academy, /Prévia segura para revisão/);
-  assert.match(academy, /Esta revisão não altera o banco/);
+  assert.match(page, /session=\{session\}/);
+  assert.match(academy, /Progresso protegido/);
+  assert.match(academy, /Acompanhamento central ativado/);
+  assert.match(academy, /Certificado emitido/);
   assert.match(academyStyles, /--academy-purple:#5b1734/);
   assert.match(academyStyles, /--academy-gold:#c69a3a/);
 });
@@ -151,4 +154,27 @@ test("Academia respeita o perfil atual e não contém credenciais administrativa
   assert.match(academy, /profile\.role === "admin"/);
   assert.doesNotMatch(academy, /service_role|SUPABASE_SERVICE_ROLE|secret[_-]?key/i);
   assert.doesNotMatch(JSON.stringify(academyContent), /service_role|SUPABASE_SERVICE_ROLE|secret[_-]?key/i);
+});
+
+test("Academia persiste progresso com RLS e não abre respostas corretas ao navegador", () => {
+  assert.match(academyMigration, /create table if not exists public\.academy_lessons/);
+  assert.match(academyMigration, /create table if not exists public\.academy_lesson_progress/);
+  assert.match(academyMigration, /create table if not exists public\.academy_certificates/);
+  assert.match(academyMigration, /security definer/);
+  assert.match(academyMigration, /manager_can_access_profile/);
+  assert.match(academyMigration, /revoke all on table public\.academy_lessons from public, anon, authenticated/);
+  assert.match(academyMigration, /grant execute on function public\.save_academy_lesson_progress/);
+  assert.doesNotMatch(academyMigration, /\bdelete\s+from\s+public\.(profiles|surveys|interviews|responses)\b/i);
+  assert.doesNotMatch(academyMigration, /grant\s+select\s+on\s+table\s+public\.academy_lessons\s+to\s+authenticated/i);
+});
+
+test("respostas das 57 aulas no servidor correspondem ao currículo revisado", () => {
+  const rows = [...academyMigration.matchAll(/\('3\.0\.0','([^']+)','([^']+)',(\d+)\)/g)]
+    .map(match => ({ role: match[1], lesson: match[2], answer: Number(match[3]) }));
+  assert.equal(rows.length, 57);
+  const expected = [
+    ...academyContent.commonModules.flatMap(module => module.lessons.map(lesson => ({ role: "comum", lesson: lesson.id, answer: lesson.quiz.answer }))),
+    ...Object.entries(academyContent.roles).flatMap(([role, track]) => track.modules.flatMap(module => module.lessons.map(lesson => ({ role, lesson: lesson.id, answer: lesson.quiz.answer })))),
+  ];
+  assert.deepEqual(rows, expected);
 });

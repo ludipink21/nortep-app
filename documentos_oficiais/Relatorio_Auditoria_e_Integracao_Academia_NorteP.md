@@ -5,7 +5,7 @@ Projeto revisado: NorteP Pesquisa V49
 
 ## Resultado principal
 
-A versão V49 foi localizada, compilada e preservada. O site oficial, o domínio e o Supabase de produção não foram alterados. A Academia NorteP foi preparada em uma branch separada para revisão e será apresentada em Pull Request antes de qualquer publicação.
+A versão V49 foi localizada, compilada e preservada. A Academia NorteP foi integrada em uma branch separada, revisada e autorizada. A migração versionada foi aplicada no mesmo Supabase de produção em 31 de julho de 2026, sem excluir usuários, pesquisas, entrevistas ou respostas.
 
 ## Estrutura técnica encontrada
 
@@ -31,24 +31,21 @@ A versão V49 foi localizada, compilada e preservada. O site oficial, o domínio
 1. O histórico do repositório GitHub `main` era diferente do histórico local da V49. Isso impediria uma comparação normal. O problema foi contornado sem alterar o `main`: a branch de revisão parte do `main` remoto e recebe a V49 como um commit identificado.
 2. `app/page.tsx` e `app/globals.css` são arquivos grandes. A Academia foi criada em componentes e estilos separados para reduzir risco de regressão.
 3. Os testes atuais são principalmente estruturais. Eles confirmam build e regras importantes no código, mas não substituem testes reais com todas as contas e aparelhos.
-4. O kit demonstrativo salvava progresso apenas no navegador. Isso não serve como registro oficial entre aparelhos.
-5. A Academia precisa de novas tabelas e políticas no Supabase para progresso central, avaliações, certificados e acompanhamento individual. Nenhuma migração foi criada ou aplicada nesta revisão.
+4. O kit demonstrativo salvava progresso apenas no navegador. A integração final mantém um cache local para tolerar falhas de conexão e usa o Supabase como registro central.
+5. A primeira tentativa de aplicação foi cancelada integralmente pelo próprio banco devido a um trecho antigo mantido pelo editor SQL. O conteúdo foi substituído pelo arquivo versionado, executado novamente e validado com uma consulta independente.
 
 ## Arquivos ausentes ou dependências futuras
 
-- Tabelas de progresso e avaliação da Academia no Supabase.
-- Políticas de acesso por perfil, equipe e território para a Academia.
-- Emissão oficial e verificável de certificados.
 - Testes ponta a ponta com contas de cada perfil.
 - Homologação em celulares Android, iPhone e computador antes de produção.
 
 ## Relação com o Supabase
 
-A integração visual usa o perfil já autenticado no NorteP e não cria outra autenticação. Nesta prévia, exercícios e progresso ficam apenas no aparelho e são identificados como provisórios. A futura sincronização deverá usar o mesmo Supabase, com migração versionada, políticas de menor privilégio e auditoria. Essa etapa depende de aprovação expressa.
+A Academia usa o perfil já autenticado no NorteP e não cria outra autenticação. A migração `20260731150000_academia_nortep.sql` criou progresso, certificados e gabaritos protegidos. A auditoria confirmou 57 aulas, bloqueio do papel anônimo, permissão de gravação somente pela função autenticada e ausência de acesso do navegador aos gabaritos. Gestores recebem somente os dados agregados da equipe permitida pelas regras atuais.
 
 ## Relação com a hospedagem
 
-A configuração do site existente foi mantida. A branch de revisão não publica automaticamente. Qualquer atualização do site oficial dependerá de revisão da prévia e autorização expressa.
+A configuração do site existente foi mantida. A publicação foi autorizada para o mesmo projeto, sem criação de outro site ou domínio.
 
 ## Plano de backup executado
 
@@ -59,24 +56,21 @@ A configuração do site existente foi mantida. A branch de revisão não public
 
 ## Plano de integração da Academia NorteP
 
-### Etapa desta revisão
+### Etapa concluída
 
 - Inserir a Formação NorteP dentro da aba Ecossistema.
 - Usar a identidade visual púrpura, ouro e turquesa do NorteP.
 - Organizar trilhas por perfil.
-- Disponibilizar aulas, exercícios, rascunhos locais, avaliações, progresso, biblioteca, painel agregado e prévia de certificação.
-- Avisar claramente que o progresso ainda é local.
-- Testar lint, tipos, build e regras de segurança.
-- Abrir Pull Request em rascunho, sem merge e sem publicação.
+- Disponibilizar aulas, exercícios, cache local, avaliações, progresso sincronizado, biblioteca, painel agregado e certificação oficial.
+- Aplicar políticas de menor privilégio no Supabase.
+- Testar lint, tipos, build e 17 regras funcionais e de segurança.
+- Abrir Pull Request em rascunho e registrar a autorização de publicação.
 
-### Etapa que exige nova aprovação
+### Próxima homologação operacional
 
-- Criar e revisar a migração do Supabase.
-- Sincronizar progresso entre aparelhos.
-- Ativar avaliação e certificado oficiais.
 - Homologar com contas reais de cada perfil.
-- Publicar no site existente.
+- Validar o fluxo em celulares Android, iPhone e computador com conexão estável e instável.
 
 ## Conclusão
 
-A integração foi planejada para preservar integralmente a V49 e permitir revisão segura. Nenhuma senha, token, chave privada ou `service_role` foi incluída no código ou no GitHub.
+A integração preserva integralmente a V49 e acrescenta a Academia dentro da aba Ecossistema. Nenhuma senha, token, chave privada ou `service_role` foi incluída no código ou no GitHub.

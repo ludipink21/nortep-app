@@ -636,7 +636,7 @@ export default function Home() {
         {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "mobilizacao" && visualProfile.role === "admin" && <Mobilizacao aviso={aviso} session={session} partners={mobilizationPartners} atualizar={atualizarDadosAdmin} />}
-        {view === "ecossistema" && <Ecossistema profile={visualProfile} profiles={team} />}
+        {view === "ecossistema" && <Ecossistema profile={visualProfile} profiles={team} session={session} />}
         {view === "cofre" && visualProfile.role === "admin" && <CofreContatos session={session} profiles={team} aviso={aviso} />}
         {view === "portal" && <Portal profile={visualProfile} surveys={founderAccess && previewing ? adminSurveys.filter(item => item.status === "active" || item.status === "pilot") : surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
         {view === "entrevista" && survey && (survey.slug === "betim-territorio-escolhas-2026" ? <Entrevista extraQuestions={surveyQuestions} passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={() => {
@@ -1565,17 +1565,17 @@ function PublicMobilization({ code, form }: { code: string; form: PublicMobiliza
   </div>;
 }
 
-function Ecossistema({ profile, profiles }: { profile: Profile; profiles: Profile[] }) {
+function Ecossistema({ profile, profiles, session }: { profile: Profile; profiles: Profile[]; session: Session | null }) {
   const [area, setArea] = useState<"produtos" | "academia">("produtos");
   const produtos = [
     ["NorteP Pesquisa", "Ativo", "Pesquisa de campo, coleta e resultados."],
-    ["Formação NorteP", "Prévia", "Academia por perfil, prática, avaliação e certificação."],
+    ["Formação NorteP", "Ativo", "Academia por perfil, prática, avaliação e certificação."],
     ["NorteP Comunicação", "Em breve", "Comunicação política e relacionamento."],
     ["NorteP Gestão", "Em breve", "Operação de campanha e mandato."],
     ["NorteP Auditoria", "Em breve", "Controle, conferência e acompanhamento."],
     ["NorteP Financeiro", "Futuro", "Gestão financeira em ambiente separado."],
   ];
-  if (area === "academia") return <><Cabecalho titulo="Formação NorteP" sub="Aprendizado prático integrado ao ecossistema e organizado por perfil." botao="← Voltar ao ecossistema" acao={() => setArea("produtos")} /><AcademiaNorteP key={`${profile.id}-${profile.role}-${profile.is_primary_admin ? "principal" : "padrao"}`} profile={profile} profiles={profiles} /></>;
+  if (area === "academia") return <><Cabecalho titulo="Formação NorteP" sub="Aprendizado prático integrado ao ecossistema e organizado por perfil." botao="← Voltar ao ecossistema" acao={() => setArea("produtos")} /><AcademiaNorteP key={`${profile.id}-${profile.role}-${profile.is_primary_admin ? "principal" : "padrao"}`} profile={profile} profiles={profiles} session={session} /></>;
   return <><Cabecalho titulo="Ecossistema NorteP" sub="Política, povo e pesquisa em uma operação integrada." botao="Abrir Formação NorteP" acao={() => setArea("academia")} /><div className="ecos-grid">{produtos.map((p, i) => {
     const academy = i === 1;
     const active = i === 0 || academy;

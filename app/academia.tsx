@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import curriculumSource from "./academia-content.json";
-import type { Profile } from "./supabase";
+import { loadAcademyCertificate, loadAcademyProgress, loadAcademyTeamSummary, saveAcademyLessonProgress, type AcademyCertificate, type AcademyLessonProgress, type AcademyTeamSummary, type Profile, type Session } from "./supabase";
 
 type AcademyRole = "pesquisador" | "supervisor" | "mobilizador" | "coordenador" | "administrador" | "analista" | "observador" | "fundadora" | "instrutor";
 type AcademyTab = "formacao" | "biblioteca" | "acompanhamento" | "certificado";
@@ -55,11 +55,14 @@ type AcademyProgress = {
   completed: string[];
   answers: Record<string, number>;
   drafts: Record<string, string>;
+  pending: string[];
   updatedAt?: string;
 };
 
+type AcademySyncState = "loading" | "synced" | "syncing" | "local" | "error";
+
 const curriculum = curriculumSource as AcademyCurriculum;
-const emptyProgress: AcademyProgress = { completed: [], answers: {}, drafts: {} };
+const emptyProgress: AcademyProgress = { completed: [], answers: {}, drafts: {}, pending: [] };
 
 const academyRoleLabels: Record<AcademyRole, string> = {
   pesquisador: "Pesquisador(a)",
@@ -88,7 +91,7 @@ function readProgress(profileId: string, role: AcademyRole): AcademyProgress {
   try {
     const parsed = JSON.parse(localStorage.getItem(progressKey(profileId, role)) || "null") as AcademyProgress | null;
     if (!parsed || !Array.isArray(parsed.completed)) return emptyProgress;
-    return { completed: parsed.completed, answers: parsed.answers || {}, drafts: parsed.drafts || {}, updatedAt: parsed.updatedAt };
+    return { completed: parsed.completed, answers: parsed.answers || {}, drafts: parsed.drafts || {}, pending: parsed.pending || [], updatedAt: parsed.updatedAt };
   } catch {
     return emptyProgress;
   }
@@ -112,7 +115,28 @@ function AcademyExercise({ lesson, initialValue, onSave }: { lesson: AcademyLess
   return <section className="academy-exercise"><small>EXERCÍCIO</small><h4>{lesson.activity}</h4><textarea value={draft} onChange={event => { setDraft(event.target.value); setSaved(false); }} onBlur={save} placeholder="Escreva sua resposta. O rascunho será salvo neste aparelho." /><span>{saved ? "Rascunho salvo neste aparelho" : draft.trim() ? "Toque fora do campo para salvar o rascunho." : "A atividade prática é necessária para concluir a aula."}</span></section>;
 }
 
-export default function AcademiaNorteP({ profile, profiles = [] }: { profile: Profile; profiles?: Profile[] }) {
+function progressFromRows(rows: AcademyLessonProgress[]): AcademyProgress {
+  return rows.reduce<AcademyProgress>((result, row) => {
+    if (row.answer_index !== null && row.answer_index !== undefined) result.answers[row.lesson_id] = row.answer_index;
+    if (row.draft_text) result.drafts[row.lesson_id] = row.draft_text;
+    if (row.completed_at) result.completed.push(row.lesson_id);
+    if (!result.updatedAt || row.updated_at > result.updatedAt) result.updatedAt = row.updated_at;
+    return result;
+  }, { completed: [], answers: {}, drafts: {}, pending: [] });
+}
+
+function mergeRemoteWithPending(remote: AcademyProgress, local: AcademyProgress) {
+  const merged: AcademyProgress = { ...remote, completed: [...remote.completed], answers: { ...remote.answers }, drafts: { ...remote.drafts }, pending: [...local.pending] };
+  for (const lessonId of local.pending) {
+    if (local.answers[lessonId] !== undefined) merged.answers[lessonId] = local.answers[lessonId];
+    else delete merged.answers[lessonId];
+    if (local.drafts[lessonId] !== undefined) merged.drafts[lessonId] = local.drafts[lessonId];
+    if (local.completed.includes(lessonId) && !merged.completed.includes(lessonId)) merged.completed.push(lessonId);
+  }
+  return merged;
+}
+
+export default function AcademiaNorteP({ profile, profiles = [], session }: { profile: Profile; profiles?: Profile[]; session?: Session | null }) {
   const role = academyRole(profile);
   const track = curriculum.roles[role];
   const modules = useMemo(() => [...curriculum.commonModules, ...track.modules], [track]);
@@ -120,7 +144,9 @@ export default function AcademiaNorteP({ profile, profiles = [] }: { profile: Pr
   const [tab, setTab] = useState<AcademyTab>("formacao");
   const [selectedLessonId, setSelectedLessonId] = useState(lessons[0]?.id || "");
   const [progress, setProgress] = useState<AcademyProgress>(emptyProgress);
-  useEffect(() => setProgress(readProgress(profile.id, role)), [profile.id, role]);
+  const [syncState, setSyncState] = useState<AcademySyncState>(session ? "loading" : "local");
+  const [teamSummary, setTeamSummary] = useState<AcademyTeamSummary[]>([]);
+  const [certificate, setCertificate] = useState<AcademyCertificate | null>(null);
   const selectedLesson = lessons.find(lesson => lesson.id === selectedLessonId) || lessons[0];
   const selectedModule = modules.find(module => module.lessons.some(lesson => lesson.id === selectedLesson?.id));
   const managers = profile.role === "admin" || profile.role === "coordenador" || profile.role === "supervisor";
@@ -130,18 +156,83 @@ export default function AcademiaNorteP({ profile, profiles = [] }: { profile: Pr
   const score = lessons.length ? Math.round((correctAnswers / lessons.length) * 100) : 0;
   const eligible = completedCount === lessons.length && score >= curriculum.certification.minimumScore;
 
-  const saveProgress = (next: AcademyProgress) => {
+  const storeProgress = (next: AcademyProgress) => {
     const updated = { ...next, updatedAt: new Date().toISOString() };
     setProgress(updated);
-    try { localStorage.setItem(progressKey(profile.id, role), JSON.stringify(updated)); } catch { /* A prévia continua aberta mesmo se o navegador bloquear armazenamento local. */ }
+    try { localStorage.setItem(progressKey(profile.id, role), JSON.stringify(updated)); } catch { /* O banco continua sendo a fonte principal quando o cache local não está disponível. */ }
+    return updated;
   };
 
-  const updateDraft = (lessonId: string, value: string) => saveProgress({ ...progress, drafts: { ...progress.drafts, [lessonId]: value } });
-  const answerQuiz = (lessonId: string, answer: number) => saveProgress({ ...progress, answers: { ...progress.answers, [lessonId]: answer } });
+  const syncLesson = async (lessonId: string, snapshot: AcademyProgress) => {
+    if (!session) return false;
+    setSyncState("syncing");
+    try {
+      const result = await saveAcademyLessonProgress(session, {
+        curriculumVersion: curriculum.version,
+        lessonId,
+        answerIndex: snapshot.answers[lessonId] ?? null,
+        draftText: snapshot.drafts[lessonId] || "",
+        completed: snapshot.completed.includes(lessonId),
+      });
+      if (result?.certificate_issued) setCertificate(await loadAcademyCertificate(session, curriculum.version));
+      setProgress(current => {
+        const unchanged = current.answers[lessonId] === snapshot.answers[lessonId]
+          && (current.drafts[lessonId] || "") === (snapshot.drafts[lessonId] || "")
+          && current.completed.includes(lessonId) === snapshot.completed.includes(lessonId);
+        if (!unchanged) return current;
+        const next = { ...current, pending: current.pending.filter(id => id !== lessonId), updatedAt: new Date().toISOString() };
+        try { localStorage.setItem(progressKey(profile.id, role), JSON.stringify(next)); } catch { /* Cache opcional. */ }
+        return next;
+      });
+      setSyncState("synced");
+      return true;
+    } catch {
+      setSyncState("error");
+      return false;
+    }
+  };
+
+  const commitProgress = (next: AcademyProgress, lessonId: string) => {
+    const staged = storeProgress({ ...next, pending: session ? Array.from(new Set([...next.pending, lessonId])) : next.pending });
+    if (session) void syncLesson(lessonId, staged);
+  };
+
+  const syncPending = async () => {
+    if (!session || !progress.pending.length) return;
+    const snapshot = progress;
+    for (const lessonId of snapshot.pending) await syncLesson(lessonId, snapshot);
+  };
+
+  useEffect(() => {
+    let active = true;
+    const local = readProgress(profile.id, role);
+    setProgress(local);
+    if (!session) { setSyncState("local"); return () => { active = false; }; }
+    setSyncState("loading");
+    Promise.all([
+      loadAcademyProgress(session, curriculum.version),
+      loadAcademyCertificate(session, curriculum.version),
+      managers ? loadAcademyTeamSummary(session, curriculum.version) : Promise.resolve([] as AcademyTeamSummary[]),
+    ]).then(([rows, ownCertificate, summary]) => {
+      if (!active) return;
+      const merged = mergeRemoteWithPending(progressFromRows(rows), local);
+      setProgress(merged);
+      setCertificate(ownCertificate);
+      setTeamSummary(summary);
+      setSyncState(merged.pending.length ? "error" : "synced");
+      try { localStorage.setItem(progressKey(profile.id, role), JSON.stringify(merged)); } catch { /* Cache opcional. */ }
+    }).catch(() => {
+      if (active) setSyncState("error");
+    });
+    return () => { active = false; };
+  }, [profile.id, role, session, managers]);
+
+  const updateDraft = (lessonId: string, value: string) => commitProgress({ ...progress, drafts: { ...progress.drafts, [lessonId]: value } }, lessonId);
+  const answerQuiz = (lessonId: string, answer: number) => commitProgress({ ...progress, answers: { ...progress.answers, [lessonId]: answer } }, lessonId);
   const completeLesson = (lesson: AcademyLesson) => {
     if (progress.answers[lesson.id] !== lesson.quiz.answer || !(progress.drafts[lesson.id] || "").trim()) return;
     if (progress.completed.includes(lesson.id)) return;
-    saveProgress({ ...progress, completed: [...progress.completed, lesson.id] });
+    commitProgress({ ...progress, completed: [...progress.completed, lesson.id] }, lesson.id);
   };
   const openLesson = (lessonId: string) => {
     setSelectedLessonId(lessonId);
@@ -154,6 +245,25 @@ export default function AcademiaNorteP({ profile, profiles = [] }: { profile: Pr
     counts[key] = (counts[key] || 0) + 1;
     return counts;
   }, {});
+  const summaryPeople = teamSummary.reduce((total, item) => total + Number(item.people), 0);
+  const summaryStarted = teamSummary.reduce((total, item) => total + Number(item.started), 0);
+  const summaryCompleted = teamSummary.reduce((total, item) => total + Number(item.completed), 0);
+  const summaryAverage = summaryPeople
+    ? Math.round(teamSummary.reduce((total, item) => total + Number(item.average_progress) * Number(item.people), 0) / summaryPeople)
+    : 0;
+  const distribution = teamSummary.length
+    ? teamSummary.map(item => ({ key: item.role_key, count: Number(item.people), progress: Number(item.average_progress) }))
+    : Object.entries(profileCounts).map(([key, count]) => ({ key, count, progress: 0 }));
+  const distributionPeople = Math.max(teamSummary.length ? summaryPeople : profiles.length, 1);
+  const syncCopy = syncState === "loading"
+    ? { title: "Carregando sua formação", detail: "Buscando o progresso protegido da sua conta." }
+    : syncState === "syncing"
+      ? { title: "Salvando com segurança", detail: "A atualização está sendo registrada no NorteP." }
+      : syncState === "synced" && !progress.pending.length
+        ? { title: "Progresso protegido", detail: "Aulas, exercícios e avaliações estão sincronizados entre seus aparelhos." }
+        : syncState === "local"
+          ? { title: "Modo local", detail: "Entre na sua conta para sincronizar a formação entre aparelhos." }
+          : { title: "Sincronização pendente", detail: `${progress.pending.length || 1} atualização(ões) protegida(s) neste aparelho aguardam conexão.` };
 
   return <section className="academy-shell" aria-label="Formação NorteP">
     <div className="academy-hero">
@@ -169,8 +279,9 @@ export default function AcademiaNorteP({ profile, profiles = [] }: { profile: Pr
       </div>
     </div>
 
-    <div className="academy-preview-note" role="status">
-      <i>i</i><span><b>Prévia segura para revisão</b><small>O progresso fica somente neste aparelho. A sincronização entre aparelhos será ativada apenas depois da aprovação da migração do banco.</small></span>
+    <div className={`academy-preview-note academy-sync-${syncState}`} role="status">
+      <i>{syncState === "synced" && !progress.pending.length ? "✓" : syncState === "syncing" || syncState === "loading" ? "↻" : "i"}</i><span><b>{syncCopy.title}</b><small>{syncCopy.detail}</small></span>
+      {session && progress.pending.length > 0 && <button type="button" onClick={() => void syncPending()} disabled={syncState === "syncing"}>Sincronizar agora</button>}
     </div>
 
     <nav className="academy-tabs" aria-label="Áreas da Formação NorteP">
@@ -204,7 +315,7 @@ export default function AcademiaNorteP({ profile, profiles = [] }: { profile: Pr
           const answered = progress.answers[selectedLesson.id] !== undefined;
           const correct = index === selectedLesson.quiz.answer;
           const className = chosen ? answered && correct ? "selected correct" : "selected incorrect" : "";
-          return <button className={className} key={`${selectedLesson.id}-quiz-${index}`} onClick={() => answerQuiz(selectedLesson.id, index)}><i>{chosen ? correct ? "✓" : "×" : String.fromCharCode(65 + index)}</i>{option}</button>;
+          return <button className={className} key={`${selectedLesson.id}-quiz-${index}`} disabled={progress.completed.includes(selectedLesson.id)} onClick={() => answerQuiz(selectedLesson.id, index)}><i>{chosen ? correct ? "✓" : "×" : String.fromCharCode(65 + index)}</i>{option}</button>;
         })}</div>{progress.answers[selectedLesson.id] !== undefined && <p className={progress.answers[selectedLesson.id] === selectedLesson.quiz.answer ? "quiz-ok" : "quiz-try"}>{progress.answers[selectedLesson.id] === selectedLesson.quiz.answer ? selectedLesson.quiz.feedback : "Revise a aula e tente novamente."}</p>}</section>
         <footer><span><b>{progress.completed.includes(selectedLesson.id) ? "Aula concluída" : "Para concluir"}</b><small>Responda corretamente e registre o exercício.</small></span><button className="primary" disabled={progress.completed.includes(selectedLesson.id) || progress.answers[selectedLesson.id] !== selectedLesson.quiz.answer || !(progress.drafts[selectedLesson.id] || "").trim()} onClick={() => completeLesson(selectedLesson)}>{progress.completed.includes(selectedLesson.id) ? "✓ Concluída" : "Concluir aula"}</button></footer>
       </article>}
@@ -218,14 +329,14 @@ export default function AcademiaNorteP({ profile, profiles = [] }: { profile: Pr
 
     {tab === "acompanhamento" && managers && <div className="academy-dashboard">
       <div className="academy-section-title"><small>PAINEL DE ACOMPANHAMENTO</small><h3>Prontidão da equipe visível para este perfil</h3><p>Os totais respeitam a equipe e o território já devolvidos pelo NorteP. Nenhum contato pessoal é exibido aqui.</p></div>
-      <div className="academy-manager-metrics"><article><small>PESSOAS VISÍVEIS</small><b>{profiles.length}</b><span>conforme a permissão atual</span></article><article><small>TRILHAS DISPONÍVEIS</small><b>{Object.keys(curriculum.roles).length}</b><span>por função operacional</span></article><article><small>CONCLUSÃO CENTRAL</small><b>—</b><span>aguarda integração aprovada</span></article><article><small>VERSÃO DO CONTEÚDO</small><b>{curriculum.version}</b><span>kit de integração</span></article></div>
-      <section className="academy-role-distribution"><header><span><small>DISTRIBUIÇÃO</small><h3>Perfis da equipe</h3></span><em>Dados agregados</em></header><div>{Object.entries(profileCounts).length ? Object.entries(profileCounts).map(([key, count]) => <article key={key}><span><b>{academyRoleLabels[key as AcademyRole] || roleLabel(key as Profile["role"])}</b><small>{count} pessoa(s)</small></span><div><i style={{ width: `${Math.max(8, Math.round((count / Math.max(profiles.length, 1)) * 100))}%` }} /></div><strong>{Math.round((count / Math.max(profiles.length, 1)) * 100)}%</strong></article>) : <p>Nenhuma pessoa da equipe foi carregada para este perfil.</p>}</div></section>
-      <section className="academy-sync-plan"><i>↻</i><span><b>Próxima etapa: progresso central e certificados oficiais</b><p>Será necessário aprovar uma migração versionada no Supabase, com políticas por perfil e território. Esta revisão não altera o banco.</p></span></section>
+      <div className="academy-manager-metrics"><article><small>PESSOAS VISÍVEIS</small><b>{teamSummary.length ? summaryPeople : profiles.length}</b><span>conforme a permissão atual</span></article><article><small>FORMAÇÃO INICIADA</small><b>{teamSummary.length ? summaryStarted : 0}</b><span>pessoas com atividade registrada</span></article><article><small>TRILHA CONCLUÍDA</small><b>{teamSummary.length ? summaryCompleted : 0}</b><span>{summaryAverage}% de progresso médio</span></article><article><small>VERSÃO DO CONTEÚDO</small><b>{curriculum.version}</b><span>{Object.keys(curriculum.roles).length} trilhas por função</span></article></div>
+      <section className="academy-role-distribution"><header><span><small>DISTRIBUIÇÃO</small><h3>Perfis da equipe</h3></span><em>Dados agregados</em></header><div>{distribution.length ? distribution.map(item => <article key={item.key}><span><b>{academyRoleLabels[item.key as AcademyRole] || roleLabel(item.key as Profile["role"])}</b><small>{item.count} pessoa(s){teamSummary.length ? ` · ${item.progress}% concluído` : ""}</small></span><div><i style={{ width: `${Math.max(8, Math.round((item.count / distributionPeople) * 100))}%` }} /></div><strong>{Math.round((item.count / distributionPeople) * 100)}%</strong></article>) : <p>Nenhuma pessoa da equipe foi carregada para este perfil.</p>}</div></section>
+      <section className="academy-sync-plan"><i>✓</i><span><b>Acompanhamento central ativado</b><p>Os indicadores usam somente dados agregados da equipe que este perfil tem permissão para acompanhar. Contatos pessoais não aparecem aqui.</p></span></section>
     </div>}
 
     {tab === "certificado" && <div className="academy-certificate-area">
       <div className="academy-certificate">
-        <small>ACADEMIA NORTEP · CERTIFICAÇÃO</small><i><b>N</b>P</i><h3>{eligible ? "Requisitos cumpridos" : "Certificação em andamento"}</h3><p>Trilha de {track.title} para <b>{profile.name}</b>.</p><div><span><b>{progressPercent}%</b><small>aulas concluídas</small></span><span><b>{score}%</b><small>aproveitamento</small></span><span><b>{curriculum.certification.minimumScore}%</b><small>nota mínima</small></span></div><ul>{curriculum.certification.requirements.map(requirement => <li key={requirement}>{requirement}</li>)}</ul><button disabled={!eligible} onClick={() => window.print()}>{eligible ? "Imprimir prévia do certificado" : "Conclua a trilha para liberar"}</button><em>Prévia sem validade até o progresso ser sincronizado e validado pela gestão.</em>
+        <small>ACADEMIA NORTEP · CERTIFICAÇÃO</small><i><b>N</b>P</i><h3>{certificate?.status === "active" ? "Certificado emitido" : eligible ? "Validando conclusão" : "Certificação em andamento"}</h3><p>Trilha de {track.title} para <b>{profile.name}</b>.</p><div><span><b>{progressPercent}%</b><small>aulas concluídas</small></span><span><b>{score}%</b><small>aproveitamento</small></span><span><b>{curriculum.certification.minimumScore}%</b><small>nota mínima</small></span></div><ul>{curriculum.certification.requirements.map(requirement => <li key={requirement}>{requirement}</li>)}</ul><button disabled={certificate?.status !== "active"} onClick={() => window.print()}>{certificate?.status === "active" ? "Imprimir certificado" : eligible ? "Sincronizando certificado…" : "Conclua a trilha para liberar"}</button><em>{certificate?.status === "active" ? `Emitido em ${new Date(certificate.issued_at).toLocaleDateString("pt-BR")} e validado pela Academia NorteP.` : "O certificado oficial é liberado depois que todos os requisitos forem validados no NorteP."}</em>
       </div>
     </div>}
   </section>;
