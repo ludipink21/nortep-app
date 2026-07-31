@@ -218,8 +218,53 @@ export type AcademyLessonProgress = {
   certificate_issued?: boolean;
 };
 
-export type AcademyCertificate = { id: string; role_key: string; issued_at: string; status: "active" | "revoked" };
-export type AcademyTeamSummary = { role_key: string; people: number; started: number; completed: number; average_progress: number };
+export type AcademyCertificate = {
+  id: string;
+  role_key: string;
+  issued_at: string;
+  expires_at: string;
+  status: "active" | "expired" | "revoked";
+  renewal_requested_at?: string | null;
+};
+export type AcademyTeamSummary = {
+  role_key: string;
+  people: number;
+  started: number;
+  completed: number;
+  average_progress: number;
+  awaiting_practice: number;
+  certified: number;
+  recertification_due: number;
+};
+export type AcademyPractice = {
+  id: string;
+  profile_name?: string;
+  role_key: string;
+  response_text: string;
+  status: "pending" | "approved" | "changes_requested";
+  reviewer_feedback: string;
+  submitted_at: string;
+  reviewed_at?: string | null;
+};
+export type AcademyPublishedContent = {
+  lesson_id: string;
+  role_key: string;
+  module_id: string;
+  content: Record<string, unknown>;
+  published_at: string;
+};
+export type AcademyContentRevision = {
+  id: string;
+  lesson_id: string;
+  role_key: string;
+  module_id: string;
+  revision: number;
+  status: "draft" | "review" | "approved" | "published";
+  content: Record<string, unknown>;
+  author_name: string;
+  updated_at: string;
+};
+export type AcademyTrackAssignment = { profile_id: string; profile_name: string; operational_role: string; academy_role: string };
 
 let url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 let key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
@@ -504,6 +549,99 @@ export async function loadAcademyTeamSummary(session: Session, curriculumVersion
   return rest<AcademyTeamSummary[]>(session, "rpc/get_academy_team_summary", {
     method: "POST",
     body: JSON.stringify({ p_curriculum_version: curriculumVersion }),
+  });
+}
+
+export async function loadAcademyPractice(session: Session, curriculumVersion: string) {
+  const rows = await rest<AcademyPractice[]>(session, "rpc/get_own_academy_practice", {
+    method: "POST",
+    body: JSON.stringify({ p_curriculum_version: curriculumVersion }),
+  });
+  return rows[0] ?? null;
+}
+
+export async function submitAcademyPractice(session: Session, curriculumVersion: string, responseText: string) {
+  return rest<string>(session, "rpc/submit_academy_practice", {
+    method: "POST",
+    body: JSON.stringify({ p_curriculum_version: curriculumVersion, p_response_text: responseText }),
+  });
+}
+
+export async function loadAcademyPracticeQueue(session: Session, curriculumVersion: string) {
+  return rest<AcademyPractice[]>(session, "rpc/list_academy_practice_queue", {
+    method: "POST",
+    body: JSON.stringify({ p_curriculum_version: curriculumVersion }),
+  });
+}
+
+export async function reviewAcademyPractice(session: Session, submissionId: string, decision: "approved" | "changes_requested", feedback: string) {
+  return rest<boolean>(session, "rpc/review_academy_practice", {
+    method: "POST",
+    body: JSON.stringify({ p_submission_id: submissionId, p_decision: decision, p_feedback: feedback }),
+  });
+}
+
+export async function requestAcademyRecertification(session: Session, curriculumVersion: string) {
+  return rest<boolean>(session, "rpc/request_academy_recertification", {
+    method: "POST",
+    body: JSON.stringify({ p_curriculum_version: curriculumVersion }),
+  });
+}
+
+export async function loadPublishedAcademyContent(session: Session, curriculumVersion: string) {
+  return rest<AcademyPublishedContent[]>(session, "rpc/get_published_academy_content", {
+    method: "POST",
+    body: JSON.stringify({ p_curriculum_version: curriculumVersion }),
+  });
+}
+
+export async function loadAcademyContentWorkflow(session: Session, curriculumVersion: string) {
+  return rest<AcademyContentRevision[]>(session, "rpc/list_academy_content_workflow", {
+    method: "POST",
+    body: JSON.stringify({ p_curriculum_version: curriculumVersion }),
+  });
+}
+
+export async function saveAcademyContentDraft(session: Session, input: {
+  curriculumVersion: string;
+  roleKey: string;
+  moduleId: string;
+  lessonId: string;
+  content: Record<string, unknown>;
+  correctAnswer?: number | null;
+}) {
+  return rest<string>(session, "rpc/save_academy_content_draft", {
+    method: "POST",
+    body: JSON.stringify({
+      p_curriculum_version: input.curriculumVersion,
+      p_role_key: input.roleKey,
+      p_module_id: input.moduleId,
+      p_lesson_id: input.lessonId,
+      p_content: input.content,
+      p_correct_answer: input.correctAnswer ?? null,
+    }),
+  });
+}
+
+export async function transitionAcademyContent(session: Session, revisionId: string, targetStatus: "review" | "approved" | "published") {
+  return rest<boolean>(session, "rpc/transition_academy_content", {
+    method: "POST",
+    body: JSON.stringify({ p_revision_id: revisionId, p_target_status: targetStatus }),
+  });
+}
+
+export async function loadOwnAcademyTrack(session: Session) {
+  return rest<string>(session, "rpc/get_own_academy_track", { method: "POST", body: "{}" });
+}
+
+export async function loadAcademyTrackAssignments(session: Session) {
+  return rest<AcademyTrackAssignment[]>(session, "rpc/list_academy_track_assignments", { method: "POST", body: "{}" });
+}
+
+export async function setAcademyTrackAssignment(session: Session, profileId: string, roleKey: string) {
+  return rest<boolean>(session, "rpc/set_academy_track_assignment", {
+    method: "POST",
+    body: JSON.stringify({ p_profile_id: profileId, p_role_key: roleKey }),
   });
 }
 

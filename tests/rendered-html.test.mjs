@@ -15,6 +15,8 @@ const academy = await readFile(new URL("../app/academia.tsx", import.meta.url), 
 const academyStyles = await readFile(new URL("../app/academia.css", import.meta.url), "utf8");
 const academyContent = JSON.parse(await readFile(new URL("../app/academia-content.json", import.meta.url), "utf8"));
 const academyMigration = await readFile(new URL("../supabase/migrations/20260731150000_academia_nortep.sql", import.meta.url), "utf8");
+const academyOperationalMigration = await readFile(new URL("../supabase/migrations/20260731230000_academia_v49_operacional.sql", import.meta.url), "utf8");
+const academyManagement = await readFile(new URL("../app/academia-management.tsx", import.meta.url), "utf8");
 
 test("V49 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
   for (const channel of ["principal", "administracao", "coordenacao", "supervisao", "observador", "pesquisador"]) {
@@ -168,13 +170,42 @@ test("Academia persiste progresso com RLS e não abre respostas corretas ao nave
   assert.doesNotMatch(academyMigration, /grant\s+select\s+on\s+table\s+public\.academy_lessons\s+to\s+authenticated/i);
 });
 
-test("respostas das 57 aulas no servidor correspondem ao currículo revisado", () => {
+test("gabaritos das 57 aulas ficam exclusivamente no servidor", () => {
   const rows = [...academyMigration.matchAll(/\('3\.0\.0','([^']+)','([^']+)',(\d+)\)/g)]
     .map(match => ({ role: match[1], lesson: match[2], answer: Number(match[3]) }));
   assert.equal(rows.length, 57);
-  const expected = [
-    ...academyContent.commonModules.flatMap(module => module.lessons.map(lesson => ({ role: "comum", lesson: lesson.id, answer: lesson.quiz.answer }))),
-    ...Object.entries(academyContent.roles).flatMap(([role, track]) => track.modules.flatMap(module => module.lessons.map(lesson => ({ role, lesson: lesson.id, answer: lesson.quiz.answer })))),
+  const lessons = [
+    ...academyContent.commonModules.flatMap(module => module.lessons),
+    ...Object.values(academyContent.roles).flatMap(track => track.modules.flatMap(module => module.lessons)),
   ];
-  assert.deepEqual(rows, expected);
+  assert.ok(lessons.every(lesson => !("answer" in lesson.quiz)));
+  assert.doesNotMatch(academy, /quiz\.answer/);
+  assert.match(academy, /answer_correct/);
+});
+
+test("Academia operacional possui instrutoria, editor e fluxo editorial protegido", () => {
+  assert.match(academy, /AcademyInstructorPanel/);
+  assert.match(academy, /AcademyContentEditor/);
+  assert.match(academyManagement, /Rascunho → revisão → aprovação → publicação/);
+  assert.match(academyOperationalMigration, /academy_content_revisions/);
+  assert.match(academyOperationalMigration, /status='review'/);
+  assert.match(academyOperationalMigration, /status='approved'/);
+  assert.match(academyOperationalMigration, /status='published'/);
+  assert.match(academyOperationalMigration, /p_content - 'answer'/);
+  assert.match(academyOperationalMigration, /#- '\{quiz,answer\}'/);
+  assert.match(academyOperationalMigration, /revoke all on table public\.academy_content_revisions from public, anon, authenticated/);
+  assert.match(academyOperationalMigration, /academy_track_assignments/);
+  assert.match(academyOperationalMigration, /set_academy_track_assignment/);
+  assert.match(academyManagement, /PERFIS DE ALUNOS/);
+});
+
+test("prática, certificação anual, recertificação e progresso agregado estão integrados", () => {
+  assert.match(academyOperationalMigration, /academy_practice_submissions/);
+  assert.match(academyOperationalMigration, /maybe_issue_academy_certificate/);
+  assert.match(academyOperationalMigration, /request_academy_recertification/);
+  assert.match(academyOperationalMigration, /expires_at/);
+  assert.match(academyOperationalMigration, /awaiting_practice/);
+  assert.match(academyOperationalMigration, /recertification_due/);
+  assert.match(academy, /Prática obrigatória/);
+  assert.match(academy, /Solicitar recertificação/);
 });

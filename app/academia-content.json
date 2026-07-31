@@ -28,7 +28,6 @@
               "Usar a própria conta e registrar fielmente",
               "Compartilhar senha com a equipe"
             ],
-            "answer": 1,
             "feedback": "Correto: conta individual e registro fiel permitem segurança e auditoria."
           }
         },
@@ -52,7 +51,6 @@
               "Sim, quando o contato é opcional",
               "Somente se o supervisor autorizar"
             ],
-            "answer": 1,
             "feedback": "Correto: participação e autorização de contato são decisões separadas."
           }
         },
@@ -77,7 +75,6 @@
               "Mudar a resposta da pesquisa",
               "Explicar que sua função é ouvir com neutralidade"
             ],
-            "answer": 2,
             "feedback": "Correto: a postura profissional preserva a neutralidade da coleta."
           }
         }
@@ -108,7 +105,6 @@
               "Falar com clareza sem induzir",
               "Usar o mesmo tom com todas as pessoas"
             ],
-            "answer": 1,
             "feedback": "Correto: clareza e respeito sem alterar o instrumento."
           }
         },
@@ -133,7 +129,6 @@
               "Explicar a metodologia",
               "Sair com segurança e avisar o responsável"
             ],
-            "answer": 2,
             "feedback": "Correto: integridade física vem antes da meta."
           }
         },
@@ -159,7 +154,6 @@
               "Perguntar com respeito",
               "Falar somente com o acompanhante"
             ],
-            "answer": 1,
             "feedback": "Correto: pergunte e respeite a autonomia."
           }
         }
@@ -192,7 +186,6 @@
               "Diagnosticar com evidências",
               "Escolher uma narrativa pronta"
             ],
-            "answer": 1,
             "feedback": "Correto: diagnóstico reduz improviso e orienta a ação."
           }
         },
@@ -217,7 +210,6 @@
               "Mudar de assunto",
               "Reconhecer o limite e encaminhar"
             ],
-            "answer": 2,
             "feedback": "Correto: transparência é parte da competência."
           }
         },
@@ -242,7 +234,6 @@
               "Papéis definidos e rastreabilidade",
               "Copiar contatos para planilhas pessoais"
             ],
-            "answer": 1,
             "feedback": "Correto: integração exige fluxo, permissão e registro."
           }
         },
@@ -267,7 +258,6 @@
               "Proteger, registrar e escalar",
               "Apagar tudo e continuar"
             ],
-            "answer": 1,
             "feedback": "Correto: velocidade sem verificação pode ampliar o dano."
           }
         },
@@ -292,7 +282,6 @@
               "Orientar decisão e proteger qualidade",
               "Ocultar interrupções"
             ],
-            "answer": 1,
             "feedback": "Correto: medir serve para aprender e decidir."
           }
         },
@@ -318,7 +307,6 @@
               "Registrar com neutralidade",
               "Misturar serviço público e pedido de apoio"
             ],
-            "answer": 1,
             "feedback": "Correto: pesquisa exige neutralidade e separação de finalidades."
           }
         }
@@ -349,7 +337,6 @@
               "Adicionar contatos e riscos locais sem remover o núcleo obrigatório",
               "Liberar a mesma senha para a equipe"
             ],
-            "answer": 1,
             "feedback": "Correto: a regional acrescenta contexto local, mas preserva o padrão obrigatório."
           }
         },
@@ -374,7 +361,6 @@
               "Migrar contatos automaticamente",
               "Exigir justificativa e aprovação antes de qualquer migração"
             ],
-            "answer": 2,
             "feedback": "Correto: finalidade e acesso precisam ser controlados."
           }
         },
@@ -399,7 +385,6 @@
               "Nenhuma regional sem fluxo de aprovação",
               "Qualquer supervisor"
             ],
-            "answer": 1,
             "feedback": "Correto: mudanças precisam de governança e controle de versão."
           }
         },
@@ -424,7 +409,6 @@
               "Após mudança crítica ou incidente relevante",
               "Somente quando a pessoa pedir"
             ],
-            "answer": 1,
             "feedback": "Correto: atualização protege a operação e o público."
           }
         },
@@ -449,7 +433,6 @@
               "Demonstrar, acompanhar e validar a prática",
               "Alterar o currículo estadual"
             ],
-            "answer": 1,
             "feedback": "Correto: supervisão também é formação em campo."
           }
         },
@@ -474,7 +457,6 @@
               "Velocidade",
               "Segurança"
             ],
-            "answer": 2,
             "feedback": "Correto: integridade física vem antes de metas."
           }
         },
@@ -499,7 +481,6 @@
               "Conter o acesso e avisar pelo fluxo correto",
               "Comprar outro e continuar"
             ],
-            "answer": 1,
             "feedback": "Correto: contenção rápida reduz o risco."
           }
         },
@@ -524,7 +505,6 @@
               "Ser liberada apenas para coleta real",
               "Concluir o teste antes da liberação"
             ],
-            "answer": 2,
             "feedback": "Correto: prontidão deve ser comprovada antes da operação."
           }
         },
@@ -549,7 +529,6 @@
               "Ser arquivado e retirado da publicação ativa",
               "Ser enviado em grupos pessoais"
             ],
-            "answer": 1,
             "feedback": "Correto: uma única versão vigente reduz erro e conflito."
           }
         }
@@ -588,7 +567,6 @@
                   "Sair e entrar pelo canal correto",
                   "Limpar o navegador"
                 ],
-                "answer": 1,
                 "feedback": "Correto: novo acesso garante que o perfil aprovado seja carregado."
               }
             },
@@ -612,7 +590,6 @@
                   "Pendências de sincronização",
                   "Histórico do navegador"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -644,7 +621,6 @@
                   "Não, depende da liberação",
                   "Somente offline"
                 ],
-                "answer": 1,
                 "feedback": "Correto: a liberação é específica."
               }
             },
@@ -669,7 +645,6 @@
                   "Interrompida",
                   "Concluída"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -693,7 +668,6 @@
                   "Senha do pesquisador",
                   "Chave do cofre"
                 ],
-                "answer": 0,
                 "feedback": "Correto."
               }
             }
@@ -724,7 +698,6 @@
                   "Não",
                   "Somente em outro aparelho"
                 ],
-                "answer": 1,
                 "feedback": "Correto: isso pode apagar dados locais."
               }
             },
@@ -748,7 +721,6 @@
                   "Navegador",
                   "Senha"
                 ],
-                "answer": 2,
                 "feedback": "Correto."
               }
             }
@@ -786,7 +758,6 @@
                   "Não",
                   "Somente offline"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -811,7 +782,6 @@
                   "Papel, vínculo, território e status",
                   "Senha do usuário"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -842,7 +812,6 @@
                   "Analisar evidências e orientar",
                   "Aumentar a pressão por meta"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -867,7 +836,6 @@
                   "Nós fazemos",
                   "Você faz"
                 ],
-                "answer": 2,
                 "feedback": "Correto."
               }
             },
@@ -892,7 +860,6 @@
                   "Comportamentos observáveis",
                   "Boatos"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -923,7 +890,6 @@
                   "Retirar a equipe",
                   "Discutir com o grupo"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -962,7 +928,6 @@
                   "Não",
                   "Somente para liderança"
                 ],
-                "answer": 1,
                 "feedback": "Correto: autorizações são separadas."
               }
             },
@@ -987,7 +952,6 @@
                   "Morador relatou falta de luz na Rua X às noites",
                   "Todos odeiam o governo"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -1019,7 +983,6 @@
                   "Perguntar se prefere outro momento ou encerrar",
                   "Bloquear a passagem"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1044,7 +1007,6 @@
                   "Grupo de WhatsApp",
                   "Bloco de notas pessoal"
                 ],
-                "answer": 0,
                 "feedback": "Correto."
               }
             }
@@ -1082,7 +1044,6 @@
                   "Não, salvo autorização administrativa",
                   "Somente no celular"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1107,7 +1068,6 @@
                   "Somente a atribuída",
                   "Nenhuma"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -1139,7 +1099,6 @@
                   "Não",
                   "Somente offline"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1163,7 +1122,6 @@
                   "Não",
                   "Só para pesquisador"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -1202,7 +1160,6 @@
                   "Fundadora",
                   "Supervisor"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1226,7 +1183,6 @@
                   "Não",
                   "Sempre que o usuário pedir verbalmente"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -1258,7 +1214,6 @@
                   "Após revisão e piloto",
                   "Assim que criar o título"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1283,7 +1238,6 @@
                   "Não",
                   "Somente para fundadora"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -1322,7 +1276,6 @@
                   "A taxa subiu; verificar território, horário e abordagem",
                   "Excluir recusas do painel"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1346,7 +1299,6 @@
                   "Reidentificar pessoas",
                   "Perder o login"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -1378,7 +1330,6 @@
                   "Não",
                   "Somente em grupos privados"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1403,7 +1354,6 @@
                   "Pessoas amigas e inimigas",
                   "Senha e chave"
                 ],
-                "answer": 0,
                 "feedback": "Correto."
               }
             }
@@ -1441,7 +1391,6 @@
                   "Não",
                   "Somente a própria"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1465,7 +1414,6 @@
                   "Sair do aplicativo",
                   "Salvar senha no navegador"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -1504,7 +1452,6 @@
                   "Não",
                   "Somente por mensagem privada"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1529,7 +1476,6 @@
                   "Foi testado e pode ser restaurado",
                   "Está no celular de uma pessoa"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -1561,7 +1507,6 @@
                   "Executar a tarefa e resolver cenário simples",
                   "Compartilhar a senha"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
@@ -1600,7 +1545,6 @@
                   "Demonstração e prática com feedback",
                   "Leitura sem exercício"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             },
@@ -1625,7 +1569,6 @@
                   "Evidências de competência e segurança",
                   "Quantidade de fala"
                 ],
-                "answer": 1,
                 "feedback": "Correto."
               }
             }
