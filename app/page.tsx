@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import AcademiaNorteP from "./academia";
 import { CandidateOperation, clearSurveyTestData, configured, createAccessInvite, createCandidateObserverInvite, createMobilizationPartner, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadCandidateOperations, loadFieldEvents, loadInterviews, loadMobilizationPartners, loadObserverSummary, loadProfile, loadProfiles, loadProfileTerritories, loadPublicMobilizationForm, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadTeamLinks, loadVaultAudit, loadVaultContacts, MobilizationPartner, ObserverSummary, Profile, ProfileTerritory, PublicMobilizationForm, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setMobilizationPartnerActive, setProfileActive, setProfileTerritories, setSurveyAssignments, setupVaultKey, signIn, signUp, submitPublicMobilizationResponse, Survey, SurveyQuestion, TeamLink, unlockVault, updatePassword, updateSurveyStatusAdmin, updateSurveyThankYouVideo, VaultAudit, VaultContact } from "./supabase";
 
-type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "mobilizacao" | "ecossistema" | "cofre" | "portal" | "entrevista" | "obrigado";
+type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "mobilizacao" | "ecossistema" | "cofre" | "academia" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "observador" | "supervisao" | "coordenacao" | "administracao" | "principal";
 type FounderPerspective = "fundadora" | "publico" | "pesquisador" | "observador" | "candidato" | "supervisor" | "coordenador" | "administrador";
 type PendingItem =
@@ -573,7 +573,7 @@ export default function Home() {
   if (founderAccess && founderPerspective === "publico") return <><FounderPreviewBar label="Capa pública" voltar={leavePreview} /><div className="founder-preview-surface"><PublicLanding /></div></>;
   if (founderAccess && (founderPerspective === "observador" || founderPerspective === "candidato")) return <><FounderPreviewBar label={founderPerspective === "candidato" ? "Painel Estratégico do Candidato" : "Observador geral"} voltar={leavePreview} /><div className="founder-preview-surface"><ObserverPanel profile={visualProfile} summary={{ ...previewObserverSummary, observer_mode: founderPerspective === "candidato" ? "candidato" : "geral" }} session={session} partners={mobilizationPartners} operations={candidateOperations} aviso={aviso} sair={leavePreview} descadastrar={async () => aviso("A prévia não altera a sua conta fundadora.")} atualizar={async () => atualizarDadosAdmin()} /></div></>;
 
-  const campo = founderPerspective === "pesquisador" || view === "portal" || view === "entrevista" || view === "obrigado";
+  const campo = founderPerspective === "pesquisador" || view === "portal" || view === "entrevista" || view === "obrigado" || (view === "academia" && visualProfile.role === "pesquisador");
   const titulos: Record<View, string> = {
     inicio: "Visão geral",
     visoes: "Visão completa do aplicativo",
@@ -585,6 +585,7 @@ export default function Home() {
     mobilizacao: "Mobilização e relacionamentos",
     ecossistema: "Ecossistema NorteP",
     cofre: "Cofre de contatos",
+    academia: "Aulas e formação",
     portal: "Minhas pesquisas",
     entrevista: "Nova entrevista",
     obrigado: "Entrevista concluída",
@@ -600,6 +601,7 @@ export default function Home() {
         ...(founderAccess && !previewing ? [["visoes", "◉", "Ver todo o aplicativo"]] : []),
         ["pesquisas", "▤", "Pesquisas"],
         ["coordenacao", "♟", visualProfile.role === "supervisor" ? "Minha supervisão" : visualProfile.role === "coordenador" ? "Minha coordenação" : "Coordenação"],
+        ...(visualProfile.role === "supervisor" ? [["academia", "◫", "Aulas e formação"]] : []),
         ...(visualProfile.role === "admin" ? [["equipe", "♙", "Acessos e cadastros"]] : []),
         ["rankings", "★", "Rankings"],
         ["resultados", "◫", "Resultados"],
@@ -621,7 +623,8 @@ export default function Home() {
         <section>
           {view === "entrevista" && interviewStartedAt > 0 && <Cronometro inicio={interviewStartedAt} />}
           {campo && <button className="sync" onClick={sincronizarPendentes}>● {offline ? "Sem conexão" : pendingCount ? `${pendingCount} pendente(s)` : "Sincronizado"}</button>}
-          {campo && view === "portal" && <button className="refresh-surveys" onClick={() => void atualizarPesquisasPesquisador(true)}>↻ Atualizar pesquisas</button>}
+          {campo && view === "portal" && <><button className="refresh-surveys" onClick={() => void atualizarPesquisasPesquisador(true)}>↻ Atualizar pesquisas</button><button className="refresh-surveys" onClick={() => ir("academia")}>Aulas</button></>}
+          {campo && view === "academia" && <button className="refresh-surveys" onClick={() => ir("portal")}>Entrevistas</button>}
           {!campo && admin && <button className="preview-field" onClick={() => ir("portal")}>Ver área do pesquisador →</button>}
           {campo && <button className="sair-campo" onClick={() => previewing ? leavePreview() : admin ? ir("inicio") : sair()}>{previewing ? "Voltar ao painel da fundadora" : admin ? "Sair da prévia" : "Sair"}</button>}
         </section>
@@ -637,8 +640,9 @@ export default function Home() {
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "mobilizacao" && visualProfile.role === "admin" && <Mobilizacao aviso={aviso} session={session} partners={mobilizationPartners} atualizar={atualizarDadosAdmin} />}
         {view === "ecossistema" && <Ecossistema profile={visualProfile} profiles={team} session={session} />}
+        {view === "academia" && <><Cabecalho titulo="Aulas e formação" sub="Aulas e entrevistas ficam em abas separadas para organizar estudo e trabalho de campo." botao={visualProfile.role === "pesquisador" ? "← Entrevistas" : "← Minha supervisão"} acao={() => ir(visualProfile.role === "pesquisador" ? "portal" : "coordenacao")} /><AcademiaNorteP key={`${visualProfile.id}-${visualProfile.role}-${visualProfile.is_primary_admin ? "principal" : "padrao"}`} profile={visualProfile} profiles={team} session={session} /></>}
         {view === "cofre" && visualProfile.role === "admin" && <CofreContatos session={session} profiles={team} aviso={aviso} />}
-        {view === "portal" && <Portal profile={visualProfile} surveys={founderAccess && previewing ? adminSurveys.filter(item => item.status === "active" || item.status === "pilot") : surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
+        {view === "portal" && <Portal abrirAcademia={() => ir("academia")} profile={visualProfile} surveys={founderAccess && previewing ? adminSurveys.filter(item => item.status === "active" || item.status === "pilot") : surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
         {view === "entrevista" && survey && (survey.slug === "betim-territorio-escolhas-2026" ? <Entrevista extraQuestions={surveyQuestions} passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={() => {
           const motivo = respostas.consentirPesquisa === "Não aceito participar" ? "Consentimento recusado" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "Pessoa fora do público da pesquisa" : "Entrevista encerrada";
           void registrarOcorrencia(respostas.consentirPesquisa === "Não aceito participar" ? "refused" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "ineligible" : "interrupted", motivo, survey);
@@ -1583,7 +1587,7 @@ function Ecossistema({ profile, profiles, session }: { profile: Profile; profile
   })}</div></>;
 }
 
-function Portal({ iniciar, profile, surveys, interviews, pending, sincronizar, registrar }: { iniciar: (survey: Survey) => void; profile: Profile; surveys: Survey[]; interviews: SavedInterview[]; pending: number; sincronizar: () => void; registrar: (outcome: FieldEvent["outcome"], reason?: string, survey?: Survey | null) => void }) {
+function Portal({ iniciar, abrirAcademia, profile, surveys, interviews, pending, sincronizar, registrar }: { iniciar: (survey: Survey) => void; abrirAcademia: () => void; profile: Profile; surveys: Survey[]; interviews: SavedInterview[]; pending: number; sincronizar: () => void; registrar: (outcome: FieldEvent["outcome"], reason?: string, survey?: Survey | null) => void }) {
   const hoje = interviews.filter(x => new Date(x.completed_at || x.created_at).toDateString() === new Date().toDateString()).length;
   const [eventOpen, setEventOpen] = useState(false);
   const [eventSurveyId, setEventSurveyId] = useState(surveys[0]?.id || "");
