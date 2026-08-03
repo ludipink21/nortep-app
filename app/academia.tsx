@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import curriculumSource from "./academia-content.json";
+import curriculumSource from "./academia-v51-content.json";
 import { AcademyContentEditor, AcademyInstructorPanel, type EditableAcademyLesson } from "./academia-management";
 import { loadAcademyCertificate, loadAcademyPractice, loadAcademyProgress, loadAcademyTeamSummary, loadOwnAcademyTrack, loadPublishedAcademyContent, requestAcademyRecertification, saveAcademyLessonProgress, submitAcademyPractice, type AcademyCertificate, type AcademyLessonProgress, type AcademyPractice, type AcademyTeamSummary, type Profile, type Session } from "./supabase";
 
@@ -21,7 +21,9 @@ type AcademyLesson = {
   title: string;
   duration: number;
   objective: string;
+  context?: string;
   content: string[];
+  video?: { label: string; url: string };
   speak?: string;
   example: string;
   activity: string;
@@ -47,6 +49,7 @@ type AcademyModule = {
 type AcademyTrack = {
   title: string;
   description: string;
+  status?: "coming_soon";
   modules: AcademyModule[];
 };
 
@@ -201,7 +204,7 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
     setSyncState("syncing");
     try {
       const result = await saveAcademyLessonProgress(session, {
-        curriculumVersion: curriculum.version,
+        curriculumVersion: activeCurriculum.version,
         lessonId,
         answerIndex: snapshot.answers[lessonId] ?? null,
         draftText: snapshot.drafts[lessonId] || "",
@@ -279,8 +282,8 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
     if (!session) { setPracticeMessage("Entre na sua conta para enviar a prática à instrutora."); return; }
     setPracticeMessage("Enviando prática…");
     try {
-      await submitAcademyPractice(session, curriculum.version, practiceText);
-      setPractice(await loadAcademyPractice(session, curriculum.version));
+      await submitAcademyPractice(session, activeCurriculum.version, practiceText);
+      setPractice(await loadAcademyPractice(session, activeCurriculum.version));
       setPracticeMessage("Prática enviada para avaliação da instrutora.");
     } catch (error) { setPracticeMessage(error instanceof Error ? error.message : "Não foi possível enviar a prática."); }
   };
@@ -289,9 +292,9 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
     if (!session) return;
     setPracticeMessage("Abrindo recertificação…");
     try {
-      await requestAcademyRecertification(session, curriculum.version);
-      setCertificate(await loadAcademyCertificate(session, curriculum.version));
-      setPractice(await loadAcademyPractice(session, curriculum.version));
+      await requestAcademyRecertification(session, activeCurriculum.version);
+      setCertificate(await loadAcademyCertificate(session, activeCurriculum.version));
+      setPractice(await loadAcademyPractice(session, activeCurriculum.version));
       setPracticeMessage("Recertificação aberta. Atualize e reenvie sua prática.");
     } catch (error) { setPracticeMessage(error instanceof Error ? error.message : "Não foi possível abrir a recertificação."); }
   };
@@ -348,6 +351,7 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
       </div>
     </div>
 
+    {track.status === "coming_soon" ? <div className="academy-empty-track"><small>TRILHA EM PREPARAÇÃO</small><h3>{track.title}</h3><p>Este espaço já está separado para o perfil de {track.title.toLowerCase()}. As aulas serão incluídas depois, sem misturar atividades nem progresso com Pesquisa e Supervisão.</p><span>Enquanto isso, a equipe responsável pode usar o editor protegido para preparar rascunhos, links de vídeo e novas atividades.</span></div> : <>
     <div className={`academy-preview-note academy-sync-${syncState}`} role="status">
       <i>{syncState === "synced" && !progress.pending.length ? "✓" : syncState === "syncing" || syncState === "loading" ? "↻" : "i"}</i><span><b>{syncCopy.title}</b><small>{syncCopy.detail}</small></span>
       {session && progress.pending.length > 0 && <button type="button" onClick={() => void syncPending()} disabled={syncState === "syncing"}>Sincronizar agora</button>}
@@ -377,7 +381,9 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
 
       {selectedLesson && <article className="academy-lesson">
         <header><span><small>{selectedModule?.title}</small><h3>{selectedLesson.title}</h3><p>{selectedLesson.objective}</p></span><em>{selectedLesson.duration} min</em></header>
+        {selectedLesson.context && <section className="academy-context"><small>CONTEXTO DA AULA</small><p>{selectedLesson.context}</p></section>}
         <section className="academy-content-block"><h4>O que você vai aprender</h4><ul>{selectedLesson.content.map((item, index) => <li key={`${selectedLesson.id}-content-${index}`}>{item}</li>)}</ul></section>
+        {selectedLesson.video && <section className="academy-video-slot"><span><small>VÍDEO DA AULA</small><b>{selectedLesson.video.label}</b><p>{selectedLesson.video.url ? "Abra o material em vídeo para complementar esta aula." : "Espaço reservado para inserir o link do vídeo desta aula."}</p></span>{selectedLesson.video.url ? <a href={selectedLesson.video.url} target="_blank" rel="noreferrer">Abrir vídeo</a> : <button type="button" disabled>Link será adicionado</button>}</section>}
         {selectedLesson.example && <section className="academy-example"><i>✦</i><span><b>Exemplo prático</b><p>{selectedLesson.example}</p></span></section>}
         {(selectedLesson.speak || selectedLesson.instructor) && instructors && <section className="academy-instructor"><b>Roteiro da instrutora · {selectedLesson.duration} minutos</b><p>{selectedLesson.instructor?.opening || selectedLesson.speak}</p><dl>
           <div><dt>Demonstração</dt><dd>{selectedLesson.instructor?.demonstration || selectedLesson.example}</dd></div>
@@ -421,5 +427,6 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
     </div>}
     {tab === "instrutoria" && instructors && session && <AcademyInstructorPanel session={session} curriculumVersion={activeCurriculum.version} />}
     {tab === "editor" && editors && session && <AcademyContentEditor session={session} profile={profile} curriculumVersion={activeCurriculum.version} lessons={editableLessons} />}
+    </>}
   </section>;
 }

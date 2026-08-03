@@ -14,8 +14,10 @@ const candidateMobilization = await readFile(new URL("../supabase/migrations/202
 const academy = await readFile(new URL("../app/academia.tsx", import.meta.url), "utf8");
 const academyStyles = await readFile(new URL("../app/academia.css", import.meta.url), "utf8");
 const academyContent = JSON.parse(await readFile(new URL("../app/academia-content.json", import.meta.url), "utf8"));
+const academyV4Content = JSON.parse(await readFile(new URL("../app/academia-v51-content.json", import.meta.url), "utf8"));
 const academyMigration = await readFile(new URL("../supabase/migrations/20260731150000_academia_nortep.sql", import.meta.url), "utf8");
 const academyOperationalMigration = await readFile(new URL("../supabase/migrations/20260731230000_academia_v49_operacional.sql", import.meta.url), "utf8");
+const academyV4Migration = await readFile(new URL("../supabase/migrations/20260802120000_academia_pesquisa_supervisao_v4.sql", import.meta.url), "utf8");
 const academyManagement = await readFile(new URL("../app/academia-management.tsx", import.meta.url), "utf8");
 
 test("V49 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
@@ -197,6 +199,33 @@ test("Academia operacional possui instrutoria, editor e fluxo editorial protegid
   assert.match(academyOperationalMigration, /academy_track_assignments/);
   assert.match(academyOperationalMigration, /set_academy_track_assignment/);
   assert.match(academyManagement, /PERFIS DE ALUNOS/);
+});
+
+test("Academia V4 começa pelo aplicativo e separa Pesquisa, Supervisão e demais perfis", () => {
+  assert.equal(academyV4Content.version, "4.0.0");
+  assert.match(JSON.stringify(academyV4Content), /Apresentação: por que existe a NorteP/);
+  assert.match(JSON.stringify(academyV4Content), /convite, cadastro e entrada segura/);
+  assert.match(JSON.stringify(academyV4Content), /O que é uma pesquisa/);
+  assert.match(JSON.stringify(academyV4Content), /Conhecendo o aplicativo/);
+  assert.equal(academyV4Content.roles.pesquisador.modules.flatMap(module => module.lessons).length, 3);
+  assert.equal(academyV4Content.roles.supervisor.modules.flatMap(module => module.lessons).length, 2);
+  for (const role of ["mobilizador", "coordenador", "administrador", "analista", "observador", "fundadora"]) assert.equal(academyV4Content.roles[role].status, "coming_soon");
+  assert.match(page, /Aulas e formação/);
+  assert.match(page, /abrirAcademia/);
+});
+
+test("gabaritos V4 seguem no Supabase e vídeos ficam como espaços editáveis", () => {
+  const lessons = [
+    ...academyV4Content.commonModules.flatMap(module => module.lessons),
+    ...academyV4Content.roles.pesquisador.modules.flatMap(module => module.lessons),
+    ...academyV4Content.roles.supervisor.modules.flatMap(module => module.lessons),
+  ];
+  assert.equal(lessons.length, 9);
+  assert.ok(lessons.every(lesson => !Object.hasOwn(lesson.quiz, "answer")));
+  assert.ok(lessons.every(lesson => lesson.context && lesson.video && Object.hasOwn(lesson.video, "url")));
+  assert.equal([...academyV4Migration.matchAll(/\('4\.0\.0','([^']+)','([^']+)',(\d+)\)/g)].length, 9);
+  assert.match(academyV4Migration, /não remove usuários, entrevistas, pesquisas, respostas/i);
+  assert.match(academy, /Espaço reservado para inserir o link do vídeo/);
 });
 
 test("prática, certificação anual, recertificação e progresso agregado estão integrados", () => {
