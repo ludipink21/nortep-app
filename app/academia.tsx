@@ -39,6 +39,17 @@ type AcademyLesson = {
   };
 };
 
+type AcademyPresentationSlide = {
+  lessonId: string;
+  moduleTitle: string;
+  kind: "abertura" | "conceito" | "caso" | "pratica";
+  eyebrow: string;
+  title: string;
+  text?: string;
+  bullets?: string[];
+  image: string;
+};
+
 type AcademyModule = {
   id: string;
   title: string;
@@ -107,7 +118,37 @@ function AcademyExercise({ lesson, initialValue, onSave }: { lesson: AcademyLess
     onSave(draft);
     setSaved(Boolean(draft.trim()));
   };
-  return <section className="academy-exercise"><small>EXERCÍCIO</small><h4>{lesson.activity}</h4><p>Faça no seu ritmo. Você pode salvar uma parte, sair e continuar depois.</p><textarea value={draft} onChange={event => { setDraft(event.target.value); setSaved(false); }} onBlur={save} placeholder="Comece sua resposta aqui. Ela pode ser completada depois." /><div className="academy-exercise-actions"><span>{saved ? "✓ Exercício salvo" : draft.trim() ? "Há alterações para salvar." : "Você pode começar quando estiver pronta."}</span><button type="button" onClick={save} disabled={!draft.trim() || saved}>{saved ? "Salvo" : "Salvar exercício"}</button></div></section>;
+  return <section className="academy-exercise"><small>EXERCÍCIO · PRÁTICA GUIADA</small><h4>{lesson.activity}</h4><p>Responda uma etapa de cada vez. Você pode salvar uma parte, sair e continuar depois.</p><textarea value={draft} onChange={event => { setDraft(event.target.value); setSaved(false); }} onBlur={save} placeholder="Escreva sua resposta em tópicos curtos. Exemplo: 1. O que observei; 2. O que faria; 3. Como registraria." /><div className="academy-exercise-actions"><span>{saved ? "✓ Exercício salvo" : draft.trim() ? "Há alterações para salvar." : "Você pode começar quando estiver pronta."}</span><button type="button" onClick={save} disabled={!draft.trim() || saved}>{saved ? "Salvo" : "Salvar exercício"}</button></div></section>;
+}
+
+function presentationImage(audience: AcademyRole, kind: AcademyPresentationSlide["kind"]) {
+  if (audience === "supervisor") return "/academia/mist-supervisao.jpg";
+  if (kind === "caso" || kind === "pratica") return "/academia/mist-escuta.jpg";
+  return "/academia/mist-pesquisa.jpg";
+}
+
+function buildPresentationSlides(modules: AcademyModule[], audience: AcademyRole): AcademyPresentationSlide[] {
+  return modules.flatMap(module => module.lessons.flatMap(lesson => [
+    { lessonId: lesson.id, moduleTitle: module.title, kind: "abertura" as const, eyebrow: "POR QUE ESTA AULA IMPORTA", title: lesson.title, text: lesson.objective, bullets: lesson.context ? [lesson.context] : [], image: presentationImage(audience, "abertura") },
+    { lessonId: lesson.id, moduleTitle: module.title, kind: "conceito" as const, eyebrow: "IDEIAS ESSENCIAIS", title: "O que precisa ficar claro", bullets: lesson.content, image: presentationImage(audience, "conceito") },
+    { lessonId: lesson.id, moduleTitle: module.title, kind: "caso" as const, eyebrow: "ESTUDO DE CASO", title: "O que você faria nesta situação?", text: lesson.example, bullets: lesson.instructor?.guidingQuestions || [lesson.quiz.question], image: presentationImage(audience, "caso") },
+    { lessonId: lesson.id, moduleTitle: module.title, kind: "pratica" as const, eyebrow: "DINÂMICA DA TURMA", title: "Agora é com vocês", text: lesson.activity, bullets: lesson.instructor?.rubric || ["Explique sua escolha", "Mantenha neutralidade e respeito", "Registre apenas o necessário"], image: presentationImage(audience, "pratica") },
+  ]));
+}
+
+function AcademyPresentation({ slides, index, setIndex, onClose }: { slides: AcademyPresentationSlide[]; index: number; setIndex: (index: number) => void; onClose: () => void }) {
+  const slide = slides[index];
+  if (!slide) return null;
+  const previous = () => setIndex(Math.max(0, index - 1));
+  const next = () => setIndex(Math.min(slides.length - 1, index + 1));
+  return <section className={`academy-presentation academy-presentation-${slide.kind}`} aria-label="Apresentação da aula" tabIndex={0} onKeyDown={event => { if (event.key === "ArrowLeft") previous(); if (event.key === "ArrowRight") next(); if (event.key === "Escape") onClose(); }}>
+    <header><span><small>{slide.eyebrow}</small><b>{slide.moduleTitle}</b></span><div><em>{index + 1} / {slides.length}</em><button type="button" onClick={onClose}>Fechar apresentação</button></div></header>
+    <div className="academy-presentation-stage">
+      <div className="academy-presentation-copy"><small>{slide.moduleTitle}</small><h3>{slide.title}</h3>{slide.text && <p>{slide.text}</p>}{slide.bullets?.length ? <ul>{slide.bullets.map(item => <li key={item}>{item}</li>)}</ul> : null}</div>
+      <figure><img src={slide.image} alt="Ilustração educativa da Academia NorteP" /><figcaption>M.I.S.T. · formação prática e responsável</figcaption></figure>
+    </div>
+    <footer><button type="button" onClick={previous} disabled={index === 0}>← Anterior</button><span><i style={{ width: `${((index + 1) / slides.length) * 100}%` }} /></span><button type="button" onClick={next} disabled={index === slides.length - 1}>Próximo →</button></footer>
+  </section>;
 }
 
 function progressFromRows(rows: AcademyLessonProgress[]): AcademyProgress {
@@ -410,6 +451,9 @@ export function AcademiaInstrutoriaNorteP({ profile, session }: { profile: Profi
   const modules = useMemo(() => [...activeCurriculum.commonModules, ...activeCurriculum.roles[audience].modules], [activeCurriculum, audience]);
   const lessons = useMemo(() => modules.flatMap(module => module.lessons), [modules]);
   const [selectedLessonId, setSelectedLessonId] = useState(lessons[0]?.id || "");
+  const [presentationOpen, setPresentationOpen] = useState(false);
+  const [presentationIndex, setPresentationIndex] = useState(0);
+  const presentationSlides = useMemo(() => buildPresentationSlides(modules, audience), [modules, audience]);
   const selectedLesson = lessons.find(lesson => lesson.id === selectedLessonId) || lessons[0];
   const selectedModule = modules.find(module => module.lessons.some(lesson => lesson.id === selectedLesson?.id));
   const editableLessons = useMemo<EditableAcademyLesson[]>(() => {
@@ -428,6 +472,8 @@ export function AcademiaInstrutoriaNorteP({ profile, session }: { profile: Profi
 
   useEffect(() => {
     if (!lessons.some(lesson => lesson.id === selectedLessonId)) setSelectedLessonId(lessons[0]?.id || "");
+    setPresentationIndex(0);
+    setPresentationOpen(false);
   }, [audience, lessons, selectedLessonId]);
 
   if (!profile.is_primary_admin) return null;
@@ -445,7 +491,8 @@ export function AcademiaInstrutoriaNorteP({ profile, session }: { profile: Profi
     </nav>
 
     {tab === "planos" && <>
-      <div className="academy-audience-switch" role="group" aria-label="Público da formação"><span><small>PREPARAR FORMAÇÃO PARA</small><b>{academyRoleLabels[audience]}</b></span><div><button className={audience === "pesquisador" ? "active" : ""} onClick={() => setAudience("pesquisador")}>Pesquisadores · 7 aulas</button><button className={audience === "supervisor" ? "active" : ""} onClick={() => setAudience("supervisor")}>Supervisores · 6 aulas</button></div></div>
+      <div className="academy-audience-switch" role="group" aria-label="Público da formação"><span><small>PREPARAR FORMAÇÃO PARA</small><b>{academyRoleLabels[audience]}</b></span><div><button className={audience === "pesquisador" ? "active" : ""} onClick={() => setAudience("pesquisador")}>Pesquisadores · 7 aulas</button><button className={audience === "supervisor" ? "active" : ""} onClick={() => setAudience("supervisor")}>Supervisores · 6 aulas</button><button className="academy-presentation-open" onClick={() => { setPresentationIndex(0); setPresentationOpen(true); }}>▣ Apresentação completa</button></div></div>
+      {presentationOpen && <AcademyPresentation slides={presentationSlides} index={presentationIndex} setIndex={setPresentationIndex} onClose={() => setPresentationOpen(false)} />}
       <div className="academy-learning-grid academy-instructor-grid">
         <aside className="academy-modules"><header><small>MATERIAL DA INSTRUTORA</small><h3>{activeCurriculum.roles[audience].title}</h3><p>Escolha uma aula para abrir o roteiro de condução.</p></header>{modules.map((module, index) => <details key={module.id} open={module.lessons.some(lesson => lesson.id === selectedLesson?.id) || index === 0}><summary><i>{module.icon || "NP"}</i><span><b>{module.title}</b><small>{module.lessons.length} aula(s)</small></span></summary><div>{module.lessons.map(lesson => <button key={lesson.id} className={lesson.id === selectedLesson?.id ? "active" : ""} onClick={() => setSelectedLessonId(lesson.id)}><i>✦</i><span>{lesson.title}<small>{lesson.duration} min</small></span></button>)}</div></details>)}</aside>
         {selectedLesson && <article className="academy-lesson academy-instructor-plan">
@@ -453,8 +500,8 @@ export function AcademiaInstrutoriaNorteP({ profile, session }: { profile: Profi
           <section className="academy-context"><small>OBJETIVO E CONTEXTO</small><h4>{selectedLesson.objective}</h4><p>{selectedLesson.context}</p></section>
           <section className="academy-instructor"><b>Abertura da instrutora</b><p>{selectedLesson.instructor?.opening || selectedLesson.speak || "Apresente o objetivo da aula e combine a participação da turma."}</p></section>
           <section className="academy-content-block"><h4>Passo a passo da explicação</h4><ol>{selectedLesson.content.map((item, index) => <li key={`${selectedLesson.id}-instructor-content-${index}`}>{item}</li>)}</ol></section>
-          <section className="academy-example"><i>✦</i><span><b>Exemplo para usar na aula</b><p>{selectedLesson.example}</p></span></section>
-          <div className="academy-instructor-materials"><section><small>DEMONSTRAÇÃO</small><p>{selectedLesson.instructor?.demonstration || selectedLesson.example}</p></section><section><small>PERGUNTAS PARA A TURMA</small><ul>{(selectedLesson.instructor?.guidingQuestions || [selectedLesson.quiz.question]).map(question => <li key={question}>{question}</li>)}</ul></section><section><small>RESPOSTA ESPERADA</small><p>{selectedLesson.instructor?.expectedResponse || selectedLesson.quiz.feedback}</p></section><section><small>RUBRICA DE OBSERVAÇÃO</small><ul>{(selectedLesson.instructor?.rubric || ["Aplica o procedimento", "Explica a decisão", "Registra evidências"]).map(item => <li key={item}>{item}</li>)}</ul></section></div>
+          <section className="academy-example"><i>✦</i><span><b>Estudo de caso para a turma</b><p>{selectedLesson.example}</p></span></section>
+          <div className="academy-instructor-materials"><section><small>DINÂMICA / ROLEPLAY</small><p>{selectedLesson.instructor?.demonstration || selectedLesson.example}</p></section><section><small>PERGUNTAS PARA A TURMA</small><ul>{(selectedLesson.instructor?.guidingQuestions || [selectedLesson.quiz.question]).map(question => <li key={question}>{question}</li>)}</ul></section><section><small>RESPOSTA ESPERADA</small><p>{selectedLesson.instructor?.expectedResponse || selectedLesson.quiz.feedback}</p></section><section><small>O QUE OBSERVAR</small><ul>{(selectedLesson.instructor?.rubric || ["Aplica o procedimento", "Explica a decisão", "Registra evidências"]).map(item => <li key={item}>{item}</li>)}</ul></section></div>
           {selectedLesson.instructor?.notes && <section className="academy-instructor-notes"><small>OBSERVAÇÕES DA INSTRUTORA</small><p>{selectedLesson.instructor.notes}</p></section>}
           {selectedLesson.video && <section className="academy-video-slot"><span><small>APOIO EM VÍDEO</small><b>{selectedLesson.video.label}</b><p>{selectedLesson.video.url ? "Material complementar disponível para o aulão." : "O link poderá ser acrescentado no Editor de materiais."}</p></span>{selectedLesson.video.url ? <a href={selectedLesson.video.url} target="_blank" rel="noreferrer">Abrir vídeo</a> : <button type="button" onClick={() => setTab("editor")}>Adicionar no editor</button>}</section>}
         </article>}
