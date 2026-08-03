@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
-// Public runtime configuration for the production NorteP database.\nconst supabaseUrl =
+// Public runtime configuration for the production NorteP database.
+const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
   "https://anioubcfdpbqbhmgkbwf.supabase.co";
 
