@@ -255,3 +255,10 @@ test("prática, certificação anual, recertificação e progresso agregado est�
   assert.match(academy, /Prática obrigatória/);
   assert.match(academy, /Solicitar recertificação/);
 });
+
+test("Academia oferece apresentação completa e exercícios legíveis no celular", () => {
+  assert.match(academy, /Apresentação completa/);
+  assert.match(academy, /Estudo de caso para a turma/);
+  assert.match(academyStyles, /grid-template-columns:28px minmax\(0,1fr\)/);
+  assert.match(JSON.stringify(academyV4Content), /O que é uma pesquisa\? O que vamos pesquisar\?/);
+});
