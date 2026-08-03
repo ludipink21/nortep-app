@@ -5,10 +5,11 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import curriculumSource from "./academia-v51-content.json";
 import { AcademyContentEditor, AcademyInstructorPanel, type EditableAcademyLesson } from "./academia-management";
-import { loadAcademyCertificate, loadAcademyPractice, loadAcademyProgress, loadAcademyTeamSummary, loadOwnAcademyTrack, loadPublishedAcademyContent, requestAcademyRecertification, saveAcademyLessonProgress, submitAcademyPractice, type AcademyCertificate, type AcademyLessonProgress, type AcademyPractice, type AcademyTeamSummary, type Profile, type Session } from "./supabase";
+import { loadAcademyCertificate, loadAcademyPractice, loadAcademyProgress, loadAcademyTeamSummary, loadPublishedAcademyContent, requestAcademyRecertification, saveAcademyLessonProgress, submitAcademyPractice, type AcademyCertificate, type AcademyLessonProgress, type AcademyPractice, type AcademyTeamSummary, type Profile, type Session } from "./supabase";
 
-type AcademyRole = "pesquisador" | "supervisor" | "mobilizador" | "coordenador" | "administrador" | "analista" | "observador" | "fundadora" | "instrutor";
-type AcademyTab = "formacao" | "biblioteca" | "acompanhamento" | "certificado" | "instrutoria" | "editor";
+type AcademyRole = "pesquisador" | "supervisor";
+type AcademyTab = "formacao" | "biblioteca" | "acompanhamento" | "certificado";
+type InstructorTab = "planos" | "praticas" | "editor";
 
 type AcademyQuiz = {
   question: string;
@@ -49,7 +50,6 @@ type AcademyModule = {
 type AcademyTrack = {
   title: string;
   description: string;
-  status?: "coming_soon";
   modules: AcademyModule[];
 };
 
@@ -79,20 +79,7 @@ const emptyProgress: AcademyProgress = { completed: [], answers: {}, correctness
 const academyRoleLabels: Record<AcademyRole, string> = {
   pesquisador: "Pesquisador(a)",
   supervisor: "Supervisor(a)",
-  mobilizador: "Mobilizador(a)",
-  coordenador: "Coordenador(a)",
-  administrador: "Administrador(a)",
-  analista: "Analista",
-  observador: "Observador(a)",
-  fundadora: "Administração principal",
-  instrutor: "Instrutor(a)",
 };
-
-function academyRole(profile: Profile): AcademyRole {
-  if (profile.is_primary_admin) return "fundadora";
-  if (profile.role === "admin") return "administrador";
-  return profile.role;
-}
 
 function progressKey(profileId: string, role: AcademyRole) {
   return `nortep-academia-preview-${curriculum.version}-${profileId}-${role}`;
@@ -107,10 +94,6 @@ function readProgress(profileId: string, role: AcademyRole): AcademyProgress {
   } catch {
     return emptyProgress;
   }
-}
-
-function totalLessons(modules: AcademyModule[]) {
-  return modules.reduce((total, module) => total + module.lessons.length, 0);
 }
 
 function roleLabel(role: Profile["role"]) {
@@ -166,8 +149,7 @@ function curriculumWithPublishedContent(base: AcademyCurriculum, published: Arra
 
 export default function AcademiaNorteP({ profile, profiles = [], session }: { profile: Profile; profiles?: Profile[]; session?: Session | null }) {
   const [activeCurriculum, setActiveCurriculum] = useState(curriculum);
-  const [assignedRole, setAssignedRole] = useState<AcademyRole | null>(null);
-  const role = assignedRole || academyRole(profile);
+  const role: AcademyRole = profile.role === "supervisor" ? "supervisor" : "pesquisador";
   const track = activeCurriculum.roles[role];
   const modules = useMemo(() => [...activeCurriculum.commonModules, ...track.modules], [activeCurriculum, track]);
   const lessons = useMemo(() => modules.flatMap(module => module.lessons), [modules]);
@@ -186,9 +168,7 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
   const previousLesson = selectedLessonIndex > 0 ? lessons[selectedLessonIndex - 1] : null;
   const nextLesson = selectedLessonIndex >= 0 && selectedLessonIndex < lessons.length - 1 ? lessons[selectedLessonIndex + 1] : null;
   const selectedModule = modules.find(module => module.lessons.some(lesson => lesson.id === selectedLesson?.id));
-  const managers = profile.role === "admin" || profile.role === "coordenador" || profile.role === "supervisor";
-  const instructors = managers || role === "instrutor";
-  const editors = profile.role === "admin" || profile.role === "coordenador" || role === "instrutor" || role === "coordenador" || role === "administrador" || role === "fundadora";
+  const managers = profile.role === "supervisor";
   const completedCount = lessons.filter(lesson => progress.completed.includes(lesson.id)).length;
   const progressPercent = lessons.length ? Math.round((completedCount / lessons.length) * 100) : 0;
   const correctAnswers = lessons.filter(lesson => progress.correctness[lesson.id]).length;
@@ -253,15 +233,13 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
     if (!session) { setSyncState("local"); return () => { active = false; }; }
     setSyncState("loading");
     Promise.all([
-      loadOwnAcademyTrack(session),
       loadAcademyProgress(session, curriculum.version),
       loadAcademyCertificate(session, curriculum.version),
       loadAcademyPractice(session, curriculum.version),
       loadPublishedAcademyContent(session, curriculum.version),
       managers ? loadAcademyTeamSummary(session, curriculum.version) : Promise.resolve([] as AcademyTeamSummary[]),
-    ]).then(([ownTrack, rows, ownCertificate, ownPractice, published, summary]) => {
+    ]).then(([rows, ownCertificate, ownPractice, published, summary]) => {
       if (!active) return;
-      setAssignedRole(ownTrack as AcademyRole);
       const merged = mergeRemoteWithPending(progressFromRows(rows), local);
       setProgress(merged);
       const remoteResume = resumeLessons.find(lesson => !merged.completed.includes(lesson.id));
@@ -335,11 +313,6 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
     ? teamSummary.map(item => ({ key: item.role_key, count: Number(item.people), progress: Number(item.average_progress) }))
     : Object.entries(profileCounts).map(([key, count]) => ({ key, count, progress: 0 }));
   const distributionPeople = Math.max(teamSummary.length ? summaryPeople : profiles.length, 1);
-  const editableLessons = useMemo<EditableAcademyLesson[]>(() => {
-    const common = activeCurriculum.commonModules.flatMap(module => module.lessons.map(lesson => ({ roleKey: "comum", moduleId: module.id, moduleTitle: module.title, lesson })));
-    const byRole = (Object.entries(activeCurriculum.roles) as Array<[AcademyRole, AcademyTrack]>).flatMap(([roleKey, roleTrack]) => roleTrack.modules.flatMap(module => module.lessons.map(lesson => ({ roleKey, moduleId: module.id, moduleTitle: `${roleTrack.title} · ${module.title}`, lesson }))));
-    return [...common, ...byRole];
-  }, [activeCurriculum]);
   const syncCopy = syncState === "loading"
     ? { title: "Carregando sua formação", detail: "Buscando o progresso protegido da sua conta." }
     : syncState === "syncing"
@@ -364,7 +337,6 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
       </div>
     </div>
 
-    {track.status === "coming_soon" ? <div className="academy-empty-track"><small>TRILHA EM PREPARAÇÃO</small><h3>{track.title}</h3><p>Este espaço já está separado para o perfil de {track.title.toLowerCase()}. As aulas serão incluídas depois, sem misturar atividades nem progresso com Pesquisa e Supervisão.</p><span>Enquanto isso, a equipe responsável pode usar o editor protegido para preparar rascunhos, links de vídeo e novas atividades.</span></div> : <>
     <div className={`academy-preview-note academy-sync-${syncState}`} role="status">
       <i>{syncState === "synced" && !progress.pending.length ? "✓" : syncState === "syncing" || syncState === "loading" ? "↻" : "i"}</i><span><b>{syncCopy.title}</b><small>{syncCopy.detail}</small></span>
       {session && progress.pending.length > 0 && <button type="button" onClick={() => void syncPending()} disabled={syncState === "syncing"}>Sincronizar agora</button>}
@@ -375,8 +347,6 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
       <button className={tab === "biblioteca" ? "active" : ""} onClick={() => setTab("biblioteca")}>Biblioteca</button>
       {managers && <button className={tab === "acompanhamento" ? "active" : ""} onClick={() => setTab("acompanhamento")}>Acompanhamento</button>}
       <button className={tab === "certificado" ? "active" : ""} onClick={() => setTab("certificado")}>Certificação</button>
-      {instructors && <button className={tab === "instrutoria" ? "active" : ""} onClick={() => setTab("instrutoria")}>Instrutoria</button>}
-      {editors && <button className={tab === "editor" ? "active" : ""} onClick={() => setTab("editor")}>Editor</button>}
     </nav>
 
     {tab === "formacao" && <div className="academy-learning-grid">
@@ -398,13 +368,6 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
         <section className="academy-content-block"><h4>O que você vai aprender</h4><ul>{selectedLesson.content.map((item, index) => <li key={`${selectedLesson.id}-content-${index}`}>{item}</li>)}</ul></section>
         {selectedLesson.video && <section className="academy-video-slot"><span><small>VÍDEO DA AULA</small><b>{selectedLesson.video.label}</b><p>{selectedLesson.video.url ? "Abra o material em vídeo para complementar esta aula." : "Espaço reservado para inserir o link do vídeo desta aula."}</p></span>{selectedLesson.video.url ? <a href={selectedLesson.video.url} target="_blank" rel="noreferrer">Abrir vídeo</a> : <button type="button" disabled>Link será adicionado</button>}</section>}
         {selectedLesson.example && <section className="academy-example"><i>✦</i><span><b>Exemplo prático</b><p>{selectedLesson.example}</p></span></section>}
-        {(selectedLesson.speak || selectedLesson.instructor) && instructors && <section className="academy-instructor"><b>Roteiro da instrutora · {selectedLesson.duration} minutos</b><p>{selectedLesson.instructor?.opening || selectedLesson.speak}</p><dl>
-          <div><dt>Demonstração</dt><dd>{selectedLesson.instructor?.demonstration || selectedLesson.example}</dd></div>
-          <div><dt>Perguntas para o grupo</dt><dd>{selectedLesson.instructor?.guidingQuestions?.join(" · ") || selectedLesson.quiz.question}</dd></div>
-          <div><dt>Resposta esperada</dt><dd>{selectedLesson.instructor?.expectedResponse || selectedLesson.quiz.feedback}</dd></div>
-          <div><dt>Rubrica de observação</dt><dd>{selectedLesson.instructor?.rubric?.join(" · ") || "Aplica o procedimento · explica a decisão · registra evidências"}</dd></div>
-          {selectedLesson.instructor?.notes && <div><dt>Observações</dt><dd>{selectedLesson.instructor.notes}</dd></div>}
-        </dl></section>}
         <AcademyExercise key={selectedLesson.id} lesson={selectedLesson} initialValue={progress.drafts[selectedLesson.id] || ""} onSave={value => updateDraft(selectedLesson.id, value)} />
         <section className="academy-quiz"><small>AVALIAÇÃO RÁPIDA</small><h4>{selectedLesson.quiz.question}</h4><div>{selectedLesson.quiz.options.map((option, index) => {
           const chosen = progress.answers[selectedLesson.id] === index;
@@ -420,7 +383,6 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
     {tab === "biblioteca" && <div className="academy-library">
       <div className="academy-section-title"><small>BIBLIOTECA DE APRENDIZAGEM</small><h3>Materiais organizados por tema</h3><p>Os conteúdos do kit foram incorporados às trilhas. Abra um módulo para estudar, praticar e responder à avaliação.</p></div>
       <div className="academy-library-grid">{modules.map(module => <article key={module.id}><i>{module.icon || "NP"}</i><span><small>{module.lessons.length} AULAS</small><h4>{module.title}</h4><p>{module.lessons.map(lesson => lesson.title).slice(0, 3).join(" · ")}</p><button onClick={() => openLesson(module.lessons[0].id)}>Estudar módulo →</button></span></article>)}</div>
-      {(profile.role === "admin" || profile.role === "coordenador") && <section className="academy-catalog"><small>CATÁLOGO DE TRILHAS</small><h3>Formação por responsabilidade</h3><div>{(Object.entries(activeCurriculum.roles) as Array<[AcademyRole, AcademyTrack]>).map(([key, item]) => <span key={key}><b>{academyRoleLabels[key]}</b><small>{totalLessons(item.modules)} aulas específicas</small></span>)}</div></section>}
     </div>}
 
     {tab === "acompanhamento" && managers && <div className="academy-dashboard">
@@ -438,8 +400,67 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
         {certificate && (certificate.status === "expired" || new Date(certificate.expires_at).getTime() <= renderedAt + 60 * 86400000) && <button className="secondary" onClick={() => void requestRecertification()} disabled={Boolean(certificate.renewal_requested_at)}>{certificate.renewal_requested_at ? "Recertificação solicitada" : "Solicitar recertificação"}</button>}
       </div>
     </div>}
-    {tab === "instrutoria" && instructors && session && <AcademyInstructorPanel session={session} curriculumVersion={activeCurriculum.version} />}
-    {tab === "editor" && editors && session && <AcademyContentEditor session={session} profile={profile} curriculumVersion={activeCurriculum.version} lessons={editableLessons} />}
+  </section>;
+}
+
+export function AcademiaInstrutoriaNorteP({ profile, session }: { profile: Profile; session: Session }) {
+  const [activeCurriculum, setActiveCurriculum] = useState(curriculum);
+  const [tab, setTab] = useState<InstructorTab>("planos");
+  const [audience, setAudience] = useState<AcademyRole>("pesquisador");
+  const modules = useMemo(() => [...activeCurriculum.commonModules, ...activeCurriculum.roles[audience].modules], [activeCurriculum, audience]);
+  const lessons = useMemo(() => modules.flatMap(module => module.lessons), [modules]);
+  const [selectedLessonId, setSelectedLessonId] = useState(lessons[0]?.id || "");
+  const selectedLesson = lessons.find(lesson => lesson.id === selectedLessonId) || lessons[0];
+  const selectedModule = modules.find(module => module.lessons.some(lesson => lesson.id === selectedLesson?.id));
+  const editableLessons = useMemo<EditableAcademyLesson[]>(() => {
+    const common = activeCurriculum.commonModules.flatMap(module => module.lessons.map(lesson => ({ roleKey: "comum", moduleId: module.id, moduleTitle: `Comum · ${module.title}`, lesson })));
+    const byRole = (Object.entries(activeCurriculum.roles) as Array<[AcademyRole, AcademyTrack]>).flatMap(([roleKey, roleTrack]) => roleTrack.modules.flatMap(module => module.lessons.map(lesson => ({ roleKey, moduleId: module.id, moduleTitle: `${roleTrack.title} · ${module.title}`, lesson }))));
+    return [...common, ...byRole];
+  }, [activeCurriculum]);
+
+  useEffect(() => {
+    let active = true;
+    loadPublishedAcademyContent(session, curriculum.version)
+      .then(published => { if (active) setActiveCurriculum(curriculumWithPublishedContent(curriculum, published)); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [session]);
+
+  useEffect(() => {
+    if (!lessons.some(lesson => lesson.id === selectedLessonId)) setSelectedLessonId(lessons[0]?.id || "");
+  }, [audience, lessons, selectedLessonId]);
+
+  if (!profile.is_primary_admin) return null;
+
+  return <section className="academy-shell academy-instructor-shell" aria-label="Instrutoria NorteP">
+    <div className="academy-hero academy-instructor-hero">
+      <div><small>ACESSO EXCLUSIVO · ADMINISTRADORA FUNDADORA</small><h2><span>N</span>orteP <b>Instrutoria</b></h2><p>Prepare a formação de Pesquisa e Supervisão com um material próprio para quem conduz a aula.</p><div className="academy-tags"><span>4 aulas comuns</span><span>3 aulas de Pesquisa</span><span>2 aulas de Supervisão</span></div></div>
+      <div className="academy-instructor-access"><i>✦</i><span><b>Área separada das aulas dos alunos</b><small>Planos, exemplos, demonstrações, perguntas e rubricas ficam organizados aqui.</small></span></div>
+    </div>
+
+    <nav className="academy-tabs" aria-label="Áreas da Instrutoria NorteP">
+      <button className={tab === "planos" ? "active" : ""} onClick={() => setTab("planos")}>Planos de aula e aulões</button>
+      <button className={tab === "praticas" ? "active" : ""} onClick={() => setTab("praticas")}>Práticas enviadas</button>
+      <button className={tab === "editor" ? "active" : ""} onClick={() => setTab("editor")}>Editor de materiais</button>
+    </nav>
+
+    {tab === "planos" && <>
+      <div className="academy-audience-switch" role="group" aria-label="Público da formação"><span><small>PREPARAR FORMAÇÃO PARA</small><b>{academyRoleLabels[audience]}</b></span><div><button className={audience === "pesquisador" ? "active" : ""} onClick={() => setAudience("pesquisador")}>Pesquisadores · 7 aulas</button><button className={audience === "supervisor" ? "active" : ""} onClick={() => setAudience("supervisor")}>Supervisores · 6 aulas</button></div></div>
+      <div className="academy-learning-grid academy-instructor-grid">
+        <aside className="academy-modules"><header><small>MATERIAL DA INSTRUTORA</small><h3>{activeCurriculum.roles[audience].title}</h3><p>Escolha uma aula para abrir o roteiro de condução.</p></header>{modules.map((module, index) => <details key={module.id} open={module.lessons.some(lesson => lesson.id === selectedLesson?.id) || index === 0}><summary><i>{module.icon || "NP"}</i><span><b>{module.title}</b><small>{module.lessons.length} aula(s)</small></span></summary><div>{module.lessons.map(lesson => <button key={lesson.id} className={lesson.id === selectedLesson?.id ? "active" : ""} onClick={() => setSelectedLessonId(lesson.id)}><i>✦</i><span>{lesson.title}<small>{lesson.duration} min</small></span></button>)}</div></details>)}</aside>
+        {selectedLesson && <article className="academy-lesson academy-instructor-plan">
+          <header><span><small>PLANO DO AULÃO · {selectedModule?.title}</small><h3>{selectedLesson.title}</h3><p>Público: {academyRoleLabels[audience]} · duração sugerida de {selectedLesson.duration} minutos</p></span><em>{selectedLesson.duration} min</em></header>
+          <section className="academy-context"><small>OBJETIVO E CONTEXTO</small><h4>{selectedLesson.objective}</h4><p>{selectedLesson.context}</p></section>
+          <section className="academy-instructor"><b>Abertura da instrutora</b><p>{selectedLesson.instructor?.opening || selectedLesson.speak || "Apresente o objetivo da aula e combine a participação da turma."}</p></section>
+          <section className="academy-content-block"><h4>Passo a passo da explicação</h4><ol>{selectedLesson.content.map((item, index) => <li key={`${selectedLesson.id}-instructor-content-${index}`}>{item}</li>)}</ol></section>
+          <section className="academy-example"><i>✦</i><span><b>Exemplo para usar na aula</b><p>{selectedLesson.example}</p></span></section>
+          <div className="academy-instructor-materials"><section><small>DEMONSTRAÇÃO</small><p>{selectedLesson.instructor?.demonstration || selectedLesson.example}</p></section><section><small>PERGUNTAS PARA A TURMA</small><ul>{(selectedLesson.instructor?.guidingQuestions || [selectedLesson.quiz.question]).map(question => <li key={question}>{question}</li>)}</ul></section><section><small>RESPOSTA ESPERADA</small><p>{selectedLesson.instructor?.expectedResponse || selectedLesson.quiz.feedback}</p></section><section><small>RUBRICA DE OBSERVAÇÃO</small><ul>{(selectedLesson.instructor?.rubric || ["Aplica o procedimento", "Explica a decisão", "Registra evidências"]).map(item => <li key={item}>{item}</li>)}</ul></section></div>
+          {selectedLesson.instructor?.notes && <section className="academy-instructor-notes"><small>OBSERVAÇÕES DA INSTRUTORA</small><p>{selectedLesson.instructor.notes}</p></section>}
+          {selectedLesson.video && <section className="academy-video-slot"><span><small>APOIO EM VÍDEO</small><b>{selectedLesson.video.label}</b><p>{selectedLesson.video.url ? "Material complementar disponível para o aulão." : "O link poderá ser acrescentado no Editor de materiais."}</p></span>{selectedLesson.video.url ? <a href={selectedLesson.video.url} target="_blank" rel="noreferrer">Abrir vídeo</a> : <button type="button" onClick={() => setTab("editor")}>Adicionar no editor</button>}</section>}
+        </article>}
+      </div>
     </>}
+    {tab === "praticas" && <AcademyInstructorPanel session={session} curriculumVersion={activeCurriculum.version} />}
+    {tab === "editor" && <AcademyContentEditor session={session} profile={profile} curriculumVersion={activeCurriculum.version} lessons={editableLessons} />}
   </section>;
 }

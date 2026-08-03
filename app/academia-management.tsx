@@ -6,14 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   loadAcademyContentWorkflow,
   loadAcademyPracticeQueue,
-  loadAcademyTrackAssignments,
   reviewAcademyPractice,
   saveAcademyContentDraft,
-  setAcademyTrackAssignment,
   transitionAcademyContent,
   type AcademyContentRevision,
   type AcademyPractice,
-  type AcademyTrackAssignment,
   type Profile,
   type Session,
 } from "./supabase";
@@ -49,8 +46,6 @@ const workflowLabels: Record<AcademyContentRevision["status"], string> = {
   approved: "Aprovado",
   published: "Publicado",
 };
-
-const academyTrackOptions = ["pesquisador","mobilizador","supervisor","coordenador","administrador","analista","observador","fundadora","instrutor"];
 
 export function AcademyInstructorPanel({ session, curriculumVersion }: { session: Session; curriculumVersion: string }) {
   const [queue, setQueue] = useState<AcademyPractice[]>([]);
@@ -100,7 +95,6 @@ export function AcademyContentEditor({ session, profile, curriculumVersion, less
   const [selectedId, setSelectedId] = useState(lessons[0]?.lesson.id || "");
   const selected = lessons.find(item => item.lesson.id === selectedId) || lessons[0];
   const [workflow, setWorkflow] = useState<AcademyContentRevision[]>([]);
-  const [trackAssignments, setTrackAssignments] = useState<AcademyTrackAssignment[]>([]);
   const [form, setForm] = useState("");
   const [answer, setAnswer] = useState("");
   const [message, setMessage] = useState("");
@@ -140,15 +134,8 @@ export function AcademyContentEditor({ session, profile, curriculumVersion, less
   const reload = async () => {
     try {
       setWorkflow(await loadAcademyContentWorkflow(session, curriculumVersion));
-      if (profile.role === "admin" || profile.role === "coordenador") setTrackAssignments(await loadAcademyTrackAssignments(session));
     }
     catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível carregar o fluxo editorial."); }
-  };
-
-  const assignTrack = async (profileId: string, roleKey: string) => {
-    setMessage("Atualizando trilha da pessoa…");
-    try { await setAcademyTrackAssignment(session, profileId, roleKey); await reload(); setMessage("Trilha atualizada. O novo conteúdo aparecerá no próximo acesso da pessoa."); }
-    catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível atualizar a trilha."); }
   };
   useEffect(() => { void reload(); }, [session, curriculumVersion]);
 
@@ -180,7 +167,6 @@ export function AcademyContentEditor({ session, profile, curriculumVersion, less
 
   return <div className="academy-editor-area">
     <div className="academy-section-title"><small>EDITOR ADMINISTRATIVO</small><h3>Conteúdo sem depender do código</h3><p>Edite uma cópia versionada. O gabarito fica separado do conteúdo e somente entra em vigor na publicação.</p></div>
-    {trackAssignments.length > 0 && <section className="academy-track-assignments"><header><small>PERFIS DE ALUNOS</small><h3>Trilhas por função</h3><p>A função na Academia pode ser organizada sem alterar as permissões operacionais do aplicativo.</p></header><div>{trackAssignments.map(item => <label key={item.profile_id}><span><b>{item.profile_name}</b><small>Permissão no app: {item.operational_role}</small></span><select value={item.academy_role} onChange={event => void assignTrack(item.profile_id, event.target.value)}>{academyTrackOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></label>)}</div></section>}
     <div className="academy-editor-grid">
       <section className="academy-editor-form">
         <label>Aula<select value={selectedId} onChange={event => setSelectedId(event.target.value)}>{lessons.map(item => <option value={item.lesson.id} key={`${item.roleKey}-${item.lesson.id}`}>{item.moduleTitle} · {item.lesson.title}</option>)}</select></label>
