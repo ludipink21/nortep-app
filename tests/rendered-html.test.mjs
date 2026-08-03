@@ -140,6 +140,17 @@ test("Formação NorteP está integrada ao Ecossistema sem substituir a V49", ()
   assert.match(academyStyles, /--academy-gold:#c69a3a/);
 });
 
+test("Academia tem entrada direta e aulas flexíveis para continuar depois", () => {
+  assert.match(page, /\?produto=academia&acesso=pesquisador/);
+  assert.match(page, /Abrir aulas e exercícios/);
+  assert.match(page, /Estude no seu ritmo, salve o exercício e continue quando quiser/);
+  assert.match(academy, /Salvar exercício/);
+  assert.match(academy, /Concluir e continuar/);
+  assert.match(academy, /Aula anterior/);
+  assert.match(academy, /Você pode tentar novamente agora ou continuar e voltar depois/);
+  assert.doesNotMatch(academy, /if \(!progress\.correctness\[lesson\.id\]/);
+});
+
 test("Academia contém trilhas, prática, avaliação, biblioteca e certificação", () => {
   const expectedRoles = ["pesquisador", "mobilizador", "supervisor", "coordenador", "administrador", "analista", "observador", "fundadora", "instrutor"];
   for (const role of expectedRoles) assert.ok(academyContent.roles[role], `trilha ausente: ${role}`);
@@ -211,7 +222,7 @@ test("Academia V4 começa pelo aplicativo e separa Pesquisa, Supervisão e demai
   assert.equal(academyV4Content.roles.supervisor.modules.flatMap(module => module.lessons).length, 2);
   for (const role of ["mobilizador", "coordenador", "administrador", "analista", "observador", "fundadora"]) assert.equal(academyV4Content.roles[role].status, "coming_soon");
   assert.match(page, /Aulas e formação/);
-  assert.match(page, /abrirAcademia/);
+  assert.match(page, /ir\("academia"\)/);
 });
 
 test("gabaritos V4 seguem no Supabase e vídeos ficam como espaços editáveis", () => {

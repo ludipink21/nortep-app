@@ -8,6 +8,7 @@ import { CandidateOperation, clearSurveyTestData, configured, createAccessInvite
 
 type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "mobilizacao" | "ecossistema" | "cofre" | "academia" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "observador" | "supervisao" | "coordenacao" | "administracao" | "principal";
+type RequestedProduct = "pesquisa" | "academia";
 type FounderPerspective = "fundadora" | "publico" | "pesquisador" | "observador" | "candidato" | "supervisor" | "coordenador" | "administrador";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
@@ -16,6 +17,11 @@ type RespostasSetter = Dispatch<SetStateAction<Record<string, string>>>;
 type InterviewDraft = { survey: Survey; step: number; responses: Record<string, string>; startedAt: number; savedAt: string };
 type AttemptLog = { action: "inicio" | "retomada" | "recomeco" | "finalizada" | "recusa" | "interrompida"; surveyId: string; at: string; step: number };
 const draftKey = (surveyId: string) => `nortep-rascunho-${surveyId}`;
+
+function readRequestedProduct(): RequestedProduct {
+  if (typeof window === "undefined") return "pesquisa";
+  return new URLSearchParams(window.location.search).get("produto") === "academia" ? "academia" : "pesquisa";
+}
 
 function readAccessChannel(): AccessChannel {
   if (typeof window === "undefined") return "publico";
@@ -63,6 +69,7 @@ export default function Home() {
   const [interviewStartedAt, setInterviewStartedAt] = useState<number>(0);
   const [resumeDraft, setResumeDraft] = useState<InterviewDraft | null>(null);
   const [founderPerspective, setFounderPerspective] = useState<FounderPerspective>("fundadora");
+  const [requestedProduct, setRequestedProduct] = useState<RequestedProduct>("pesquisa");
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function aviso(texto: string) {
     setToast(texto);
@@ -70,11 +77,13 @@ export default function Home() {
   }
 
   useEffect(() => {
+    const product = readRequestedProduct();
     const channel = readAccessChannel();
     const params = new URLSearchParams(window.location.search);
     const invitation = params.get("convite") || "";
     const mobilizationCode = params.get("mobilizacao") || "";
     setAccessChannel(channel);
+    setRequestedProduct(product);
     setInviteCode(invitation);
     setPublicMobilizationCode(mobilizationCode);
     const video = localStorage.getItem("nortep-video-agradecimento");
@@ -108,7 +117,7 @@ export default function Home() {
         }
         const stored = callback?.session ?? readSession();
         if (!stored) return;
-        try { await autenticar(stored, channel); } catch { saveSession(null); }
+        try { await autenticar(stored, channel, product); } catch { saveSession(null); }
       } finally {
         setAuthReady(true);
       }
@@ -169,7 +178,7 @@ export default function Home() {
     }
   }
 
-  async function autenticar(incoming: Session, channel: AccessChannel = accessChannel) {
+  async function autenticar(incoming: Session, channel: AccessChannel = accessChannel, product: RequestedProduct = readRequestedProduct()) {
     const current = await refreshSession(incoming);
     const p = await loadProfile(current);
     if (!p) throw new Error("Perfil não encontrado.");
@@ -205,7 +214,7 @@ export default function Home() {
         setMobilizationPartners(partners);
         setCandidateOperations(operations);
       }
-      setView("inicio");
+      setView(product === "academia" ? "academia" : "inicio");
       return;
     }
     const visibleSurveys = await loadSurveys(current);
@@ -213,7 +222,7 @@ export default function Home() {
     setSurvey(visibleSurveys[0] ?? null);
     if (p.active) setInterviews(await loadInterviews(current));
     await carregarAdmin(current, p);
-    setView(p.role === "pesquisador" ? "portal" : "inicio");
+    setView(product === "academia" ? "academia" : p.role === "pesquisador" ? "portal" : "inicio");
   }
 
   useEffect(() => {
@@ -277,10 +286,10 @@ export default function Home() {
     else if (founderPerspective === "candidato") role = "observador";
     else if (founderPerspective === "pesquisador" || founderPerspective === "supervisor" || founderPerspective === "coordenador" || founderPerspective === "observador") role = founderPerspective;
     const allowedByRole: Partial<Record<Profile["role"], View[]>> = {
-      pesquisador: ["portal", "entrevista", "obrigado"],
-      supervisor: ["inicio", "pesquisas", "coordenacao", "rankings", "resultados", "ecossistema"],
-      coordenador: ["inicio", "pesquisas", "coordenacao", "rankings", "resultados", "ecossistema", "portal", "entrevista", "obrigado"],
-      admin: ["inicio", "visoes", "pesquisas", "coordenacao", "equipe", "rankings", "resultados", "mobilizacao", "ecossistema", "cofre", "portal", "entrevista", "obrigado"],
+      pesquisador: ["portal", "entrevista", "obrigado", "academia"],
+      supervisor: ["inicio", "pesquisas", "coordenacao", "rankings", "resultados", "ecossistema", "academia"],
+      coordenador: ["inicio", "pesquisas", "coordenacao", "rankings", "resultados", "ecossistema", "portal", "entrevista", "obrigado", "academia"],
+      admin: ["inicio", "visoes", "pesquisas", "coordenacao", "equipe", "rankings", "resultados", "mobilizacao", "ecossistema", "cofre", "portal", "entrevista", "obrigado", "academia"],
     };
     const allowed = role && role !== "observador" ? allowedByRole[role] : [];
     if (!allowed?.includes(destino)) setView(role === "pesquisador" ? "portal" : "inicio");
@@ -494,7 +503,7 @@ export default function Home() {
   }} />;
   if (!session || !profile) {
     if (accessChannel === "publico") return <PublicLanding />;
-    return <Login access={accessChannel} inviteCode={inviteCode} onAuthenticated={autenticar} />;
+    return <Login access={accessChannel} inviteCode={inviteCode} product={requestedProduct} onAuthenticated={(incoming, channel) => autenticar(incoming, channel, requestedProduct)} />;
   }
   if (profile.access_removed_at) return <AcessoRemovido profile={profile} sair={sair} />;
   if (!profile.active) return <AguardandoAprovacao profile={profile} sair={sair} descadastrar={descadastrarMeuAcesso} verificar={async () => {
@@ -601,7 +610,7 @@ export default function Home() {
         ...(founderAccess && !previewing ? [["visoes", "◉", "Ver todo o aplicativo"]] : []),
         ["pesquisas", "▤", "Pesquisas"],
         ["coordenacao", "♟", visualProfile.role === "supervisor" ? "Minha supervisão" : visualProfile.role === "coordenador" ? "Minha coordenação" : "Coordenação"],
-        ...(visualProfile.role === "supervisor" ? [["academia", "◫", "Aulas e formação"]] : []),
+        ["academia", "◫", "Aulas e formação"],
         ...(visualProfile.role === "admin" ? [["equipe", "♙", "Acessos e cadastros"]] : []),
         ["rankings", "★", "Rankings"],
         ["resultados", "◫", "Resultados"],
@@ -617,7 +626,7 @@ export default function Home() {
       <header>
         {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V49" : "NORTEP · DADOS QUE APROXIMAM · V49"}</small>
+          <small>{view === "academia" ? "NORTEP ACADEMIA · AULAS E EXERCÍCIOS" : campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V49" : "NORTEP · DADOS QUE APROXIMAM · V49"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -640,9 +649,9 @@ export default function Home() {
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "mobilizacao" && visualProfile.role === "admin" && <Mobilizacao aviso={aviso} session={session} partners={mobilizationPartners} atualizar={atualizarDadosAdmin} />}
         {view === "ecossistema" && <Ecossistema profile={visualProfile} profiles={team} session={session} />}
-        {view === "academia" && <><Cabecalho titulo="Aulas e formação" sub="Aulas e entrevistas ficam em abas separadas para organizar estudo e trabalho de campo." botao={visualProfile.role === "pesquisador" ? "← Entrevistas" : "← Minha supervisão"} acao={() => ir(visualProfile.role === "pesquisador" ? "portal" : "coordenacao")} /><AcademiaNorteP key={`${visualProfile.id}-${visualProfile.role}-${visualProfile.is_primary_admin ? "principal" : "padrao"}`} profile={visualProfile} profiles={team} session={session} /></>}
+        {view === "academia" && <><Cabecalho titulo="Aulas e exercícios" sub="Estude no seu ritmo, salve o exercício e continue quando quiser." botao={visualProfile.role === "pesquisador" ? "← Entrevistas" : "← Painel"} acao={() => ir(visualProfile.role === "pesquisador" ? "portal" : "inicio")} /><AcademiaNorteP key={`${visualProfile.id}-${visualProfile.role}-${visualProfile.is_primary_admin ? "principal" : "padrao"}`} profile={visualProfile} profiles={team} session={session} /></>}
         {view === "cofre" && visualProfile.role === "admin" && <CofreContatos session={session} profiles={team} aviso={aviso} />}
-        {view === "portal" && <Portal abrirAcademia={() => ir("academia")} profile={visualProfile} surveys={founderAccess && previewing ? adminSurveys.filter(item => item.status === "active" || item.status === "pilot") : surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
+        {view === "portal" && <Portal profile={visualProfile} surveys={founderAccess && previewing ? adminSurveys.filter(item => item.status === "active" || item.status === "pilot") : surveys} interviews={interviews} pending={pendingCount} sincronizar={sincronizarPendentes} iniciar={iniciarPesquisa} registrar={registrarOcorrencia} />}
         {view === "entrevista" && survey && (survey.slug === "betim-territorio-escolhas-2026" ? <Entrevista extraQuestions={surveyQuestions} passo={passo} setPasso={setPasso} r={respostas} setR={setRespostas} fim={finalizarEntrevista} cancelar={() => {
           const motivo = respostas.consentirPesquisa === "Não aceito participar" ? "Consentimento recusado" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "Pessoa fora do público da pesquisa" : "Entrevista encerrada";
           void registrarOcorrencia(respostas.consentirPesquisa === "Não aceito participar" ? "refused" : respostas.idadeMinima === "Não" || respostas.eleitorBetim === "Não" ? "ineligible" : "interrupted", motivo, survey);
@@ -788,7 +797,8 @@ function PublicLanding() {
       <p>Plataforma privada para pesquisas presenciais, organização territorial e acompanhamento de equipes autorizadas.</p>
       <div className="public-points"><span>✓ Coleta anônima</span><span>✓ Consentimento registrado</span><span>✓ Acesso controlado por função</span></div>
       <div className="public-actions">
-        <a className="public-researcher" href="?acesso=pesquisador">Entrar ou cadastrar →</a>
+        <a className="public-researcher" href="?produto=academia&acesso=pesquisador">Abrir aulas e exercícios →</a>
+        <a className="public-contact" href="?acesso=pesquisador">Entrar na Pesquisa</a>
         <a className="public-contact" href="mailto:pesquisadecamponortep@gmail.com?subject=Acesso%20ou%20demonstra%C3%A7%C3%A3o%20NorteP">Falar com a NorteP</a>
       </div>
     </section>
@@ -796,7 +806,7 @@ function PublicLanding() {
   </div>;
 }
 
-function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel; inviteCode: string; onAuthenticated: (session: Session, channel?: AccessChannel) => Promise<void> }) {
+function Login({ access, inviteCode, product, onAuthenticated }: { access: AccessChannel; inviteCode: string; product: RequestedProduct; onAuthenticated: (session: Session, channel?: AccessChannel) => Promise<void> }) {
   const invited = (access === "administracao" || access === "coordenacao" || access === "supervisao" || access === "observador") && Boolean(inviteCode);
   const allowSignup = access === "pesquisador" || invited;
   const [modo, setModo] = useState<"entrar" | "criar" | "recuperar">(invited ? "criar" : "entrar");
@@ -819,12 +829,12 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
         await onAuthenticated(newSession, access);
       }
       else if (modo === "recuperar") {
-        const redirect = `${window.location.origin}/?acesso=${access}`;
+        const redirect = `${window.location.origin}/?acesso=${access}${product === "academia" ? "&produto=academia" : ""}`;
         await requestPasswordReset(email.trim().toLowerCase(), redirect);
         setRecoveryEmail(email.trim().toLowerCase());
       }
       else {
-        const redirect = `${window.location.origin}/?acesso=${access}${inviteCode ? `&convite=${encodeURIComponent(inviteCode)}` : ""}`;
+        const redirect = `${window.location.origin}/?acesso=${access}${product === "academia" ? "&produto=academia" : ""}${inviteCode ? `&convite=${encodeURIComponent(inviteCode)}` : ""}`;
         const result = await signUp(name.trim(), email.trim().toLowerCase(), password, redirect);
         if (result.session) {
           if (invited) await redeemAccessInvite(result.session, inviteCode);
@@ -844,8 +854,8 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
   const accessName = principalAccess ? "administração principal" : adminAccess ? "administração" : coordinatorAccess ? "coordenação" : supervisorAccess ? "supervisão" : observerAccess ? "observação" : "pesquisa de campo";
   if (confirmationEmail) return <div className="auth-shell"><ControleFonte />
     <section className="auth-brand">
-      <small>NORTEP PESQUISA</small>
-      <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
+      <small>{product === "academia" ? "NORTEP ACADEMIA" : "NORTEP PESQUISA"}</small>
+      <h1><b>N</b>orte<b>P</b> {product === "academia" ? "Academia" : "Pesquisa"}</h1>
       <p>{invited ? "Seu convite será ativado depois da confirmação do e-mail." : "Seu acesso está protegido por duas confirmações simples."}</p>
       <div>{invited ? <><span>1. Confirmação do e-mail</span><span>2. Convite ativado</span><span>3. Entrada liberada</span></> : <><span>1. Confirmação do e-mail</span><span>2. Aprovação da administração</span><span>3. Pesquisa liberada</span></>}</div>
     </section>
@@ -866,8 +876,8 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
   </div>;
   if (recoveryEmail) return <div className="auth-shell"><ControleFonte />
     <section className="auth-brand">
-      <small>NORTEP PESQUISA</small>
-      <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
+      <small>{product === "academia" ? "NORTEP ACADEMIA" : "NORTEP PESQUISA"}</small>
+      <h1><b>N</b>orte<b>P</b> {product === "academia" ? "Academia" : "Pesquisa"}</h1>
       <p>A recuperação é feita por um link individual enviado ao e-mail da conta.</p>
       <div><span>✓ Link temporário</span><span>✓ Nova senha protegida</span><span>✓ Aprovação de acesso preservada</span></div>
     </section>
@@ -883,15 +893,15 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
   </div>;
   return <div className="auth-shell"><ControleFonte />
     <section className="auth-brand">
-      <small>NORTEP PESQUISA</small>
-      <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
-      <p>{principalAccess ? "Seu acesso reservado à Administração Principal da NorteP." : adminAccess ? "Acesso administrativo reservado para pessoas autorizadas." : coordinatorAccess ? "Acesso de coordenação reservado para acompanhar equipes autorizadas." : supervisorAccess ? "Acesso de supervisão reservado à equipe e ao território vinculados." : observerAccess ? "Acompanhamento reservado para pessoas autorizadas." : "Dados de campo protegidos, organizados e prontos para a coleta."}</p>
+      <small>{product === "academia" ? "NORTEP ACADEMIA" : "NORTEP PESQUISA"}</small>
+      <h1><b>N</b>orte<b>P</b> {product === "academia" ? "Academia" : "Pesquisa"}</h1>
+      <p>{product === "academia" ? "Aulas curtas, exercícios salvos e progresso no seu ritmo." : principalAccess ? "Seu acesso reservado à Administração Principal da NorteP." : adminAccess ? "Acesso administrativo reservado para pessoas autorizadas." : coordinatorAccess ? "Acesso de coordenação reservado para acompanhar equipes autorizadas." : supervisorAccess ? "Acesso de supervisão reservado à equipe e ao território vinculados." : observerAccess ? "Acompanhamento reservado para pessoas autorizadas." : "Dados de campo protegidos, organizados e prontos para a coleta."}</p>
       <div>{principalAccess ? <><span>✓ Perfil principal obrigatório</span><span>✓ Controle total protegido</span><span>✓ Auditoria de acessos</span></> : adminAccess ? <><span>✓ Administração autorizada</span><span>✓ Controle de acessos</span><span>✓ Auditoria e privacidade</span></> : coordinatorAccess ? <><span>✓ Coordenação autorizada</span><span>✓ Equipes e territórios</span><span>✓ Acompanhamento protegido</span></> : supervisorAccess ? <><span>✓ Supervisão autorizada</span><span>✓ Pesquisadores vinculados</span><span>✓ Território protegido</span></> : observerAccess ? <><span>✓ Indicadores agrupados</span><span>✓ Sem dados pessoais</span><span>✓ Acesso protegido</span></> : <><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></>}</div>
     </section>
     <form className="auth-card" onSubmit={e => { e.preventDefault(); void enviar(); }}>
       <div className="auth-logo">NP</div>
-      <small>{principalAccess ? "ADMINISTRAÇÃO PRINCIPAL" : adminAccess ? "ADMINISTRAÇÃO RESTRITA" : coordinatorAccess ? "COORDENAÇÃO RESTRITA" : supervisorAccess ? "SUPERVISÃO RESTRITA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
-      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (principalAccess ? "Entrar no meu acesso principal" : adminAccess ? "Entrar na administração" : coordinatorAccess ? "Entrar na coordenação" : supervisorAccess ? "Entrar na supervisão" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
+      <small>{product === "academia" ? "AULAS E EXERCÍCIOS" : principalAccess ? "ADMINISTRAÇÃO PRINCIPAL" : adminAccess ? "ADMINISTRAÇÃO RESTRITA" : coordinatorAccess ? "COORDENAÇÃO RESTRITA" : supervisorAccess ? "SUPERVISÃO RESTRITA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
+      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (product === "academia" ? "Entrar na Academia" : principalAccess ? "Entrar no meu acesso principal" : adminAccess ? "Entrar na administração" : coordinatorAccess ? "Entrar na coordenação" : supervisorAccess ? "Entrar na supervisão" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
       <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (principalAccess ? "Somente a conta marcada como administradora principal poderá entrar por este endereço." : adminAccess ? "Somente a administração responsável possui controle total." : coordinatorAccess ? "Acompanhe equipes e a coleta sem controlar a administração principal." : supervisorAccess ? "Acompanhe somente seus pesquisadores e o território vinculado." : observerAccess ? "Este acesso mostra somente indicadores agrupados da coleta, sem respostas individuais." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela gestão." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
       {modo === "criar" && <div className="existing-account-note"><span><b>Já possui ou já teve uma conta?</b><small>Não faça outro cadastro com o mesmo e-mail. Entre com sua senha; se o acesso foi removido, este novo convite fará a reativação.</small></span><button type="button" onClick={() => { setModo("entrar"); setMessage(""); }}>Entrar e reativar</button></div>}
       {modo === "criar" && <><label htmlFor="auth-name">Nome completo</label><input id="auth-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}
@@ -1587,7 +1597,7 @@ function Ecossistema({ profile, profiles, session }: { profile: Profile; profile
   })}</div></>;
 }
 
-function Portal({ iniciar, abrirAcademia, profile, surveys, interviews, pending, sincronizar, registrar }: { iniciar: (survey: Survey) => void; abrirAcademia: () => void; profile: Profile; surveys: Survey[]; interviews: SavedInterview[]; pending: number; sincronizar: () => void; registrar: (outcome: FieldEvent["outcome"], reason?: string, survey?: Survey | null) => void }) {
+function Portal({ iniciar, profile, surveys, interviews, pending, sincronizar, registrar }: { iniciar: (survey: Survey) => void; profile: Profile; surveys: Survey[]; interviews: SavedInterview[]; pending: number; sincronizar: () => void; registrar: (outcome: FieldEvent["outcome"], reason?: string, survey?: Survey | null) => void }) {
   const hoje = interviews.filter(x => new Date(x.completed_at || x.created_at).toDateString() === new Date().toDateString()).length;
   const [eventOpen, setEventOpen] = useState(false);
   const [eventSurveyId, setEventSurveyId] = useState(surveys[0]?.id || "");

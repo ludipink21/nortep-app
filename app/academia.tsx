@@ -124,7 +124,7 @@ function AcademyExercise({ lesson, initialValue, onSave }: { lesson: AcademyLess
     onSave(draft);
     setSaved(Boolean(draft.trim()));
   };
-  return <section className="academy-exercise"><small>EXERCÍCIO</small><h4>{lesson.activity}</h4><textarea value={draft} onChange={event => { setDraft(event.target.value); setSaved(false); }} onBlur={save} placeholder="Escreva sua resposta. O rascunho será salvo neste aparelho." /><span>{saved ? "Rascunho salvo neste aparelho" : draft.trim() ? "Toque fora do campo para salvar o rascunho." : "A atividade prática é necessária para concluir a aula."}</span></section>;
+  return <section className="academy-exercise"><small>EXERCÍCIO</small><h4>{lesson.activity}</h4><p>Faça no seu ritmo. Você pode salvar uma parte, sair e continuar depois.</p><textarea value={draft} onChange={event => { setDraft(event.target.value); setSaved(false); }} onBlur={save} placeholder="Comece sua resposta aqui. Ela pode ser completada depois." /><div className="academy-exercise-actions"><span>{saved ? "✓ Exercício salvo" : draft.trim() ? "Há alterações para salvar." : "Você pode começar quando estiver pronta."}</span><button type="button" onClick={save} disabled={!draft.trim() || saved}>{saved ? "Salvo" : "Salvar exercício"}</button></div></section>;
 }
 
 function progressFromRows(rows: AcademyLessonProgress[]): AcademyProgress {
@@ -182,6 +182,9 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
   const [practiceMessage, setPracticeMessage] = useState("");
   const [renderedAt] = useState(() => Date.now());
   const selectedLesson = lessons.find(lesson => lesson.id === selectedLessonId) || lessons[0];
+  const selectedLessonIndex = lessons.findIndex(lesson => lesson.id === selectedLesson?.id);
+  const previousLesson = selectedLessonIndex > 0 ? lessons[selectedLessonIndex - 1] : null;
+  const nextLesson = selectedLessonIndex >= 0 && selectedLessonIndex < lessons.length - 1 ? lessons[selectedLessonIndex + 1] : null;
   const selectedModule = modules.find(module => module.lessons.some(lesson => lesson.id === selectedLesson?.id));
   const managers = profile.role === "admin" || profile.role === "coordenador" || profile.role === "supervisor";
   const instructors = managers || role === "instrutor";
@@ -241,8 +244,12 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
 
   useEffect(() => {
     let active = true;
+    const baseTrack = curriculum.roles[role];
+    const resumeLessons = [...curriculum.commonModules, ...baseTrack.modules].flatMap(module => module.lessons);
     const local = readProgress(profile.id, role);
     setProgress(local);
+    const localResume = resumeLessons.find(lesson => !local.completed.includes(lesson.id));
+    setSelectedLessonId(current => local.completed.includes(current) ? localResume?.id || current : current);
     if (!session) { setSyncState("local"); return () => { active = false; }; }
     setSyncState("loading");
     Promise.all([
@@ -257,6 +264,8 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
       setAssignedRole(ownTrack as AcademyRole);
       const merged = mergeRemoteWithPending(progressFromRows(rows), local);
       setProgress(merged);
+      const remoteResume = resumeLessons.find(lesson => !merged.completed.includes(lesson.id));
+      setSelectedLessonId(current => merged.completed.includes(current) ? remoteResume?.id || current : current);
       setCertificate(ownCertificate);
       setPractice(ownPractice);
       setPracticeText(ownPractice?.response_text || "");
@@ -273,9 +282,13 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
   const updateDraft = (lessonId: string, value: string) => commitProgress({ ...progress, drafts: { ...progress.drafts, [lessonId]: value } }, lessonId);
   const answerQuiz = (lessonId: string, answer: number) => commitProgress({ ...progress, answers: { ...progress.answers, [lessonId]: answer }, correctness: { ...progress.correctness, [lessonId]: false } }, lessonId);
   const completeLesson = (lesson: AcademyLesson) => {
-    if (!progress.correctness[lesson.id] || !(progress.drafts[lesson.id] || "").trim()) return;
-    if (progress.completed.includes(lesson.id)) return;
-    commitProgress({ ...progress, completed: [...progress.completed, lesson.id] }, lesson.id);
+    const hasExercise = Boolean((progress.drafts[lesson.id] || "").trim());
+    const hasQuizAnswer = progress.answers[lesson.id] !== undefined;
+    if (!hasExercise || !hasQuizAnswer) return;
+    if (!progress.completed.includes(lesson.id)) commitProgress({ ...progress, completed: [...progress.completed, lesson.id] }, lesson.id);
+    const lessonIndex = lessons.findIndex(item => item.id === lesson.id);
+    const followingLesson = lessonIndex >= 0 ? lessons[lessonIndex + 1] : null;
+    if (followingLesson) openLesson(followingLesson.id);
   };
 
   const submitPractice = async () => {
@@ -380,7 +393,7 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
       </aside>
 
       {selectedLesson && <article className="academy-lesson">
-        <header><span><small>{selectedModule?.title}</small><h3>{selectedLesson.title}</h3><p>{selectedLesson.objective}</p></span><em>{selectedLesson.duration} min</em></header>
+        <header><span><small>AULA {selectedLessonIndex + 1} DE {lessons.length} · {selectedModule?.title}</small><h3>{selectedLesson.title}</h3><p>{selectedLesson.objective}</p></span><em>{selectedLesson.duration} min</em></header>
         {selectedLesson.context && <section className="academy-context"><small>CONTEXTO DA AULA</small><p>{selectedLesson.context}</p></section>}
         <section className="academy-content-block"><h4>O que você vai aprender</h4><ul>{selectedLesson.content.map((item, index) => <li key={`${selectedLesson.id}-content-${index}`}>{item}</li>)}</ul></section>
         {selectedLesson.video && <section className="academy-video-slot"><span><small>VÍDEO DA AULA</small><b>{selectedLesson.video.label}</b><p>{selectedLesson.video.url ? "Abra o material em vídeo para complementar esta aula." : "Espaço reservado para inserir o link do vídeo desta aula."}</p></span>{selectedLesson.video.url ? <a href={selectedLesson.video.url} target="_blank" rel="noreferrer">Abrir vídeo</a> : <button type="button" disabled>Link será adicionado</button>}</section>}
@@ -398,9 +411,9 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
           const correct = Boolean(progress.correctness[selectedLesson.id]);
           const validated = chosen && !progress.pending.includes(selectedLesson.id) && syncState !== "syncing";
           const className = chosen ? validated && correct ? "selected correct" : validated ? "selected incorrect" : "selected" : "";
-          return <button className={className} key={`${selectedLesson.id}-quiz-${index}`} disabled={progress.completed.includes(selectedLesson.id)} onClick={() => answerQuiz(selectedLesson.id, index)}><i>{chosen ? validated ? correct ? "✓" : "×" : "↻" : String.fromCharCode(65 + index)}</i>{option}</button>;
-        })}</div>{progress.answers[selectedLesson.id] !== undefined && <p className={progress.pending.includes(selectedLesson.id) ? "quiz-try" : progress.correctness[selectedLesson.id] ? "quiz-ok" : "quiz-try"}>{progress.pending.includes(selectedLesson.id) ? "Resposta salva e aguardando validação protegida no NorteP." : progress.correctness[selectedLesson.id] ? selectedLesson.quiz.feedback : "Revise a aula e tente novamente."}</p>}</section>
-        <footer><span><b>{progress.completed.includes(selectedLesson.id) ? "Aula concluída" : "Para concluir"}</b><small>Responda corretamente, sincronize a validação e registre o exercício.</small></span><button className="primary" disabled={progress.completed.includes(selectedLesson.id) || !progress.correctness[selectedLesson.id] || !(progress.drafts[selectedLesson.id] || "").trim()} onClick={() => completeLesson(selectedLesson)}>{progress.completed.includes(selectedLesson.id) ? "✓ Concluída" : "Concluir aula"}</button></footer>
+          return <button className={className} key={`${selectedLesson.id}-quiz-${index}`} disabled={syncState === "syncing" && progress.pending.includes(selectedLesson.id)} onClick={() => answerQuiz(selectedLesson.id, index)}><i>{chosen ? validated ? correct ? "✓" : "×" : "↻" : String.fromCharCode(65 + index)}</i>{option}</button>;
+        })}</div>{progress.answers[selectedLesson.id] !== undefined && <p className={progress.pending.includes(selectedLesson.id) ? "quiz-try" : progress.correctness[selectedLesson.id] ? "quiz-ok" : "quiz-try"}>{progress.pending.includes(selectedLesson.id) ? "Resposta salva e aguardando validação protegida no NorteP." : progress.correctness[selectedLesson.id] ? selectedLesson.quiz.feedback : "Você pode tentar novamente agora ou continuar e voltar depois."}</p>}</section>
+        <footer><span><b>{progress.completed.includes(selectedLesson.id) ? "Aula concluída" : "Quando quiser avançar"}</b><small>Salve o exercício e marque uma resposta. Você poderá voltar e melhorar sua pontuação.</small></span><div className="academy-lesson-navigation">{previousLesson && <button type="button" className="secondary" onClick={() => openLesson(previousLesson.id)}>← Aula anterior</button>}<button className="primary" disabled={!progress.completed.includes(selectedLesson.id) && (progress.answers[selectedLesson.id] === undefined || !(progress.drafts[selectedLesson.id] || "").trim())} onClick={() => completeLesson(selectedLesson)}>{progress.completed.includes(selectedLesson.id) ? nextLesson ? "Próxima aula →" : "✓ Trilha estudada" : nextLesson ? "Concluir e continuar →" : "Concluir aula"}</button></div></footer>
       </article>}
     </div>}
 
