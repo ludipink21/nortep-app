@@ -86,14 +86,7 @@
           { "id": "sup-v4-02", "title": "Qualidade, devolutiva e ocorrência", "duration": 18, "objective": "Dar devolutivas práticas sem alterar respostas ou constranger a equipe.", "context": "Supervisionar significa observar procedimento, corrigir rota e registrar incidentes com responsabilidade.", "content": ["Faça devolutivas sobre processo: consentimento, leitura, neutralidade e sincronização.", "Nunca altere uma resposta para melhorar um resultado.", "Quando houver ocorrência ou risco, acolha, registre o necessário e escale conforme a operação."], "video": { "label": "Adicionar vídeo: devolutiva de qualidade", "url": "" }, "example": "Em vez de dizer 'você errou tudo', diga: 'na próxima abordagem, apresente a voluntariedade antes da primeira pergunta'.", "activity": "Escreva uma devolutiva curta e respeitosa para uma pessoa que esqueceu de conferir sincronização.", "quiz": { "question": "Qual devolutiva é adequada?", "options": ["Mudar respostas para corrigir", "Orientar o procedimento e registrar o que for necessário", "Expor o erro no grupo"], "feedback": "Isso mesmo: a supervisão melhora o processo sem violar a autoria." }, "instructor": { "opening": "Faça um acordo de devolutiva respeitosa e baseada em fatos observáveis.", "demonstration": "Mostre uma devolutiva inadequada e uma adequada.", "guidingQuestions": ["O que uma supervisora nunca pode alterar?"], "expectedResponse": "A resposta registrada pela pessoa entrevistada.", "rubric": ["Foca no procedimento", "Evita constrangimento", "Protege autoria"] } }
         ] }
       ]
-    },
-    "mobilizador": { "title": "Mobilização", "description": "Trilha em preparação.", "status": "coming_soon", "modules": [] },
-    "coordenador": { "title": "Coordenação", "description": "Trilha em preparação.", "status": "coming_soon", "modules": [] },
-    "administrador": { "title": "Administração", "description": "Trilha em preparação.", "status": "coming_soon", "modules": [] },
-    "analista": { "title": "Análise", "description": "Trilha em preparação.", "status": "coming_soon", "modules": [] },
-    "observador": { "title": "Observação", "description": "Trilha em preparação.", "status": "coming_soon", "modules": [] },
-    "fundadora": { "title": "Administração principal", "description": "Trilha em preparação.", "status": "coming_soon", "modules": [] },
-    "instrutor": { "title": "Instrutoria", "description": "Versão para facilitar as trilhas de Pesquisa e Supervisão.", "modules": [] }
+    }
   },
   "certification": { "minimumScore": 80, "requirements": ["Concluir todas as aulas da trilha atual", "Responder corretamente às avaliações", "Registrar os exercícios", "Enviar a prática para avaliação da instrutora"] }
 }

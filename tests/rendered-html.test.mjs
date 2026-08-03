@@ -18,6 +18,7 @@ const academyV4Content = JSON.parse(await readFile(new URL("../app/academia-v51-
 const academyMigration = await readFile(new URL("../supabase/migrations/20260731150000_academia_nortep.sql", import.meta.url), "utf8");
 const academyOperationalMigration = await readFile(new URL("../supabase/migrations/20260731230000_academia_v49_operacional.sql", import.meta.url), "utf8");
 const academyV4Migration = await readFile(new URL("../supabase/migrations/20260802120000_academia_pesquisa_supervisao_v4.sql", import.meta.url), "utf8");
+const academyAccessMigration = await readFile(new URL("../supabase/migrations/20260803190000_academia_roles_and_instructor_access.sql", import.meta.url), "utf8");
 const academyManagement = await readFile(new URL("../app/academia-management.tsx", import.meta.url), "utf8");
 
 test("V49 mantém entradas separadas, supervisão e visão exclusiva da fundadora", () => {
@@ -128,11 +129,11 @@ test("capa pública não exibe instruções internas ou mapa físico", () => {
 });
 
 test("Formação NorteP está integrada ao Ecossistema sem substituir a V49", () => {
-  assert.match(page, /import AcademiaNorteP from "\.\/academia"/);
+  assert.match(page, /import AcademiaNorteP, \{ AcademiaInstrutoriaNorteP \} from "\.\/academia"/);
   assert.match(page, /Formação NorteP/);
   assert.match(page, /<AcademiaNorteP/);
   assert.match(layout, /\.\/academia\.css/);
-  assert.match(page, /session=\{session\}/);
+  assert.match(page, /session=\{previewing \? null : session\}/);
   assert.match(academy, /Progresso protegido/);
   assert.match(academy, /Acompanhamento central ativado/);
   assert.match(academy, /Certificado emitido/);
@@ -140,10 +141,11 @@ test("Formação NorteP está integrada ao Ecossistema sem substituir a V49", ()
   assert.match(academyStyles, /--academy-gold:#c69a3a/);
 });
 
-test("Academia tem entrada direta e aulas flexíveis para continuar depois", () => {
-  assert.match(page, /\?produto=academia&acesso=pesquisador/);
-  assert.match(page, /Abrir aulas e exercícios/);
-  assert.match(page, /Estude no seu ritmo, salve o exercício e continue quando quiser/);
+test("Academia usa o acesso normal e mantém aulas flexíveis para continuar depois", () => {
+  assert.doesNotMatch(page, /produto=academia/);
+  assert.match(page, /Entrar — pesquisas, aulas e exercícios/);
+  assert.match(page, /Parte do seu acesso normal/);
+  assert.match(page, /Abrir minhas aulas/);
   assert.match(academy, /Salvar exercício/);
   assert.match(academy, /Concluir e continuar/);
   assert.match(academy, /Aula anterior/);
@@ -166,7 +168,7 @@ test("Academia contém trilhas, prática, avaliação, biblioteca e certificaç�
 
 test("Academia respeita o perfil atual e não contém credenciais administrativas", () => {
   assert.match(academy, /profile\.is_primary_admin/);
-  assert.match(academy, /profile\.role === "admin"/);
+  assert.match(academy, /profile\.role === "supervisor"/);
   assert.doesNotMatch(academy, /service_role|SUPABASE_SERVICE_ROLE|secret[_-]?key/i);
   assert.doesNotMatch(JSON.stringify(academyContent), /service_role|SUPABASE_SERVICE_ROLE|secret[_-]?key/i);
 });
@@ -207,12 +209,14 @@ test("Academia operacional possui instrutoria, editor e fluxo editorial protegid
   assert.match(academyOperationalMigration, /p_content - 'answer'/);
   assert.match(academyOperationalMigration, /#- '\{quiz,answer\}'/);
   assert.match(academyOperationalMigration, /revoke all on table public\.academy_content_revisions from public, anon, authenticated/);
-  assert.match(academyOperationalMigration, /academy_track_assignments/);
-  assert.match(academyOperationalMigration, /set_academy_track_assignment/);
-  assert.match(academyManagement, /PERFIS DE ALUNOS/);
+  assert.match(academy, /Planos de aula e aulões/);
+  assert.match(academy, /PLANO DO AULÃO/i);
+  assert.doesNotMatch(academyManagement, /PERFIS DE ALUNOS/);
+  assert.match(academyAccessMigration, /Somente a administradora fundadora/);
+  assert.match(academyAccessMigration, /p\.role in \('pesquisador', 'supervisor'\)/);
 });
 
-test("Academia V4 começa pelo aplicativo e separa Pesquisa, Supervisão e demais perfis", () => {
+test("Academia V4 contém somente as trilhas de Pesquisa e Supervisão", () => {
   assert.equal(academyV4Content.version, "4.0.0");
   assert.match(JSON.stringify(academyV4Content), /Apresentação: por que existe a NorteP/);
   assert.match(JSON.stringify(academyV4Content), /convite, cadastro e entrada segura/);
@@ -220,8 +224,10 @@ test("Academia V4 começa pelo aplicativo e separa Pesquisa, Supervisão e demai
   assert.match(JSON.stringify(academyV4Content), /Conhecendo o aplicativo/);
   assert.equal(academyV4Content.roles.pesquisador.modules.flatMap(module => module.lessons).length, 3);
   assert.equal(academyV4Content.roles.supervisor.modules.flatMap(module => module.lessons).length, 2);
-  for (const role of ["mobilizador", "coordenador", "administrador", "analista", "observador", "fundadora"]) assert.equal(academyV4Content.roles[role].status, "coming_soon");
-  assert.match(page, /Aulas e formação/);
+  assert.deepEqual(Object.keys(academyV4Content.roles).sort(), ["pesquisador", "supervisor"]);
+  assert.doesNotMatch(JSON.stringify(academyV4Content), /coming_soon|Trilha em preparação/i);
+  assert.match(page, /Aulas e exercícios/);
+  assert.match(page, /Instrutoria e materiais/);
   assert.match(page, /ir\("academia"\)/);
 });
 
