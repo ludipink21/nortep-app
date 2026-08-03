@@ -1,0 +1,13 @@
+documentos_oficiais/
+supabase/
+db/
+drizzle/
+examples/
+tests/
+build/
+dist/
+.wrangler/
+work/
+*.zip
+*.docx
+*.pdf
