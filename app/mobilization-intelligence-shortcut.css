@@ -1,8 +1,14 @@
-.nortep-intelligence-shortcut {
+.nortep-mobilization-shortcuts {
   position: fixed;
   left: 18px;
   bottom: 18px;
   z-index: 2150;
+  display: grid;
+  gap: 8px;
+}
+
+.nortep-intelligence-shortcut,
+.nortep-social-quiz-shortcut {
   display: grid;
   grid-template-columns: 34px auto;
   grid-template-rows: auto auto;
@@ -12,13 +18,21 @@
   padding: 11px 14px;
   border: 1px solid rgba(216, 179, 77, .55);
   border-radius: 16px;
-  background: linear-gradient(145deg, #2f1450, #4b1f72);
   color: #fff;
   box-shadow: 0 16px 40px rgba(31, 12, 53, .28);
   text-decoration: none;
 }
 
-.nortep-intelligence-shortcut > span {
+.nortep-intelligence-shortcut {
+  background: linear-gradient(145deg, #2f1450, #4b1f72);
+}
+
+.nortep-social-quiz-shortcut {
+  background: linear-gradient(145deg, #622669, #9a3f84 55%, #ca7d4c);
+}
+
+.nortep-intelligence-shortcut > span,
+.nortep-social-quiz-shortcut > span {
   grid-row: 1 / 3;
   display: grid;
   place-items: center;
@@ -30,20 +44,31 @@
   font-size: 16px;
 }
 
-.nortep-intelligence-shortcut b {
+.nortep-social-quiz-shortcut > span {
+  background: #fff1f6;
+  color: #8f326c;
+}
+
+.nortep-intelligence-shortcut b,
+.nortep-social-quiz-shortcut b {
   font-size: 13px;
 }
 
-.nortep-intelligence-shortcut small {
-  color: #e8dcf2;
+.nortep-intelligence-shortcut small,
+.nortep-social-quiz-shortcut small {
+  color: #f0e6f4;
   font-size: 11px;
 }
 
 @media (max-width: 600px) {
-  .nortep-intelligence-shortcut {
+  .nortep-mobilization-shortcuts {
     left: 10px;
+    right: 10px;
     bottom: 78px;
+  }
+  .nortep-intelligence-shortcut,
+  .nortep-social-quiz-shortcut {
     min-width: 0;
-    max-width: calc(100vw - 20px);
+    max-width: 100%;
   }
 }
