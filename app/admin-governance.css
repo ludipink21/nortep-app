@@ -1,0 +1,357 @@
+.nortep-admin-governance {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2200;
+  font-family: inherit;
+}
+
+.nortep-admin-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+  padding: 11px 14px;
+  border: 1px solid rgba(216, 179, 77, .55);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #2f1450, #4b1f72);
+  color: #fff;
+  box-shadow: 0 16px 40px rgba(31, 12, 53, .28);
+  cursor: pointer;
+  text-align: left;
+}
+
+.nortep-admin-trigger-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: #d8b34d;
+  color: #32154f;
+  font-size: 17px;
+}
+
+.nortep-admin-trigger span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.nortep-admin-trigger b {
+  font-size: 13px;
+}
+
+.nortep-admin-trigger small {
+  color: #e8dcf2;
+  font-size: 11px;
+}
+
+.nortep-admin-panel {
+  position: absolute;
+  right: 0;
+  bottom: 64px;
+  width: min(470px, calc(100vw - 24px));
+  max-height: min(760px, calc(100vh - 105px));
+  overflow: auto;
+  border: 1px solid rgba(92, 45, 126, .18);
+  border-radius: 22px;
+  background: #fff;
+  color: #2b2131;
+  box-shadow: 0 22px 70px rgba(36, 17, 49, .3);
+}
+
+.nortep-admin-panel > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  background: linear-gradient(145deg, #2e154a, #512477);
+  color: #fff;
+  border-radius: 21px 21px 0 0;
+}
+
+.nortep-admin-panel header small {
+  color: #d8b34d;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.nortep-admin-panel header h2 {
+  margin: 5px 0 2px;
+  font-size: 20px;
+}
+
+.nortep-admin-panel header p {
+  margin: 0;
+  color: #e8dcf2;
+  font-size: 12px;
+}
+
+.nortep-admin-panel header > button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  font-size: 23px;
+  cursor: pointer;
+}
+
+.nortep-admin-panel section {
+  padding: 17px 20px;
+  border-bottom: 1px solid #eee7f2;
+}
+
+.nortep-admin-panel section:last-child {
+  border-bottom: 0;
+}
+
+.nortep-admin-panel h3 {
+  margin: 0 0 11px;
+  color: #40205d;
+  font-size: 15px;
+}
+
+.nortep-admin-apps > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.nortep-admin-apps button {
+  border: 1px solid #dacbe4;
+  border-radius: 999px;
+  background: #faf7fc;
+  color: #43225f;
+  padding: 8px 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nortep-admin-apps p {
+  margin: 12px 0 0;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: #fff9e7;
+  color: #5f4a13;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.nortep-section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.nortep-section-title span {
+  display: grid;
+}
+
+.nortep-section-title h3 {
+  margin: 0;
+}
+
+.nortep-section-title small {
+  color: #7c6f84;
+}
+
+.nortep-section-title > b {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #e7f7ec;
+  color: #16763a;
+  font-size: 11px;
+}
+
+.nortep-presence-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 255px;
+  overflow: auto;
+}
+
+.nortep-presence-list article {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid #eee7f2;
+  border-radius: 13px;
+  background: #fcfbfd;
+}
+
+.nortep-presence-list article > i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #aaa1ae;
+}
+
+.nortep-presence-list article.online > i {
+  background: #22a958;
+  box-shadow: 0 0 0 4px rgba(34, 169, 88, .12);
+}
+
+.nortep-presence-list article > span {
+  display: grid;
+  min-width: 0;
+}
+
+.nortep-presence-list article b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.nortep-presence-list article small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #7a6e81;
+  font-size: 10px;
+}
+
+.nortep-presence-list article em {
+  color: #786b7e;
+  font-size: 10px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.nortep-presence-list article.online em {
+  color: #178044;
+  font-weight: 800;
+}
+
+.nortep-invite-section {
+  display: grid;
+  gap: 10px;
+}
+
+.nortep-invite-section label {
+  display: grid;
+  gap: 5px;
+  color: #51445a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.nortep-invite-section input,
+.nortep-invite-section select {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  border: 1px solid #d9cde1;
+  border-radius: 11px;
+  background: #fff;
+  color: #2f2634;
+  padding: 9px 11px;
+  font: inherit;
+}
+
+.nortep-create-invite {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: #4b2369;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.nortep-create-invite:disabled {
+  opacity: .6;
+  cursor: progress;
+}
+
+.nortep-generated-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.nortep-generated-link input {
+  font-size: 10px;
+}
+
+.nortep-generated-link button {
+  border: 0;
+  border-radius: 10px;
+  background: #d8b34d;
+  color: #32154f;
+  padding: 0 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.nortep-admin-message {
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: #f3edf7;
+  color: #4a2b5e;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.nortep-invite-section > small {
+  color: #786e7d;
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .nortep-admin-governance {
+    right: 10px;
+    bottom: 10px;
+  }
+
+  .nortep-admin-trigger {
+    min-width: 0;
+    max-width: calc(100vw - 20px);
+  }
+
+  .nortep-admin-panel {
+    right: -2px;
+    bottom: 62px;
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 88px);
+  }
+
+  .nortep-presence-list article {
+    grid-template-columns: 10px minmax(0, 1fr);
+  }
+
+  .nortep-presence-list article em {
+    grid-column: 2;
+  }
+}
+
+:root[data-tema="escuro"] .nortep-admin-panel {
+  background: #241c29;
+  color: #f4eef6;
+  border-color: #4a3a54;
+}
+
+:root[data-tema="escuro"] .nortep-admin-panel section {
+  border-color: #47394e;
+}
+
+:root[data-tema="escuro"] .nortep-admin-panel h3 {
+  color: #eadcf2;
+}
+
+:root[data-tema="escuro"] .nortep-presence-list article,
+:root[data-tema="escuro"] .nortep-admin-apps button,
+:root[data-tema="escuro"] .nortep-invite-section input,
+:root[data-tema="escuro"] .nortep-invite-section select {
+  background: #302639;
+  border-color: #51425a;
+  color: #f4eef6;
+}
