@@ -34,7 +34,7 @@ export default function MobilizationIntelligenceShortcut() {
   useEffect(() => {
     let active = true;
     const check = async () => {
-      if (window.location.pathname.startsWith("/inteligencia")) {
+      if (window.location.pathname.startsWith("/inteligencia") || window.location.pathname.startsWith("/rede")) {
         if (active) setVisible(false);
         return;
       }
@@ -87,9 +87,16 @@ export default function MobilizationIntelligenceShortcut() {
 
   if (!visible) return null;
 
-  return <a className="nortep-intelligence-shortcut" href="/inteligencia">
-    <span aria-hidden="true">◆</span>
-    <b>Inteligência de propostas</b>
-    <small>Triagem da mobilização</small>
-  </a>;
+  return <div className="nortep-mobilization-shortcuts">
+    <a className="nortep-intelligence-shortcut" href="/inteligencia">
+      <span aria-hidden="true">◆</span>
+      <b>Inteligência de propostas</b>
+      <small>Triagem da mobilização</small>
+    </a>
+    <a className="nortep-social-quiz-shortcut" href="/rede/gestao">
+      <span aria-hidden="true">✦</span>
+      <b>Quiz das redes</b>
+      <small>Links e alcance por canal</small>
+    </a>
+  </div>;
 }
