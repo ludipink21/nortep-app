@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import AdminGovernance from "./admin-governance";
 import "./globals.css";
 import "./academia.css";
 
@@ -47,17 +48,17 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         }
         var reloading = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (reloading || sessionStorage.getItem('nortep-reload-v49')) return;
+          if (reloading || sessionStorage.getItem('nortep-reload-v50')) return;
           reloading = true;
-          sessionStorage.setItem('nortep-reload-v49', '1');
+          sessionStorage.setItem('nortep-reload-v50', '1');
           window.location.reload();
         });
         try {
-          var registration = await navigator.serviceWorker.register('/sw.js?v=49', { updateViaCache: 'none' });
+          var registration = await navigator.serviceWorker.register('/sw.js?v=50', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });
     }
   `;
-  return <html lang="pt-BR"><body>{children}<script dangerouslySetInnerHTML={{ __html: serviceWorkerUpdate }} /></body></html>;
+  return <html lang="pt-BR"><body>{children}<AdminGovernance /><script dangerouslySetInnerHTML={{ __html: serviceWorkerUpdate }} /></body></html>;
 }
