@@ -1,0 +1,157 @@
+.nortep-intro-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(24, 10, 34, .82);
+  backdrop-filter: blur(8px);
+}
+
+.nortep-intro-card {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 24px;
+  border: 1px solid rgba(216, 179, 77, .52);
+  border-radius: 24px;
+  background: #fff;
+  color: #2d2432;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .38);
+}
+
+.nortep-intro-card > header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.nortep-intro-logo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: #4b2369;
+  color: #d8b34d;
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.nortep-intro-card header span {
+  display: grid;
+  gap: 3px;
+}
+
+.nortep-intro-card header small {
+  color: #8a6a24;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+
+.nortep-intro-card h2 {
+  margin: 0;
+  color: #40205a;
+  font-size: clamp(20px, 4vw, 30px);
+}
+
+.nortep-intro-card > p {
+  margin: 16px 0;
+  color: #65596b;
+  line-height: 1.5;
+}
+
+.nortep-intro-frame {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding-top: 56.25%;
+  border-radius: 16px;
+  background: #160d1b;
+}
+
+.nortep-intro-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.nortep-intro-notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 14px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f5f0f7;
+  color: #5e5264;
+}
+
+.nortep-intro-notice > i {
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e8dced;
+  color: #4b2369;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.nortep-intro-notice span {
+  display: grid;
+  gap: 2px;
+}
+
+.nortep-intro-notice small {
+  line-height: 1.4;
+}
+
+.nortep-intro-card > button {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 13px;
+  background: #4b2369;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .nortep-intro-backdrop {
+    padding: 8px;
+  }
+
+  .nortep-intro-card {
+    max-height: calc(100vh - 16px);
+    padding: 17px;
+    border-radius: 18px;
+  }
+}
+
+:root[data-tema="escuro"] .nortep-intro-card {
+  background: #241c29;
+  color: #f2ebf4;
+  border-color: #77602d;
+}
+
+:root[data-tema="escuro"] .nortep-intro-card h2 {
+  color: #f1e5f5;
+}
+
+:root[data-tema="escuro"] .nortep-intro-card > p,
+:root[data-tema="escuro"] .nortep-intro-notice {
+  color: #d8cedd;
+}
+
+:root[data-tema="escuro"] .nortep-intro-notice {
+  background: #302638;
+}
