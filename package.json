@@ -1,5 +1,5 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "nortep-app",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -10,7 +10,6 @@
     "build": "next build",
     "start": "next start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
-    "test:sites": "npm run build:sites && node --test tests/rendered-html.test.mjs",
     "lint": "eslint app tests --ignore-pattern dist --ignore-pattern .next --ignore-pattern work"
   },
   "dependencies": {
