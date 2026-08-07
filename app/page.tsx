@@ -8,7 +8,7 @@ import { CandidateOperation, clearSurveyTestData, configured, createAccessInvite
 
 type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "mobilizacao" | "ecossistema" | "cofre" | "academia" | "instrutoria" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "observador" | "supervisao" | "coordenacao" | "administracao" | "principal";
-type FounderPerspective = "fundadora" | "publico" | "pesquisador" | "observador" | "candidato" | "supervisor" | "coordenador" | "administrador";
+type FounderPerspective = "fundadora" | "primario" | "publico" | "pesquisador" | "observador" | "candidato" | "supervisor" | "coordenador" | "administrador";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
   | { kind: "field_event"; id: string; survey: Survey; event: Omit<FieldEvent, "id" | "survey_id" | "researcher_id" | "occurred_at">; deviceId: string; savedAt: string; attempts: number };
@@ -18,6 +18,7 @@ type AttemptLog = { action: "inicio" | "retomada" | "recomeco" | "finalizada" | 
 const draftKey = (surveyId: string) => `nortep-rascunho-${surveyId}`;
 const hasPrincipalAdminAccess = (profile?: Profile | null) => Boolean(profile?.role === "admin" && (profile.is_primary_admin === true || profile.admin_level === "founder" || profile.admin_level === "primary"));
 const isFounderAccount = (profile?: Profile | null) => Boolean(profile?.role === "admin" && (profile.is_primary_admin === true || profile.admin_level === "founder"));
+const ownPrincipalPerspective = (profile?: Profile | null): FounderPerspective => profile?.role === "admin" && profile.admin_level === "primary" ? "primario" : "fundadora";
 
 function readAccessChannel(): AccessChannel {
   if (typeof window === "undefined") return "publico";
@@ -197,6 +198,7 @@ export default function Home() {
     }
     setSession(current);
     setProfile(p);
+    if (hasPrincipalAdminAccess(p)) setFounderPerspective(ownPrincipalPerspective(p));
     if (p.role === "observador") {
       setObserverSummary(await loadObserverSummary(current));
       if (p.observer_mode === "candidato") {
@@ -275,10 +277,10 @@ export default function Home() {
       return;
     }
     let role: Profile["role"] | undefined = profile?.role;
-    if (founderPerspective === "administrador") role = "admin";
+    if (founderPerspective === "fundadora" || founderPerspective === "primario" || founderPerspective === "administrador") role = "admin";
     else if (founderPerspective === "candidato") role = "observador";
     else if (founderPerspective === "pesquisador" || founderPerspective === "supervisor" || founderPerspective === "coordenador" || founderPerspective === "observador") role = founderPerspective;
-    if (destino === "instrutoria" && hasPrincipalAdminAccess(profile) && founderPerspective === "fundadora") {
+    if (destino === "instrutoria" && hasPrincipalAdminAccess(profile) && founderPerspective === ownPrincipalPerspective(profile)) {
       setView("instrutoria");
       setMenu(false);
       return;
@@ -531,18 +533,19 @@ export default function Home() {
   />;
 
   const founderAccess = hasPrincipalAdminAccess(profile);
-  const previewing = founderAccess && founderPerspective !== "fundadora";
+  const currentPrincipalPerspective = ownPrincipalPerspective(profile);
+  const previewing = founderAccess && founderPerspective !== currentPrincipalPerspective;
   const visualProfile: Profile = previewing && founderPerspective !== "publico"
     ? {
         ...profile,
-        role: founderPerspective === "administrador" ? "admin" : founderPerspective === "candidato" ? "observador" : founderPerspective,
+        role: founderPerspective === "fundadora" || founderPerspective === "primario" || founderPerspective === "administrador" ? "admin" : founderPerspective === "candidato" ? "observador" : founderPerspective,
         observer_mode: founderPerspective === "candidato" ? "candidato" : founderPerspective === "observador" ? "geral" : profile.observer_mode,
-        is_primary_admin: false,
-        admin_level: founderPerspective === "administrador" ? "secondary" : null,
+        is_primary_admin: founderPerspective === "fundadora",
+        admin_level: founderPerspective === "fundadora" ? "founder" : founderPerspective === "primario" ? "primary" : founderPerspective === "administrador" ? "secondary" : null,
       } as Profile
     : profile;
   const leavePreview = () => {
-    setFounderPerspective("fundadora");
+    setFounderPerspective(currentPrincipalPerspective);
     setView("visoes");
     setMenu(false);
   };
@@ -579,7 +582,7 @@ export default function Home() {
     network: mobilizationPartners.map(item => ({ ...item, meetings_opt_ins: Number(item.meetings_opt_ins || 0), referrals: Number(item.referrals || 0) })),
   };
   if (founderAccess && founderPerspective === "publico") return <><FounderPreviewBar label="Capa pública" voltar={leavePreview} /><div className="founder-preview-surface"><PublicLanding /></div></>;
-  if (founderAccess && (founderPerspective === "observador" || founderPerspective === "candidato")) return <><FounderPreviewBar label={founderPerspective === "candidato" ? "Painel Estratégico do Candidato" : "Observador geral"} voltar={leavePreview} /><div className="founder-preview-surface"><ObserverPanel profile={visualProfile} summary={{ ...previewObserverSummary, observer_mode: founderPerspective === "candidato" ? "candidato" : "geral" }} session={session} partners={mobilizationPartners} operations={candidateOperations} aviso={aviso} sair={leavePreview} descadastrar={async () => aviso("A prévia não altera a sua conta fundadora.")} atualizar={async () => atualizarDadosAdmin()} /></div></>;
+  if (founderAccess && (founderPerspective === "observador" || founderPerspective === "candidato")) return <><FounderPreviewBar label={founderPerspective === "candidato" ? "Painel Estratégico do Candidato" : "Observador geral"} voltar={leavePreview} /><div className="founder-preview-surface"><ObserverPanel profile={visualProfile} summary={{ ...previewObserverSummary, observer_mode: founderPerspective === "candidato" ? "candidato" : "geral" }} session={session} partners={mobilizationPartners} operations={candidateOperations} aviso={aviso} sair={leavePreview} descadastrar={async () => aviso("A prévia não altera a sua conta principal.")} atualizar={async () => atualizarDadosAdmin()} /></div></>;
 
   const campo = founderPerspective === "pesquisador" || view === "portal" || view === "entrevista" || view === "obrigado" || (view === "academia" && visualProfile.role === "pesquisador");
   const titulos: Record<View, string> = {
@@ -601,8 +604,8 @@ export default function Home() {
   };
 
   return <div className={campo ? "app app-campo" : "app"}>
-    <ControleFonte profile={visualProfile} sair={previewing ? leavePreview : sair} descadastrar={previewing ? async () => aviso("A prévia não altera a sua conta fundadora.") : descadastrarMeuAcesso} />
-    {previewing && <FounderPreviewBar label={founderPerspective === "pesquisador" ? "Pesquisador" : founderPerspective === "supervisor" ? "Supervisor" : founderPerspective === "coordenador" ? "Coordenador" : "Administrador secundário"} voltar={leavePreview} />}
+    <ControleFonte profile={visualProfile} sair={previewing ? leavePreview : sair} descadastrar={previewing ? async () => aviso("A prévia não altera a sua conta principal.") : descadastrarMeuAcesso} />
+    {previewing && <FounderPreviewBar label={founderPerspective === "fundadora" ? "Administradora fundadora" : founderPerspective === "primario" ? "Administrador primário" : founderPerspective === "pesquisador" ? "Pesquisador" : founderPerspective === "supervisor" ? "Supervisor" : founderPerspective === "coordenador" ? "Coordenador" : "Administrador secundário"} voltar={leavePreview} />}
     {!campo && <aside className={menu ? "open" : ""}>
       <div className="logo"><i>NP</i><span>NorteP <b>Pesquisa</b></span></div>
       <nav>{[
@@ -636,7 +639,7 @@ export default function Home() {
           {campo && view === "portal" && <><button className="refresh-surveys" onClick={() => void atualizarPesquisasPesquisador(true)}>↻ Atualizar pesquisas</button><button className="refresh-surveys" onClick={() => ir("academia")}>Aulas</button></>}
           {campo && view === "academia" && <button className="refresh-surveys" onClick={() => ir("portal")}>Entrevistas</button>}
           {!campo && admin && <button className="preview-field" onClick={() => ir("portal")}>Ver área do pesquisador →</button>}
-          {campo && <button className="sair-campo" onClick={() => previewing ? leavePreview() : admin ? ir("inicio") : sair()}>{previewing ? "Voltar ao painel da fundadora" : admin ? "Sair da prévia" : "Sair"}</button>}
+          {campo && <button className="sair-campo" onClick={() => previewing ? leavePreview() : admin ? ir("inicio") : sair()}>{previewing ? "Voltar ao meu painel" : admin ? "Sair da prévia" : "Sair"}</button>}
         </section>
       </header>
 
@@ -689,7 +692,8 @@ function FounderPreviewBar({ label, voltar }: { label: string; voltar: () => voi
 
 function FounderViews({ abrir, ir, aviso }: { abrir: (perspective: FounderPerspective) => void; ir: (view: View) => void; aviso: (text: string) => void }) {
   const entradas: Array<{ perspective: FounderPerspective; icon: string; title: string; description: string; access: AccessChannel }> = [
-    { perspective: "fundadora", icon: "NP", title: "Administradora fundadora", description: "Controle principal, visão total, códigos e áreas protegidas.", access: "principal" },
+    { perspective: "fundadora", icon: "NP", title: "Administradora fundadora", description: "Controle principal, visão total e conta protegida contra remoção.", access: "principal" },
+    { perspective: "primario", icon: "AP", title: "Administrador primário", description: "Mesma visão operacional da Fundadora, sem poder remover, suspender ou rebaixar a Fundadora.", access: "principal" },
     { perspective: "publico", icon: "⌂", title: "Capa pública", description: "Página institucional vista por quem ainda não possui acesso.", access: "publico" },
     { perspective: "pesquisador", icon: "▤", title: "Pesquisador", description: "Pesquisas liberadas, coleta, rascunho e sincronização.", access: "pesquisador" },
     { perspective: "observador", icon: "◉", title: "Observador geral", description: "Sala de situação com coleta, cobertura, prioridades e mobilização agrupadas.", access: "observador" },
@@ -724,7 +728,7 @@ function FounderViews({ abrir, ir, aviso }: { abrir: (perspective: FounderPerspe
       <div><button type="button" onClick={() => item.perspective === "candidato" ? ir("equipe") : void copiar(item.access)}>{item.perspective === "candidato" ? "Criar convite" : "Copiar entrada"}</button><button type="button" className="primary" onClick={() => abrir(item.perspective)}>Visualizar como</button></div>
     </article>)}</div>
     <section className="painel founder-pages">
-      <div><small>TODAS AS ÁREAS DA FUNDAÇÃO</small><h3>Abrir uma página do seu painel</h3><p>Atalhos para conferir todo o conteúdo administrativo sem procurar no menu.</p></div>
+      <div><small>TODAS AS ÁREAS DA ADMINISTRAÇÃO PRINCIPAL</small><h3>Abrir uma página do seu painel</h3><p>Atalhos para conferir todo o conteúdo administrativo sem procurar no menu.</p></div>
       <nav>{paginas.map(item => <button type="button" key={item.view} onClick={() => ir(item.view)}>{item.label}<span>→</span></button>)}</nav>
     </section>
   </div>;
