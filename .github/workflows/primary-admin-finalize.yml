@@ -1,0 +1,50 @@
+name: Finalize primary admin parity
+on:
+  push:
+    branches:
+      - agent/primary-admin-founder-parity
+permissions:
+  contents: write
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/primary-admin-founder-parity
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Ajustar telas restantes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/page.tsx')
+          s = p.read_text()
+          changes = [
+            ('currentProfile.is_primary_admin ? "CENTRAL DA ADMINISTRADORA FUNDADORA" : currentProfile.role === "coordenador"', 'isFounderAccount(currentProfile) ? "CENTRAL DA ADMINISTRADORA FUNDADORA" : currentProfile.role === "admin" && currentProfile.admin_level === "primary" ? "CENTRAL DO ADMINISTRADOR PRIMÁRIO" : currentProfile.role === "coordenador"'),
+            ('currentProfile.is_primary_admin ? "Você possui o acesso principal protegido e a visão completa da operação."', 'hasPrincipalAdminAccess(currentProfile) ? "Você possui acesso principal protegido e a visão completa da operação."'),
+            ('botao={profile.is_primary_admin ? "Abrir Instrutoria"', 'botao={hasPrincipalAdminAccess(profile) ? "Abrir Instrutoria"'),
+            ('acao={profile.is_primary_admin ? abrirInstrutoria : abrirAcademia}', 'acao={hasPrincipalAdminAccess(profile) ? abrirInstrutoria : abrirAcademia}'),
+            ('const academyAvailable = profile.is_primary_admin || profile.role === "supervisor";', 'const academyAvailable = hasPrincipalAdminAccess(profile) || profile.role === "supervisor";'),
+            ('{academy ? profile.is_primary_admin ? "Planos, exemplos e materiais da instrutora para Pesquisa e Supervisão."', '{academy ? hasPrincipalAdminAccess(profile) ? "Planos, exemplos e materiais da instrutora para Pesquisa e Supervisão."'),
+            (': academy && profile.is_primary_admin ? <button onClick={abrirInstrutoria}>', ': academy && hasPrincipalAdminAccess(profile) ? <button onClick={abrirInstrutoria}>'),
+          ]
+          for old, new in changes:
+            if old not in s:
+              raise SystemExit('Trecho esperado não encontrado: ' + old)
+            s = s.replace(old, new)
+          p.write_text(s)
+          PY
+      - run: npm audit
+      - run: npm run build
+      - name: Salvar ajuste
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx
+          git commit -m 'Completar acesso visual do Administrador Primario'
+          git push origin HEAD:agent/primary-admin-founder-parity
