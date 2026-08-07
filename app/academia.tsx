@@ -492,11 +492,11 @@ export function AcademiaInstrutoriaNorteP({ profile, session }: { profile: Profi
     setPresentationOpen(false);
   }, [audience, lessons, selectedLessonId]);
 
-  if (!profile.is_primary_admin) return null;
+  if (!(profile.role === "admin" && (profile.is_primary_admin || profile.admin_level === "founder" || profile.admin_level === "primary"))) return null;
 
   return <section className="academy-shell academy-instructor-shell" aria-label="Instrutoria NorteP">
     <div className="academy-hero academy-instructor-hero">
-      <div><small>ACESSO EXCLUSIVO · ADMINISTRADORA FUNDADORA</small><h2><span>N</span>orteP <b>Instrutoria</b></h2><p>Prepare a formação de Pesquisa e Supervisão com um material próprio para quem conduz a aula.</p><div className="academy-tags"><span>4 aulas comuns</span><span>3 aulas de Pesquisa</span><span>2 aulas de Supervisão</span></div></div>
+      <div><small>ACESSO · FUNDAÇÃO E ADMINISTRADOR PRIMÁRIO</small><h2><span>N</span>orteP <b>Instrutoria</b></h2><p>Prepare a formação de Pesquisa e Supervisão com um material próprio para quem conduz a aula.</p><div className="academy-tags"><span>4 aulas comuns</span><span>3 aulas de Pesquisa</span><span>2 aulas de Supervisão</span></div></div>
       <div className="academy-instructor-access"><i>✦</i><span><b>Área separada das aulas dos alunos</b><small>Planos, exemplos, demonstrações, perguntas e rubricas ficam organizados aqui.</small></span></div>
     </div>
 

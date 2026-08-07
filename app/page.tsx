@@ -16,6 +16,8 @@ type RespostasSetter = Dispatch<SetStateAction<Record<string, string>>>;
 type InterviewDraft = { survey: Survey; step: number; responses: Record<string, string>; startedAt: number; savedAt: string };
 type AttemptLog = { action: "inicio" | "retomada" | "recomeco" | "finalizada" | "recusa" | "interrompida"; surveyId: string; at: string; step: number };
 const draftKey = (surveyId: string) => `nortep-rascunho-${surveyId}`;
+const hasPrincipalAdminAccess = (profile?: Profile | null) => Boolean(profile?.role === "admin" && (profile.is_primary_admin === true || profile.admin_level === "founder" || profile.admin_level === "primary"));
+const isFounderAccount = (profile?: Profile | null) => Boolean(profile?.role === "admin" && (profile.is_primary_admin === true || profile.admin_level === "founder"));
 
 function readAccessChannel(): AccessChannel {
   if (typeof window === "undefined") return "publico";
@@ -173,7 +175,7 @@ export default function Home() {
     const current = await refreshSession(incoming);
     const p = await loadProfile(current);
     if (!p) throw new Error("Perfil não encontrado.");
-    if (channel === "principal" && (p.role !== "admin" || p.is_primary_admin !== true)) {
+    if (channel === "principal" && !hasPrincipalAdminAccess(p)) {
       saveSession(null);
       throw new Error("Este endereço é exclusivo da administradora principal.");
     }
@@ -267,7 +269,7 @@ export default function Home() {
     };
   }, [session, profile?.id, profile?.active, profile?.access_removed_at]);
   const ir = (destino: View) => {
-    if (destino === "visoes" && !profile?.is_primary_admin) {
+    if (destino === "visoes" && !hasPrincipalAdminAccess(profile)) {
       setView("inicio");
       setMenu(false);
       return;
@@ -276,7 +278,7 @@ export default function Home() {
     if (founderPerspective === "administrador") role = "admin";
     else if (founderPerspective === "candidato") role = "observador";
     else if (founderPerspective === "pesquisador" || founderPerspective === "supervisor" || founderPerspective === "coordenador" || founderPerspective === "observador") role = founderPerspective;
-    if (destino === "instrutoria" && profile?.is_primary_admin && founderPerspective === "fundadora") {
+    if (destino === "instrutoria" && hasPrincipalAdminAccess(profile) && founderPerspective === "fundadora") {
       setView("instrutoria");
       setMenu(false);
       return;
@@ -319,7 +321,7 @@ export default function Home() {
     return `${window.location.origin}/?acesso=${channel}&convite=${encodeURIComponent(code)}`;
   };
   const gerarConviteCandidato = async (email: string) => {
-    if (!session || !profile?.is_primary_admin) throw new Error("Somente a administradora fundadora pode criar este acesso.");
+    if (!session || !hasPrincipalAdminAccess(profile)) throw new Error("Somente a Fundadora ou o Administrador Primário pode criar este acesso.");
     const code = await createCandidateObserverInvite(session, email);
     return `${window.location.origin}/?acesso=observador&convite=${encodeURIComponent(code)}`;
   };
@@ -465,7 +467,7 @@ export default function Home() {
   const sair = () => { saveSession(null); setSession(null); setProfile(null); setSurvey(null); setSurveys([]); setAdminSurveys([]); setTeam([]); setTeamLinks([]); setProfileTerritoriesState([]); setMobilizationPartners([]); setCandidateOperations([]); setObserverSummary(null); setFounderPerspective("fundadora"); setView("inicio"); };
   const descadastrarMeuAcesso = async () => {
     if (!session || !profile) return;
-    if (profile.is_primary_admin) return aviso("A conta principal é protegida e não pode ser descadastrada.");
+    if (hasPrincipalAdminAccess(profile)) return aviso("A conta da administração principal é protegida e não pode ser descadastrada por ela mesma.");
     const senha = window.prompt("Para confirmar sua identidade, digite a senha desta conta:");
     if (!senha) return;
     try {
@@ -528,7 +530,7 @@ export default function Home() {
     }}
   />;
 
-  const founderAccess = profile.is_primary_admin === true && profile.email.toLowerCase() === "bussolanortep@gmail.com";
+  const founderAccess = hasPrincipalAdminAccess(profile);
   const previewing = founderAccess && founderPerspective !== "fundadora";
   const visualProfile: Profile = previewing && founderPerspective !== "publico"
     ? {
@@ -536,6 +538,7 @@ export default function Home() {
         role: founderPerspective === "administrador" ? "admin" : founderPerspective === "candidato" ? "observador" : founderPerspective,
         observer_mode: founderPerspective === "candidato" ? "candidato" : founderPerspective === "observador" ? "geral" : profile.observer_mode,
         is_primary_admin: false,
+        admin_level: founderPerspective === "administrador" ? "secondary" : null,
       } as Profile
     : profile;
   const leavePreview = () => {
@@ -617,7 +620,7 @@ export default function Home() {
         ["ecossistema", "◇", "Ecossistema NorteP"],
       ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i>{item[1]}</i>{item[2]}</button>)}</nav>
       <div className="coleta"><b>● Coleta conectada</b><small>{interviews.length} de 100 entrevistas</small><div><i style={{ width: `${Math.min(interviews.length, 100)}%` }} /></div></div>
-      <div className="perfil"><i>{visualProfile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{visualProfile.name}</b><small>{visualProfile.is_primary_admin ? "Administradora fundadora" : visualProfile.role === "admin" ? "Administração" : visualProfile.role === "supervisor" ? "Supervisão de campo" : "Coordenação de campo"}</small></span><button onClick={previewing ? leavePreview : sair}>{previewing ? "Voltar" : "Sair"}</button></div>
+      <div className="perfil"><i>{visualProfile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{visualProfile.name}</b><small>{isFounderAccount(visualProfile) ? "Administradora fundadora" : visualProfile.role === "admin" ? (visualProfile.admin_level === "primary" ? "Administrador primário" : "Administração") : visualProfile.role === "supervisor" ? "Supervisão de campo" : "Coordenação de campo"}</small></span><button onClick={previewing ? leavePreview : sair}>{previewing ? "Voltar" : "Sair"}</button></div>
     </aside>}
 
     <main>
@@ -679,7 +682,7 @@ export default function Home() {
 
 function FounderPreviewBar({ label, voltar }: { label: string; voltar: () => void }) {
   return <div className="founder-preview-bar" role="status">
-    <span><b>Prévia exclusiva da fundadora</b><small>Você está vendo o aplicativo como: {label}. Sua permissão principal não foi alterada.</small></span>
+    <span><b>Prévia da administração principal</b><small>Você está vendo o aplicativo como: {label}. Sua permissão principal não foi alterada.</small></span>
     <button type="button" onClick={voltar}>← Voltar à visão completa</button>
   </div>;
 }
@@ -713,8 +716,8 @@ function FounderViews({ abrir, ir, aviso }: { abrir: (perspective: FounderPerspe
   };
   return <div className="founder-views">
     <section className="founder-views-intro">
-      <div><small>CONTROLE EXCLUSIVO · BUSSOLANORTEP@GMAIL.COM</small><h2>Veja o NorteP pelos olhos de cada pessoa</h2><p>Abra qualquer experiência sem trocar sua conta e sem compartilhar a entrada secreta da administradora fundadora.</p></div>
-      <span><b>Seu acesso continua protegido</b><small>Outros administradores não enxergam esta área.</small></span>
+      <div><small>CONTROLE PRINCIPAL · FUNDAÇÃO + ADMINISTRADOR PRIMÁRIO</small><h2>Veja o NorteP pelos olhos de cada pessoa</h2><p>Abra qualquer experiência sem trocar sua conta e sem compartilhar credenciais de administração.</p></div>
+      <span><b>Seu acesso continua protegido</b><small>Administradores secundários não enxergam esta área.</small></span>
     </section>
     <div className="founder-entry-grid">{entradas.map(item => <article key={item.perspective}>
       <i>{item.icon}</i><small>ENTRADA</small><h3>{item.title}</h3><p>{item.description}</p>
@@ -779,7 +782,7 @@ function ControleFonte({ profile, sair, descadastrar }: { profile?: Profile; sai
     localStorage.setItem("nortep-tema", valor ? "escuro" : "claro");
     document.documentElement.dataset.tema = valor ? "escuro" : "claro";
   };
-  return <div className="visual-control"><button type="button" className="visual-trigger" aria-expanded={aberto} aria-label="Abrir configurações" onClick={() => setAberto(!aberto)}>⚙ <span>Configurações</span></button>{aberto && <div className="visual-menu" role="dialog" aria-label="Configurações do aplicativo"><div><b>Visual do aplicativo</b><small>Salvo neste aparelho</small></div><label> Tema <button type="button" className={!escuro ? "active" : ""} aria-pressed={!escuro} onClick={() => alterarTema(false)}>☀ Claro</button><button type="button" className={escuro ? "active" : ""} aria-pressed={escuro} onClick={() => alterarTema(true)}>◐ Noturno</button></label><label> Texto <button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A normal</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+ maior</button></label>{profile && sair && <section className="account-settings"><div><b>Minha conta</b><small>{profile.name} · {({ admin: "Administrador", coordenador: "Coordenador", supervisor: "Supervisor", pesquisador: "Pesquisador", observador: "Observador" } as const)[profile.role]}</small></div><button type="button" className="account-logout" onClick={sair}>Sair do aplicativo</button>{profile.is_primary_admin ? <small className="primary-account-note">A conta principal é protegida contra descadastramento.</small> : <button type="button" className="account-remove" onClick={() => void descadastrar?.()}>Descadastrar meu acesso</button>}</section>}</div>}</div>;
+  return <div className="visual-control"><button type="button" className="visual-trigger" aria-expanded={aberto} aria-label="Abrir configurações" onClick={() => setAberto(!aberto)}>⚙ <span>Configurações</span></button>{aberto && <div className="visual-menu" role="dialog" aria-label="Configurações do aplicativo"><div><b>Visual do aplicativo</b><small>Salvo neste aparelho</small></div><label> Tema <button type="button" className={!escuro ? "active" : ""} aria-pressed={!escuro} onClick={() => alterarTema(false)}>☀ Claro</button><button type="button" className={escuro ? "active" : ""} aria-pressed={escuro} onClick={() => alterarTema(true)}>◐ Noturno</button></label><label> Texto <button type="button" className={!grande ? "active" : ""} aria-pressed={!grande} onClick={() => alterar(false)}>A normal</button><button type="button" className={grande ? "active" : ""} aria-pressed={grande} onClick={() => alterar(true)}>A+ maior</button></label>{profile && sair && <section className="account-settings"><div><b>Minha conta</b><small>{profile.name} · {({ admin: "Administrador", coordenador: "Coordenador", supervisor: "Supervisor", pesquisador: "Pesquisador", observador: "Observador" } as const)[profile.role]}</small></div><button type="button" className="account-logout" onClick={sair}>Sair do aplicativo</button>{hasPrincipalAdminAccess(profile) ? <small className="primary-account-note">A conta da administração principal é protegida contra autodescadastramento.</small> : <button type="button" className="account-remove" onClick={() => void descadastrar?.()}>Descadastrar meu acesso</button>}</section>}</div>}</div>;
 }
 
 function TelaConfigErro() {
@@ -1097,7 +1100,7 @@ function Inicio({ ir, aviso, interviews, profiles, pending, fieldEvents, current
   const maiorCobertura = Math.max(...coberturaCidades.map(([, total]) => total), 1);
   const nivelCobertura = (total: number) => total / maiorCobertura >= .75 ? "forte" : total / maiorCobertura >= .4 ? "medio" : "leve";
   return <>
-    <div className="boas"><div><small>{currentProfile.is_primary_admin ? "CENTRAL DA ADMINISTRADORA FUNDADORA" : currentProfile.role === "coordenador" ? "PAINEL DA COORDENAÇÃO DE CAMPO" : "PAINEL ADMINISTRATIVO"}</small><h2>Olá, {currentProfile.name.split(" ")[0]}. <span>O campo está avançando.</span></h2><p>{currentProfile.is_primary_admin ? "Você possui o acesso principal protegido e a visão completa da operação." : currentProfile.role === "coordenador" ? "Acompanhe a equipe de campo, o ritmo e as ocorrências da coleta." : "Acompanhe a operação sem compartilhar a senha da conta fundadora."}</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
+    <div className="boas"><div><small>{isFounderAccount(currentProfile) ? "CENTRAL DA ADMINISTRADORA FUNDADORA" : currentProfile.role === "admin" && currentProfile.admin_level === "primary" ? "CENTRAL DO ADMINISTRADOR PRIMÁRIO" : currentProfile.role === "coordenador" ? "PAINEL DA COORDENAÇÃO DE CAMPO" : "PAINEL ADMINISTRATIVO"}</small><h2>Olá, {currentProfile.name.split(" ")[0]}. <span>O campo está avançando.</span></h2><p>{hasPrincipalAdminAccess(currentProfile) ? "Você possui acesso principal protegido e a visão completa da operação." : currentProfile.role === "coordenador" ? "Acompanhe a equipe de campo, o ritmo e as ocorrências da coleta." : "Acompanhe a operação sem compartilhar a senha da conta fundadora."}</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
     <div className="metricas"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(interviews.length)} s="salvas com segurança" /><Metrica c="laranja" i="◎" t="Meta da pesquisa" v={`${progresso}%`} s={`${Math.max(100 - interviews.length, 0)} entrevistas restantes`} /><Metrica c="roxo" i="♙" t="Pesquisadores com coleta" v={String(ativos)} s="na pesquisa atual" /><Metrica c="azul" i="⌁" t="Neste aparelho" v={String(pending)} s="pendentes de sincronização" /></div>
     <div className="operacao-piloto"><article><small>ABORDAGENS REGISTRADAS</small><b>{abordagens}</b><span>entrevistas e ocorrências</span></article><article><small>TAXA DE CONCLUSÃO</small><b>{adesao}%</b><span>concluídas sobre abordagens</span></article><article><small>RECUSAS E INTERRUPÇÕES</small><b>{recusas + interrompidas}</b><span>{recusas} recusas · {interrompidas} interrompidas</span></article><article className={alertasQualidade ? "com-alerta" : ""}><small>ALERTAS DE QUALIDADE</small><b>{alertasQualidade}</b><span>{alertasQualidade ? "verificar antes da análise" : "nenhum alerta atual"}</span></article></div>
     <div className="duas"><div className="painel"><Topo sup="RITMO DE COLETA" titulo="Entrevistas nos últimos 7 dias" /><div className="grafico">{contagens.map((valor, i) => <div key={dias[i].toISOString()}><b>{valor}</b><i style={{ height: `${Math.max(valor ? valor / max * 90 : 3, 3)}%` }} /><small>{i === 6 ? "HOJE" : dias[i].toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3).toUpperCase()}</small></div>)}</div></div><div className="painel"><Topo sup="SITUAÇÃO DA COLETA" titulo="Acompanhamento" /><div className="alerta"><i className={pending ? "a1" : "a0"}>{pending ? "!" : "✓"}</i><span><b>{pending ? `${pending} entrevista(s) aguardando internet` : "Todas as respostas sincronizadas"}</b><small>{pending ? "Abra a área do pesquisador e toque em sincronizar" : "Nenhuma pendência neste aparelho"}</small></span></div><div className="alerta"><i className="a2">i</i><span><b>{interviews.length ? "Coleta em andamento" : "Pronto para a primeira entrevista"}</b><small>Acompanhe aqui a evolução da pesquisa.</small></span></div></div></div>
@@ -1369,8 +1372,8 @@ function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite,
   };
   const roleLabel = (role: Profile["role"]) => ({ admin: "Administrador", coordenador: "Coordenador", supervisor: "Supervisor", pesquisador: "Pesquisador", observador: "Observador" })[role];
   const canManage = (target: Profile) => {
-    if (target.id === currentProfile.id || target.is_primary_admin) return false;
-    if (currentProfile.is_primary_admin) return true;
+    if (target.id === currentProfile.id || isFounderAccount(target)) return false;
+    if (hasPrincipalAdminAccess(currentProfile)) return target.admin_level !== "founder";
     if (currentProfile.role === "admin") return target.role !== "admin";
     return currentProfile.role === "coordenador" && (target.role === "pesquisador" || target.role === "observador");
   };
@@ -1395,10 +1398,10 @@ function Equipe({ aviso, profiles, currentProfile, onToggle, onDelete, onInvite,
     <div className="access-grid">
       <div className="painel access-box"><small>LINK DO PESQUISADOR</small><h3>Cadastro e trabalho de campo</h3><p>Este endereço nunca abre o painel administrativo. Todo novo cadastro aguarda sua aprovação.</p><div className="link-row"><input readOnly value={researcherLink} aria-label="Link oficial do pesquisador" /><button onClick={() => copy(researcherLink, "Link do pesquisador copiado")}>Copiar link</button></div></div>
       <div className="painel access-box secure"><small>ADMINISTRAÇÃO</small><h3>Convite individual obrigatório</h3><p>Não compartilhe sua senha. Cada parceiro recebe um link de uso único, vinculado ao e-mail e válido por 72 horas.</p><button onClick={() => setShowInvite(true)}>Criar convite para parceiro</button></div>
-      {currentProfile.is_primary_admin && <div className="painel access-box candidate-access"><small>PAINEL DO CANDIDATO</small><h3>Acesso criado somente pela fundadora</h3><p>O convite abre a visão estratégica e a rede de lideranças, mas nunca mostra nomes ou contatos de eleitores.</p><button onClick={() => { setInviteRole("candidato"); setShowInvite(true); }}>Gerar acesso exclusivo</button></div>}
+      {hasPrincipalAdminAccess(currentProfile) && <div className="painel access-box candidate-access"><small>PAINEL DO CANDIDATO</small><h3>Acesso da administração principal</h3><p>O convite abre a visão estratégica e a rede de lideranças, mas nunca mostra nomes ou contatos de eleitores.</p><button onClick={() => { setInviteRole("candidato"); setShowInvite(true); }}>Gerar acesso exclusivo</button></div>}
     </div>
-    {showInvite && <div className="painel invite-panel"><div><small>NOVO CONVITE SEGURO</small><h3>Autorizar parceiro</h3><p>Observadores veem dados agrupados. O painel do candidato inclui a rede nominal de lideranças e só pode ser criado pela fundadora.</p></div><label>E-mail autorizado<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="parceiro@exemplo.com" /></label><label>Permissão<select value={inviteRole} onChange={e => setInviteRole(e.target.value as "admin" | "observador" | "candidato")}><option value="observador">Observador geral — somente leitura</option>{currentProfile.is_primary_admin && <option value="candidato">Candidato — painel estratégico</option>}{currentProfile.is_primary_admin && <option value="admin">Administrador secundário</option>}</select></label>{inviteRole === "candidato" && <div className="candidate-invite-note"><b>Convite reservado</b><span>Vinculado ao e-mail, válido por 72 horas e sem acesso ao cofre ou às respostas individuais.</span></div>}<button className="primary" disabled={inviteBusy || !inviteEmail} onClick={generate}>{inviteBusy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}. O link já está copiado.</span><div className="link-row"><input readOnly value={generatedLink} aria-label="Convite administrativo gerado" /><button onClick={() => copy(generatedLink, "Convite copiado novamente")}>Copiar</button></div></div>}</div>}
-    <div className="painel tabela"><div className="tr cab"><span>Usuário</span><span>Função</span><span>Status</span><span>Ações</span></div>{profiles.map(p => <div className="tr" key={p.id}><span className="pessoa"><i>{p.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{p.name}</b><small>{p.email}</small></span></span><span>{p.role === "observador" && p.observer_mode === "candidato" ? "Candidato · painel estratégico" : roleLabel(p.role)}{p.is_primary_admin && <small className="primary-admin-label">Conta principal</small>}</span><b className={p.active ? "ok" : "pendente"}>● {p.active ? "Ativo" : "Suspenso"}</b><span className="access-actions">{canManage(p) ? <><button className={p.active ? "suspender" : "aprovar"} onClick={() => onToggle(p.id, !p.active)}>{p.active ? "Suspender" : "Reativar"}</button><button className="apagar-acesso" onClick={() => confirmDelete(p)}>Apagar acesso</button></> : <small className="protected-access">{p.is_primary_admin ? "Protegida" : "Seu acesso"}</small>}</span></div>)}{!profiles.length && <div className="vazio-tabela">Nenhum cadastro encontrado.</div>}</div>
+    {showInvite && <div className="painel invite-panel"><div><small>NOVO CONVITE SEGURO</small><h3>Autorizar parceiro</h3><p>Observadores veem dados agrupados. O painel do candidato inclui a rede nominal de lideranças e só pode ser criado pela Fundadora ou pelo Administrador Primário.</p></div><label>E-mail autorizado<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="parceiro@exemplo.com" /></label><label>Permissão<select value={inviteRole} onChange={e => setInviteRole(e.target.value as "admin" | "observador" | "candidato")}><option value="observador">Observador geral — somente leitura</option>{hasPrincipalAdminAccess(currentProfile) && <option value="candidato">Candidato — painel estratégico</option>}{hasPrincipalAdminAccess(currentProfile) && <option value="admin">Administrador secundário</option>}</select></label>{inviteRole === "candidato" && <div className="candidate-invite-note"><b>Convite reservado</b><span>Vinculado ao e-mail, válido por 72 horas e sem acesso ao cofre ou às respostas individuais.</span></div>}<button className="primary" disabled={inviteBusy || !inviteEmail} onClick={generate}>{inviteBusy ? "Gerando…" : "Gerar e copiar convite"}</button>{generatedLink && <div className="generated-link"><b>Convite pronto</b><span>Envie somente para {inviteEmail}. O link já está copiado.</span><div className="link-row"><input readOnly value={generatedLink} aria-label="Convite administrativo gerado" /><button onClick={() => copy(generatedLink, "Convite copiado novamente")}>Copiar</button></div></div>}</div>}
+    <div className="painel tabela"><div className="tr cab"><span>Usuário</span><span>Função</span><span>Status</span><span>Ações</span></div>{profiles.map(p => <div className="tr" key={p.id}><span className="pessoa"><i>{p.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{p.name}</b><small>{p.email}</small></span></span><span>{p.role === "observador" && p.observer_mode === "candidato" ? "Candidato · painel estratégico" : p.role === "admin" && p.admin_level === "primary" ? "Administrador Primário" : roleLabel(p.role)}{isFounderAccount(p) && <small className="primary-admin-label">Fundadora protegida</small>}{p.role === "admin" && p.admin_level === "primary" && <small className="primary-admin-label">Administração principal</small>}</span><b className={p.active ? "ok" : "pendente"}>● {p.active ? "Ativo" : "Suspenso"}</b><span className="access-actions">{canManage(p) ? <><button className={p.active ? "suspender" : "aprovar"} onClick={() => onToggle(p.id, !p.active)}>{p.active ? "Suspender" : "Reativar"}</button><button className="apagar-acesso" onClick={() => confirmDelete(p)}>Apagar acesso</button></> : <small className="protected-access">{isFounderAccount(p) ? "Fundadora protegida" : p.id === currentProfile.id ? "Seu acesso" : "Protegido"}</small>}</span></div>)}{!profiles.length && <div className="vazio-tabela">Nenhum cadastro encontrado.</div>}</div>
   </>;
 }
 
@@ -1586,11 +1589,11 @@ function Ecossistema({ profile, abrirAcademia, abrirInstrutoria }: { profile: Pr
     ["NorteP Auditoria", "Em breve", "Controle, conferência e acompanhamento."],
     ["NorteP Financeiro", "Futuro", "Gestão financeira em ambiente separado."],
   ];
-  return <><Cabecalho titulo="Ecossistema NorteP" sub="Política, povo e pesquisa em uma operação integrada." botao={profile.is_primary_admin ? "Abrir Instrutoria" : profile.role === "supervisor" ? "Abrir aulas" : ""} acao={profile.is_primary_admin ? abrirInstrutoria : abrirAcademia} /><div className="ecos-grid">{produtos.map((p, i) => {
+  return <><Cabecalho titulo="Ecossistema NorteP" sub="Política, povo e pesquisa em uma operação integrada." botao={hasPrincipalAdminAccess(profile) ? "Abrir Instrutoria" : profile.role === "supervisor" ? "Abrir aulas" : ""} acao={hasPrincipalAdminAccess(profile) ? abrirInstrutoria : abrirAcademia} /><div className="ecos-grid">{produtos.map((p, i) => {
     const academy = i === 1;
-    const academyAvailable = profile.is_primary_admin || profile.role === "supervisor";
+    const academyAvailable = hasPrincipalAdminAccess(profile) || profile.role === "supervisor";
     const active = i === 0 || (academy && academyAvailable);
-    return <article className={`${active ? "eco ativo" : "eco"}${academy ? " ecos-academy-card" : ""}`} key={p[0]}><i>{i === 0 ? "NP" : academy ? "N+" : "◇"}</i><label>{academy && !academyAvailable ? "Pesquisa e Supervisão" : p[1]}</label><h3>{p[0]}</h3><p>{academy ? profile.is_primary_admin ? "Planos, exemplos e materiais da instrutora para Pesquisa e Supervisão." : profile.role === "supervisor" ? "Suas aulas e exercícios fazem parte deste mesmo acesso." : "As aulas são exclusivas dos perfis Pesquisador e Supervisor." : p[2]}</p>{i === 0 ? <button>Produto atual</button> : academy && profile.is_primary_admin ? <button onClick={abrirInstrutoria}>Abrir instrutoria →</button> : academy && profile.role === "supervisor" ? <button onClick={abrirAcademia}>Abrir aulas →</button> : academy ? <button disabled>Sem aulas neste perfil</button> : <button disabled>Planejado</button>}</article>;
+    return <article className={`${active ? "eco ativo" : "eco"}${academy ? " ecos-academy-card" : ""}`} key={p[0]}><i>{i === 0 ? "NP" : academy ? "N+" : "◇"}</i><label>{academy && !academyAvailable ? "Pesquisa e Supervisão" : p[1]}</label><h3>{p[0]}</h3><p>{academy ? hasPrincipalAdminAccess(profile) ? "Planos, exemplos e materiais da instrutora para Pesquisa e Supervisão." : profile.role === "supervisor" ? "Suas aulas e exercícios fazem parte deste mesmo acesso." : "As aulas são exclusivas dos perfis Pesquisador e Supervisor." : p[2]}</p>{i === 0 ? <button>Produto atual</button> : academy && hasPrincipalAdminAccess(profile) ? <button onClick={abrirInstrutoria}>Abrir instrutoria →</button> : academy && profile.role === "supervisor" ? <button onClick={abrirAcademia}>Abrir aulas →</button> : academy ? <button disabled>Sem aulas neste perfil</button> : <button disabled>Planejado</button>}</article>;
   })}</div></>;
 }
 

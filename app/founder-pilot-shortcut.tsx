@@ -15,7 +15,7 @@ export default function FounderPilotShortcut() {
         const session = readSession();
         if (!session) return;
         const profile = await loadProfile(session);
-        setVisible(Boolean(profile.active && profile.role === "admin" && profile.is_primary_admin));
+        setVisible(Boolean(profile.active && profile.role === "admin" && (profile.is_primary_admin || profile.admin_level === "founder" || profile.admin_level === "primary")));
       } catch { setVisible(false); }
     };
     void boot();

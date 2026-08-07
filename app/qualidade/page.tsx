@@ -81,9 +81,9 @@ export default function QualidadePiloto() {
         await loadRuntimeConfig();
         if (!configured()) throw new Error("Configuração do NorteP indisponível.");
         const current = readSession();
-        if (!current) throw new Error("Entre como Administradora Fundadora para abrir este painel.");
+        if (!current) throw new Error("Entre na administração principal para abrir este painel.");
         const profile = await loadProfile(current);
-        if (!(profile.role === "admin" && profile.is_primary_admin && profile.active)) throw new Error("Esta área é exclusiva da Administradora Fundadora.");
+        if (!(profile.role === "admin" && profile.active && (profile.is_primary_admin || profile.admin_level === "founder" || profile.admin_level === "primary"))) throw new Error("Esta área é exclusiva da Fundadora e do Administrador Primário.");
         setSession(current); setFounder(profile);
         const [people, summary] = await Promise.all([
           loadProfiles(current),
@@ -105,7 +105,7 @@ export default function QualidadePiloto() {
 
   return <main className="quality-shell">
     <header className="quality-header">
-      <div><small>NORTEP · CENTRAL DA FUNDADORA</small><h1>Qualidade do piloto</h1><p>Acompanhe o teste com poucas pessoas antes de aumentar a equipe. Alertas servem para revisar o processo, não para julgar ninguém.</p></div>
+      <div><small>NORTEP · ADMINISTRAÇÃO PRINCIPAL</small><h1>Qualidade do piloto</h1><p>Acompanhe o teste com poucas pessoas antes de aumentar a equipe. Alertas servem para revisar o processo, não para julgar ninguém.</p></div>
       <div><button onClick={() => void refresh()}>↻ Atualizar</button><a href="/?acesso=administracao">← Voltar ao painel</a></div>
     </header>
 
