@@ -1,4 +1,4 @@
-const CACHE = "nortep-pesquisa-v57";
+const CACHE = "nortep-pesquisa-v58";
 const CORE = ["/", "/?acesso=pesquisador", "/?acesso=coordenacao", "/?acesso=administracao", "/inteligencia", "/rede/gestao", "/qualidade", "/nortep-icon-v1.png", "/manifest.webmanifest"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting())));
 self.addEventListener("activate", event => event.waitUntil(
