@@ -118,7 +118,7 @@ function AcademyExercise({ lesson, initialValue, onSave }: { lesson: AcademyLess
     onSave(draft);
     setSaved(Boolean(draft.trim()));
   };
-  return <section className="academy-exercise"><small>EXERCÍCIO · PRÁTICA GUIADA</small><h4>{lesson.activity}</h4><p>Responda uma etapa de cada vez. Você pode salvar uma parte, sair e continuar depois.</p><textarea value={draft} onChange={event => { setDraft(event.target.value); setSaved(false); }} onBlur={save} placeholder="Escreva sua resposta em tópicos curtos. Exemplo: 1. O que observei; 2. O que faria; 3. Como registraria." /><div className="academy-exercise-actions"><span>{saved ? "✓ Exercício salvo" : draft.trim() ? "Há alterações para salvar." : "Você pode começar quando estiver pronta."}</span><button type="button" onClick={save} disabled={!draft.trim() || saved}>{saved ? "Salvo" : "Salvar exercício"}</button></div></section>;
+  return <section className="academy-exercise"><small>EXERCÍCIO · PRÁTICA GUIADA</small><h4>{lesson.activity}</h4><p>Responda uma etapa de cada vez. Você pode salvar uma parte, sair e continuar depois.</p><textarea value={draft} onChange={event => { setDraft(event.target.value); setSaved(false); }} onBlur={save} placeholder="Escreva sua resposta em tópicos curtos. Exemplo: 1. O que observei; 2. O que faria; 3. Como registraria." /><div className="academy-exercise-actions"><span>{saved ? "✓ Exercício salvo" : draft.trim() ? "Há alterações para salvar." : "Você pode começar quando quiser."}</span><button type="button" onClick={save} disabled={!draft.trim() || saved}>{saved ? "Salvo" : "Salvar exercício"}</button></div></section>;
 }
 
 function presentationImage(audience: AcademyRole, kind: AcademyPresentationSlide["kind"]) {
@@ -134,6 +134,15 @@ function buildPresentationSlides(modules: AcademyModule[], audience: AcademyRole
     { lessonId: lesson.id, moduleTitle: module.title, kind: "caso" as const, eyebrow: "ESTUDO DE CASO", title: "O que você faria nesta situação?", text: lesson.example, bullets: lesson.instructor?.guidingQuestions || [lesson.quiz.question], image: presentationImage(audience, "caso") },
     { lessonId: lesson.id, moduleTitle: module.title, kind: "pratica" as const, eyebrow: "DINÂMICA DA TURMA", title: "Agora é com vocês", text: lesson.activity, bullets: lesson.instructor?.rubric || ["Explique sua escolha", "Mantenha neutralidade e respeito", "Registre apenas o necessário"], image: presentationImage(audience, "pratica") },
   ]));
+}
+
+function buildLearnerPresentationSlides(lesson: AcademyLesson, moduleTitle: string, audience: AcademyRole): AcademyPresentationSlide[] {
+  return [
+    { lessonId: lesson.id, moduleTitle, kind: "abertura", eyebrow: "POR QUE ESTA AULA IMPORTA", title: lesson.title, text: lesson.objective, bullets: lesson.context ? [lesson.context] : [], image: presentationImage(audience, "abertura") },
+    { lessonId: lesson.id, moduleTitle, kind: "conceito", eyebrow: "IDEIAS ESSENCIAIS", title: "O que você precisa compreender", bullets: lesson.content, image: presentationImage(audience, "conceito") },
+    { lessonId: lesson.id, moduleTitle, kind: "caso", eyebrow: "EXEMPLO PRÁTICO", title: "Pense nesta situação", text: lesson.example, bullets: [lesson.quiz.question], image: presentationImage(audience, "caso") },
+    { lessonId: lesson.id, moduleTitle, kind: "pratica", eyebrow: "PRÁTICA GUIADA", title: "Agora é com você", text: lesson.activity, bullets: ["Responda com suas próprias palavras", "Use o que aprendeu nesta aula", "Depois volte à aula para fazer o exercício e a avaliação"], image: presentationImage(audience, "pratica") },
+  ];
 }
 
 function AcademyPresentation({ slides, index, setIndex, onClose }: { slides: AcademyPresentationSlide[]; index: number; setIndex: (index: number) => void; onClose: () => void }) {
@@ -196,6 +205,8 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
   const lessons = useMemo(() => modules.flatMap(module => module.lessons), [modules]);
   const [tab, setTab] = useState<AcademyTab>("formacao");
   const [selectedLessonId, setSelectedLessonId] = useState(lessons[0]?.id || "");
+  const [learnerPresentationOpen, setLearnerPresentationOpen] = useState(false);
+  const [learnerPresentationIndex, setLearnerPresentationIndex] = useState(0);
   const [progress, setProgress] = useState<AcademyProgress>(emptyProgress);
   const [syncState, setSyncState] = useState<AcademySyncState>(session ? "loading" : "local");
   const [teamSummary, setTeamSummary] = useState<AcademyTeamSummary[]>([]);
@@ -209,6 +220,7 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
   const previousLesson = selectedLessonIndex > 0 ? lessons[selectedLessonIndex - 1] : null;
   const nextLesson = selectedLessonIndex >= 0 && selectedLessonIndex < lessons.length - 1 ? lessons[selectedLessonIndex + 1] : null;
   const selectedModule = modules.find(module => module.lessons.some(lesson => lesson.id === selectedLesson?.id));
+  const learnerPresentationSlides = useMemo(() => selectedLesson && selectedModule ? buildLearnerPresentationSlides(selectedLesson, selectedModule.title, role) : [], [selectedLesson, selectedModule, role]);
   const managers = profile.role === "supervisor";
   const completedCount = lessons.filter(lesson => progress.completed.includes(lesson.id)).length;
   const progressPercent = lessons.length ? Math.round((completedCount / lessons.length) * 100) : 0;
@@ -331,6 +343,8 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
     } catch (error) { setPracticeMessage(error instanceof Error ? error.message : "Não foi possível abrir a recertificação."); }
   };
   const openLesson = (lessonId: string) => {
+    setLearnerPresentationOpen(false);
+    setLearnerPresentationIndex(0);
     setSelectedLessonId(lessonId);
     setTab("formacao");
     if (typeof window !== "undefined") window.requestAnimationFrame(() => document.querySelector(".academy-lesson")?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -405,6 +419,8 @@ export default function AcademiaNorteP({ profile, profiles = [], session }: { pr
 
       {selectedLesson && <article className="academy-lesson">
         <header><span><small>AULA {selectedLessonIndex + 1} DE {lessons.length} · {selectedModule?.title}</small><h3>{selectedLesson.title}</h3><p>{selectedLesson.objective}</p></span><em>{selectedLesson.duration} min</em></header>
+        <div className="academy-audience-switch"><span><small>RESUMO VISUAL DA AULA</small><b>Apresentação para {academyRoleLabels[role]}</b></span><div><button className="academy-presentation-open" type="button" onClick={() => { setLearnerPresentationIndex(0); setLearnerPresentationOpen(true); }}>▣ Ver apresentação desta aula</button></div></div>
+        {learnerPresentationOpen && <AcademyPresentation slides={learnerPresentationSlides} index={learnerPresentationIndex} setIndex={setLearnerPresentationIndex} onClose={() => setLearnerPresentationOpen(false)} />}
         {selectedLesson.context && <section className="academy-context"><small>CONTEXTO DA AULA</small><p>{selectedLesson.context}</p></section>}
         <section className="academy-content-block"><h4>O que você vai aprender</h4><ul>{selectedLesson.content.map((item, index) => <li key={`${selectedLesson.id}-content-${index}`}>{item}</li>)}</ul></section>
         {selectedLesson.video && <section className="academy-video-slot"><span><small>VÍDEO DA AULA</small><b>{selectedLesson.video.label}</b><p>{selectedLesson.video.url ? "Abra o material em vídeo para complementar esta aula." : "Espaço reservado para inserir o link do vídeo desta aula."}</p></span>{selectedLesson.video.url ? <a href={selectedLesson.video.url} target="_blank" rel="noreferrer">Abrir vídeo</a> : <button type="button" disabled>Link será adicionado</button>}</section>}
