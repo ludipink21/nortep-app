@@ -51,13 +51,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         }
         var reloading = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (reloading || sessionStorage.getItem('nortep-reload-v56')) return;
+          if (reloading || sessionStorage.getItem('nortep-reload-v57')) return;
           reloading = true;
-          sessionStorage.setItem('nortep-reload-v56', '1');
+          sessionStorage.setItem('nortep-reload-v57', '1');
           window.location.reload();
         });
         try {
-          var registration = await navigator.serviceWorker.register('/sw.js?v=56', { updateViaCache: 'none' });
+          var registration = await navigator.serviceWorker.register('/sw.js?v=57', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });

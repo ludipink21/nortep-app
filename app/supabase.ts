@@ -12,6 +12,7 @@ export type Profile = {
   role: "admin" | "coordenador" | "supervisor" | "pesquisador" | "observador";
   active: boolean;
   is_primary_admin?: boolean;
+  admin_level?: "founder" | "primary" | "secondary" | null;
   observer_mode?: "geral" | "candidato";
   access_removed_at?: string | null;
   region?: string | null;
