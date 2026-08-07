@@ -1,0 +1,129 @@
+name: Primary admin parity patch
+
+on:
+  push:
+    branches: [agent/primary-admin-founder-parity]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/primary-admin-founder-parity
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Apply primary-admin parity
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f"Expected text not found in {path}: {old[:120]!r}")
+              p.write_text(text.replace(old, new))
+
+          # Profile model: expose the hierarchy already stored in Supabase.
+          replace('app/supabase.ts',
+            '  is_primary_admin?: boolean;\n  observer_mode?: "geral" | "candidato";',
+            '  is_primary_admin?: boolean;\n  admin_level?: "founder" | "primary" | "secondary" | null;\n  observer_mode?: "geral" | "candidato";')
+
+          # Main app: Founder and Primary share principal administration views.
+          replace('app/page.tsx',
+            'const draftKey = (surveyId: string) => `nortep-rascunho-${surveyId}`;\n',
+            'const draftKey = (surveyId: string) => `nortep-rascunho-${surveyId}`;\nconst hasPrincipalAdminAccess = (profile?: Profile | null) => Boolean(profile?.role === "admin" && (profile.is_primary_admin === true || profile.admin_level === "founder" || profile.admin_level === "primary"));\nconst isFounderAccount = (profile?: Profile | null) => Boolean(profile?.role === "admin" && (profile.is_primary_admin === true || profile.admin_level === "founder"));\n')
+          replace('app/page.tsx',
+            'if (channel === "principal" && (p.role !== "admin" || p.is_primary_admin !== true))',
+            'if (channel === "principal" && !hasPrincipalAdminAccess(p))')
+          replace('app/page.tsx',
+            'if (destino === "visoes" && !profile?.is_primary_admin)',
+            'if (destino === "visoes" && !hasPrincipalAdminAccess(profile))')
+          replace('app/page.tsx',
+            'if (destino === "instrutoria" && profile?.is_primary_admin && founderPerspective === "fundadora")',
+            'if (destino === "instrutoria" && hasPrincipalAdminAccess(profile) && founderPerspective === "fundadora")')
+          replace('app/page.tsx',
+            'if (!session || !profile?.is_primary_admin) throw new Error("Somente a administradora fundadora pode criar este acesso.");',
+            'if (!session || !hasPrincipalAdminAccess(profile)) throw new Error("Somente a Fundadora ou o Administrador Primário pode criar este acesso.");')
+          replace('app/page.tsx',
+            'if (profile.is_primary_admin) return aviso("A conta principal é protegida e não pode ser descadastrada.");',
+            'if (hasPrincipalAdminAccess(profile)) return aviso("A conta da administração principal é protegida e não pode ser descadastrada por ela mesma.");')
+          replace('app/page.tsx',
+            'const founderAccess = profile.is_primary_admin === true && profile.email.toLowerCase() === "bussolanortep@gmail.com";',
+            'const founderAccess = hasPrincipalAdminAccess(profile);')
+          replace('app/page.tsx',
+            '        is_primary_admin: false,\n      } as Profile',
+            '        is_primary_admin: false,\n        admin_level: founderPerspective === "administrador" ? "secondary" : null,\n      } as Profile')
+          replace('app/page.tsx',
+            'visualProfile.is_primary_admin ? "Administradora fundadora" : visualProfile.role === "admin" ? "Administração"',
+            'isFounderAccount(visualProfile) ? "Administradora fundadora" : visualProfile.role === "admin" ? (visualProfile.admin_level === "primary" ? "Administrador primário" : "Administração")')
+          replace('app/page.tsx',
+            'if (target.id === currentProfile.id || target.is_primary_admin) return false;\n    if (currentProfile.is_primary_admin) return true;\n    if (currentProfile.role === "admin") return target.role !== "admin";',
+            'if (target.id === currentProfile.id || isFounderAccount(target)) return false;\n    if (hasPrincipalAdminAccess(currentProfile)) return target.admin_level !== "founder";\n    if (currentProfile.role === "admin") return target.role !== "admin";')
+          replace('app/page.tsx',
+            '{currentProfile.is_primary_admin && <div className="painel access-box candidate-access"><small>PAINEL DO CANDIDATO</small><h3>Acesso criado somente pela fundadora</h3>',
+            '{hasPrincipalAdminAccess(currentProfile) && <div className="painel access-box candidate-access"><small>PAINEL DO CANDIDATO</small><h3>Acesso da administração principal</h3>')
+          replace('app/page.tsx',
+            '{currentProfile.is_primary_admin && <option value="candidato">Candidato — painel estratégico</option>}{currentProfile.is_primary_admin && <option value="admin">Administrador secundário</option>}',
+            '{hasPrincipalAdminAccess(currentProfile) && <option value="candidato">Candidato — painel estratégico</option>}{hasPrincipalAdminAccess(currentProfile) && <option value="admin">Administrador secundário</option>}')
+          replace('app/page.tsx',
+            'O painel do candidato inclui a rede nominal de lideranças e só pode ser criado pela fundadora.',
+            'O painel do candidato inclui a rede nominal de lideranças e só pode ser criado pela Fundadora ou pelo Administrador Primário.')
+          replace('app/page.tsx',
+            '<span><b>Prévia exclusiva da fundadora</b><small>Você está vendo o aplicativo como: {label}. Sua permissão principal não foi alterada.</small></span>',
+            '<span><b>Prévia da administração principal</b><small>Você está vendo o aplicativo como: {label}. Sua permissão principal não foi alterada.</small></span>')
+          replace('app/page.tsx',
+            '<div><small>CONTROLE EXCLUSIVO · BUSSOLANORTEP@GMAIL.COM</small><h2>Veja o NorteP pelos olhos de cada pessoa</h2><p>Abra qualquer experiência sem trocar sua conta e sem compartilhar a entrada secreta da administradora fundadora.</p></div>\n      <span><b>Seu acesso continua protegido</b><small>Outros administradores não enxergam esta área.</small></span>',
+            '<div><small>CONTROLE PRINCIPAL · FUNDAÇÃO + ADMINISTRADOR PRIMÁRIO</small><h2>Veja o NorteP pelos olhos de cada pessoa</h2><p>Abra qualquer experiência sem trocar sua conta e sem compartilhar credenciais de administração.</p></div>\n      <span><b>Seu acesso continua protegido</b><small>Administradores secundários não enxergam esta área.</small></span>')
+          replace('app/page.tsx',
+            'profile.is_primary_admin ? <small className="primary-account-note">A conta principal é protegida contra descadastramento.</small> : <button type="button" className="account-remove" onClick={() => void descadastrar?.()}>Descadastrar meu acesso</button>',
+            'hasPrincipalAdminAccess(profile) ? <small className="primary-account-note">A conta da administração principal é protegida contra autodescadastramento.</small> : <button type="button" className="account-remove" onClick={() => void descadastrar?.()}>Descadastrar meu acesso</button>')
+
+          # Pilot quality shortcut and page.
+          replace('app/founder-pilot-shortcut.tsx',
+            'setVisible(Boolean(profile.active && profile.role === "admin" && profile.is_primary_admin));',
+            'setVisible(Boolean(profile.active && profile.role === "admin" && (profile.is_primary_admin || profile.admin_level === "founder" || profile.admin_level === "primary")));')
+          replace('app/qualidade/page.tsx',
+            'if (!current) throw new Error("Entre como Administradora Fundadora para abrir este painel.");',
+            'if (!current) throw new Error("Entre na administração principal para abrir este painel.");')
+          replace('app/qualidade/page.tsx',
+            'if (!(profile.role === "admin" && profile.is_primary_admin && profile.active)) throw new Error("Esta área é exclusiva da Administradora Fundadora.");',
+            'if (!(profile.role === "admin" && profile.active && (profile.is_primary_admin || profile.admin_level === "founder" || profile.admin_level === "primary"))) throw new Error("Esta área é exclusiva da Fundadora e do Administrador Primário.");')
+          replace('app/qualidade/page.tsx',
+            '<div><small>NORTEP · CENTRAL DA FUNDADORA</small><h1>Qualidade do piloto</h1>',
+            '<div><small>NORTEP · ADMINISTRAÇÃO PRINCIPAL</small><h1>Qualidade do piloto</h1>')
+
+          # Instructor area: Primary gets the same operational tools as Founder.
+          replace('app/academia.tsx',
+            'if (!profile.is_primary_admin) return null;',
+            'if (!(profile.role === "admin" && (profile.is_primary_admin || profile.admin_level === "founder" || profile.admin_level === "primary"))) return null;')
+          replace('app/academia.tsx',
+            '<div><small>ACESSO EXCLUSIVO · ADMINISTRADORA FUNDADORA</small><h2><span>N</span>orteP <b>Instrutoria</b></h2>',
+            '<div><small>ACESSO · FUNDAÇÃO E ADMINISTRADOR PRIMÁRIO</small><h2><span>N</span>orteP <b>Instrutoria</b></h2>')
+
+          # PWA cache version.
+          replace('public/sw.js', 'nortep-pesquisa-v56', 'nortep-pesquisa-v57')
+          replace('app/layout.tsx', 'nortep-reload-v56', 'nortep-reload-v57')
+          replace('app/layout.tsx', '/sw.js?v=56', '/sw.js?v=57')
+          PY
+      - name: Verify
+        run: |
+          npm audit
+          npm run build
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/supabase.ts app/page.tsx app/founder-pilot-shortcut.tsx app/qualidade/page.tsx app/academia.tsx app/layout.tsx public/sw.js
+          git commit -m "Dar paridade operacional ao Administrador Primario"
+          git push origin HEAD:agent/primary-admin-founder-parity
