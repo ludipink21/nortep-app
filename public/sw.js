@@ -1,3 +1,4 @@
+// Deploy trigger: v59 após reconexão do GitHub com a Vercel.
 const CACHE = "nortep-pesquisa-v59";
 const CORE = ["/", "/?acesso=pesquisador", "/?acesso=coordenacao", "/?acesso=administracao", "/inteligencia", "/rede/gestao", "/qualidade", "/perfil-pesquisador", "/nortep-icon-v1.png", "/manifest.webmanifest"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting())));
