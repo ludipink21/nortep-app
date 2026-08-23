@@ -1,0 +1,58 @@
+name: Perfil Pesquisador
+on:
+  push:
+    branches: [agent/perfil-pesquisador-apresentacao]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/perfil-pesquisador-apresentacao
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Incluir apresentação do perfil
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/academia.tsx')
+          s=p.read_text()
+          a='  const [learnerPresentationOpen, setLearnerPresentationOpen] = useState(false);\n'
+          b=a+'  const [profilePresentationOpen, setProfilePresentationOpen] = useState(false);\n'
+          if 'profilePresentationOpen' not in s:
+              if a not in s: raise SystemExit('state anchor not found')
+              s=s.replace(a,b,1)
+          anchor='      {session && progress.pending.length > 0 && <button type="button" onClick={() => void syncPending()} disabled={syncState === "syncing"}>Sincronizar agora</button>}\n    </div>\n\n    <nav className="academy-tabs"'
+          block='''      {session && progress.pending.length > 0 && <button type="button" onClick={() => void syncPending()} disabled={syncState === "syncing"}>Sincronizar agora</button>}\n    </div>\n\n    {role === "pesquisador" && <section className="academy-profile-intro">\n      <div className="academy-profile-intro-copy"><small>PERFIL PESQUISADOR(A)</small><h3>Conheça seu papel no NorteP</h3><p>Uma apresentação rápida para ligar o que você estuda na Academia ao que realiza em campo: escuta, neutralidade, consentimento, registro, proteção de dados e sincronização.</p></div>\n      <button type="button" onClick={() => setProfilePresentationOpen(!profilePresentationOpen)}>{profilePresentationOpen ? "Fechar apresentação" : "▣ Ver apresentação do meu perfil"}</button>\n      {profilePresentationOpen && <div className="academy-profile-story" aria-label="Apresentação do perfil Pesquisador">\n        <article><img src="/academia/mist-pesquisa.jpg" alt="Pesquisadora em atividade de campo" /><span><small>01 · MEU PAPEL NO NORTEP</small><h4>Escutar com respeito e transformar respostas em dados confiáveis</h4><p>Eu acolho diferentes opiniões sem influenciar respostas. Registro cada informação com atenção, sigo o roteiro da pesquisa e protejo os dados das pessoas.</p><ul><li>Escuta e neutralidade</li><li>Registro claro</li><li>Responsabilidade com os dados</li></ul></span></article>\n        <article><img src="/academia/mist-escuta.jpg" alt="Conversa respeitosa durante pesquisa" /><span><small>02 · COMO ATUO NA PRÁTICA</small><h4>Do início da entrevista até a sincronização</h4><p>Eu confiro a pesquisa correta, explico o objetivo de forma simples, peço consentimento, preencho com cuidado e verifico se a entrevista foi salva.</p><ul><li>Objetivo claro</li><li>Consentimento antes de começar</li><li>Conferência e sincronização</li></ul></span></article>\n        <article><img src="/academia/mist-supervisao.jpg" alt="Equipe NorteP revisando atividade de pesquisa" /><span><small>03 · CUIDADOS ESSENCIAIS</small><h4>Qualidade também é saber como perguntar</h4><p>Eu uso linguagem humana e acessível, não pressiono nem sugiro escolhas, respeito o tempo da pessoa e peço apoio quando encontro uma situação fora do roteiro.</p><ul><li>Nunca induzir respostas</li><li>Privacidade e contexto</li><li>Pedir orientação quando necessário</li></ul></span></article>\n        <article className="academy-profile-learning"><div className="academy-profile-symbol">NP</div><span><small>04 · A ACADEMIA AO MEU LADO</small><h4>Estudo, prática e melhoria contínua</h4><p>As aulas aprofundam exatamente o que aparece no trabalho de campo. Eu posso rever exemplos, exercícios e avaliações sempre que precisar melhorar minha prática.</p><ul><li>Aulas no meu ritmo</li><li>Exemplos e materiais de apoio</li><li>Progresso e certificação</li></ul></span></article>\n      </div>}\n    </section>}\n\n    <nav className="academy-tabs"'''
+          if 'academy-profile-intro' not in s:
+              if anchor not in s: raise SystemExit('markup anchor not found')
+              s=s.replace(anchor,block,1)
+          p.write_text(s)
+
+          css=Path('app/academia.css')
+          c=css.read_text()
+          if '.academy-profile-intro{' not in c:
+              c += '''\n.academy-profile-intro{border:1px solid #d1ae55;border-radius:18px;padding:22px;background:linear-gradient(135deg,#2e0d1d,#571735);color:#fff;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;box-shadow:0 16px 34px #35102118}.academy-profile-intro-copy small,.academy-profile-story small{font-size:8px;letter-spacing:.14em;font-weight:900;color:#ead37e}.academy-profile-intro-copy h3{font:700 25px Georgia;margin:6px 0}.academy-profile-intro-copy p{margin:0;max-width:760px;color:#eadce3;font-size:10px;line-height:1.6}.academy-profile-intro>button{border:1px solid #e0bd5f;background:#f4d77d;color:#351021;border-radius:10px;padding:11px 14px;font-size:9px;font-weight:900}.academy-profile-story{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:4px}.academy-profile-story article{overflow:hidden;border:1px solid #ffffff20;border-radius:14px;background:#ffffff0b;display:grid;grid-template-columns:145px minmax(0,1fr);min-height:220px}.academy-profile-story img{width:100%;height:100%;object-fit:cover}.academy-profile-story article>span{padding:18px;display:block}.academy-profile-story h4{font:700 19px Georgia;margin:7px 0 8px;color:#fff}.academy-profile-story p{font-size:9px;line-height:1.55;color:#eadce3}.academy-profile-story ul{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:6px}.academy-profile-story li{font-size:8px;color:#f5e7bd;padding-left:16px;position:relative}.academy-profile-story li:before{content:"✓";position:absolute;left:0;color:#ead37e;font-weight:900}.academy-profile-learning{grid-template-columns:145px minmax(0,1fr)!important;background:linear-gradient(135deg,#4b1530,#2e0d1d)!important}.academy-profile-symbol{display:grid;place-items:center;font:800 46px Georgia;color:#ead37e;background:radial-gradient(circle,#6d2146,#2e0d1d)}\n@media(max-width:760px){.academy-profile-intro{grid-template-columns:1fr}.academy-profile-intro>button{width:100%}.academy-profile-story{grid-template-columns:1fr}.academy-profile-story article,.academy-profile-learning{grid-template-columns:1fr!important}.academy-profile-story img{height:190px}.academy-profile-symbol{min-height:150px}}\n'''
+              css.write_text(c)
+
+          for file,old,new in [('app/layout.tsx','nortep-reload-v58','nortep-reload-v59'),('app/layout.tsx','/sw.js?v=58','/sw.js?v=59'),('public/sw.js','nortep-pesquisa-v58','nortep-pesquisa-v59')]:
+              q=Path(file); t=q.read_text();
+              if old in t: q.write_text(t.replace(old,new))
+          PY
+      - name: Verificar
+        run: |
+          npm audit
+          npm run build
+      - name: Salvar
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/academia.tsx app/academia.css app/layout.tsx public/sw.js
+          git commit -m 'Adicionar apresentação do perfil Pesquisador'
+          git push origin HEAD:agent/perfil-pesquisador-apresentacao
