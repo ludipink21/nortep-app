@@ -7,6 +7,7 @@ import ResearcherProfileShortcut from "./researcher-profile-shortcut";
 import SurveyIntroVideo from "./survey-intro-video";
 import "./globals.css";
 import "./academia.css";
+import "./responsive-fixes.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -52,13 +53,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         }
         var reloading = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (reloading || sessionStorage.getItem('nortep-reload-v60')) return;
+          if (reloading || sessionStorage.getItem('nortep-reload-v61')) return;
           reloading = true;
-          sessionStorage.setItem('nortep-reload-v60', '1');
+          sessionStorage.setItem('nortep-reload-v61', '1');
           window.location.reload();
         });
         try {
-          var registration = await navigator.serviceWorker.register('/sw.js?v=60', { updateViaCache: 'none' });
+          var registration = await navigator.serviceWorker.register('/sw.js?v=61', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });

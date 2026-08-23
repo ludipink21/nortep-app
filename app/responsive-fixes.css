@@ -1,0 +1,239 @@
+/* Ajustes responsivos globais do NorteP — v61
+   Corrige apresentações da Academia e Perfil Pesquisador em PC, tablet e celular. */
+
+/* Academia: impede texto espremido e imagem desproporcional em larguras intermediárias. */
+.academy-presentation,
+.academy-presentation-stage,
+.academy-presentation-copy,
+.academy-presentation figure {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.academy-presentation-stage {
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  min-height: 0;
+}
+
+.academy-presentation-copy {
+  padding: clamp(30px, 4vw, 50px);
+}
+
+.academy-presentation-copy h3 {
+  font-size: clamp(30px, 3.2vw, 48px);
+  line-height: 1.08;
+  margin: 12px 0 16px;
+}
+
+.academy-presentation-copy p {
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.55;
+}
+
+.academy-presentation-copy li {
+  font-size: clamp(14px, 1.25vw, 17px);
+  line-height: 1.5;
+}
+
+.academy-presentation figure {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.academy-presentation figure img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 620px;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* Notebook pequeno, tablet e janela estreita: passa para uma coluna antes de o texto apertar. */
+@media (max-width: 1100px) {
+  .academy-presentation-stage {
+    display: grid;
+    grid-template-columns: 1fr !important;
+  }
+
+  .academy-presentation-copy {
+    padding: 30px 28px 26px;
+  }
+
+  .academy-presentation-copy h3 {
+    font-size: clamp(30px, 5vw, 42px);
+  }
+
+  .academy-presentation figure {
+    height: clamp(240px, 38vw, 360px);
+  }
+
+  .academy-presentation figure img {
+    width: 100%;
+    height: 100%;
+    min-height: 0 !important;
+    max-height: none;
+    object-fit: cover;
+  }
+}
+
+/* Celular */
+@media (max-width: 640px) {
+  .academy-presentation {
+    width: 100%;
+    border-radius: 13px;
+  }
+
+  .academy-presentation > header {
+    padding: 12px 13px;
+    gap: 10px;
+  }
+
+  .academy-presentation > header b {
+    font-size: 9px;
+    line-height: 1.35;
+  }
+
+  .academy-presentation > header button {
+    padding: 8px 9px;
+  }
+
+  .academy-presentation-copy {
+    padding: 24px 17px 22px;
+  }
+
+  .academy-presentation-copy > small {
+    font-size: 8px;
+    line-height: 1.35;
+  }
+
+  .academy-presentation-copy h3 {
+    font-size: clamp(27px, 8vw, 34px);
+    line-height: 1.08;
+    margin: 10px 0 14px;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+  }
+
+  .academy-presentation-copy p,
+  .academy-presentation-copy li {
+    font-size: 15px;
+    line-height: 1.55;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .academy-presentation-copy ul {
+    gap: 10px;
+  }
+
+  .academy-presentation figure {
+    height: 220px;
+  }
+
+  .academy-presentation figcaption {
+    left: 12px;
+    bottom: 10px;
+    font-size: 8px;
+  }
+
+  .academy-presentation > footer {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px 13px;
+  }
+
+  .academy-presentation > footer span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .academy-presentation > footer button {
+    width: 100%;
+    font-size: 10px;
+    padding: 10px 8px;
+  }
+}
+
+/* Perfil Pesquisador: reforça comportamento responsivo mesmo em navegador com zoom. */
+.research-profile-page,
+.research-profile-grid,
+.research-profile-grid article,
+.research-profile-grid figure,
+.research-profile-grid article > div {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1000px) {
+  .research-profile-page .research-profile-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .research-profile-page .research-profile-grid figure {
+    height: clamp(220px, 36vw, 320px) !important;
+  }
+
+  .research-profile-page .research-profile-grid figure img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+@media (max-width: 600px) {
+  .research-profile-page {
+    width: 100%;
+    padding: 16px 10px 28px !important;
+    overflow-x: hidden;
+  }
+
+  .research-profile-page .research-profile-header {
+    width: 100%;
+    gap: 14px;
+  }
+
+  .research-profile-page .research-profile-header h1 {
+    font-size: clamp(30px, 9vw, 40px);
+    line-height: 1.05;
+  }
+
+  .research-profile-page .research-profile-header p {
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .research-profile-page .research-profile-grid {
+    gap: 14px;
+  }
+
+  .research-profile-page .research-profile-grid figure {
+    height: 190px !important;
+  }
+
+  .research-profile-page .research-profile-grid article > div {
+    padding: 18px 16px 21px !important;
+  }
+
+  .research-profile-page .research-profile-grid h2 {
+    font-size: 23px !important;
+    line-height: 1.14;
+  }
+
+  .research-profile-page .research-profile-grid p,
+  .research-profile-page .research-profile-grid li,
+  .research-profile-page .research-profile-grid em {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .research-profile-page .research-profile-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
