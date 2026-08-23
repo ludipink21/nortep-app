@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import AdminGovernance from "./admin-governance";
 import FounderPilotShortcut from "./founder-pilot-shortcut";
 import MobilizationIntelligenceShortcut from "./mobilization-intelligence-shortcut";
+import ResearcherProfileShortcut from "./researcher-profile-shortcut";
 import SurveyIntroVideo from "./survey-intro-video";
 import "./globals.css";
 import "./academia.css";
@@ -51,17 +52,17 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         }
         var reloading = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (reloading || sessionStorage.getItem('nortep-reload-v58')) return;
+          if (reloading || sessionStorage.getItem('nortep-reload-v59')) return;
           reloading = true;
-          sessionStorage.setItem('nortep-reload-v58', '1');
+          sessionStorage.setItem('nortep-reload-v59', '1');
           window.location.reload();
         });
         try {
-          var registration = await navigator.serviceWorker.register('/sw.js?v=58', { updateViaCache: 'none' });
+          var registration = await navigator.serviceWorker.register('/sw.js?v=59', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });
     }
   `;
-  return <html lang="pt-BR"><body>{children}<AdminGovernance /><FounderPilotShortcut /><MobilizationIntelligenceShortcut /><SurveyIntroVideo /><script dangerouslySetInnerHTML={{ __html: serviceWorkerUpdate }} /></body></html>;
+  return <html lang="pt-BR"><body>{children}<AdminGovernance /><FounderPilotShortcut /><MobilizationIntelligenceShortcut /><ResearcherProfileShortcut /><SurveyIntroVideo /><script dangerouslySetInnerHTML={{ __html: serviceWorkerUpdate }} /></body></html>;
 }
