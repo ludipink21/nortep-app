@@ -1,7 +1,8 @@
-/* Ajustes responsivos globais do NorteP — v61
-   Corrige apresentações da Academia e Perfil Pesquisador em PC, tablet e celular. */
+/* Ajustes responsivos globais do NorteP — v62
+   Apresentações com imagem menor em cima e texto completo embaixo. */
 
-/* Academia: impede texto espremido e imagem desproporcional em larguras intermediárias. */
+/* A apresentação da Academia passa a ser vertical em qualquer tela.
+   Isso evita texto espremido, imagem gigante e corte em notebook/celular. */
 .academy-presentation,
 .academy-presentation-stage,
 .academy-presentation-copy,
@@ -11,139 +12,138 @@
   box-sizing: border-box;
 }
 
+.academy-presentation {
+  width: 100%;
+  height: auto !important;
+  max-height: none !important;
+}
+
 .academy-presentation-stage {
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  min-height: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  height: auto !important;
 }
 
-.academy-presentation-copy {
-  padding: clamp(30px, 4vw, 50px);
-}
-
-.academy-presentation-copy h3 {
-  font-size: clamp(30px, 3.2vw, 48px);
-  line-height: 1.08;
-  margin: 12px 0 16px;
-}
-
-.academy-presentation-copy p {
-  font-size: clamp(15px, 1.4vw, 18px);
-  line-height: 1.55;
-}
-
-.academy-presentation-copy li {
-  font-size: clamp(14px, 1.25vw, 17px);
-  line-height: 1.5;
-}
-
+/* Imagem primeiro, menor e sem distorção. */
 .academy-presentation figure {
+  order: 1;
+  width: 100%;
+  height: clamp(190px, 24vw, 280px) !important;
+  min-height: 0 !important;
+  margin: 0;
   overflow: hidden;
-  min-height: 0;
+  background: #563049;
 }
 
 .academy-presentation figure img {
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  max-height: 620px;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
   object-fit: cover;
-  object-position: center;
+  object-position: center 42%;
   display: block;
 }
 
-/* Notebook pequeno, tablet e janela estreita: passa para uma coluna antes de o texto apertar. */
-@media (max-width: 1100px) {
-  .academy-presentation-stage {
-    display: grid;
-    grid-template-columns: 1fr !important;
-  }
-
-  .academy-presentation-copy {
-    padding: 30px 28px 26px;
-  }
-
-  .academy-presentation-copy h3 {
-    font-size: clamp(30px, 5vw, 42px);
-  }
-
-  .academy-presentation figure {
-    height: clamp(240px, 38vw, 360px);
-  }
-
-  .academy-presentation figure img {
-    width: 100%;
-    height: 100%;
-    min-height: 0 !important;
-    max-height: none;
-    object-fit: cover;
-  }
+.academy-presentation figcaption {
+  left: 14px;
+  bottom: 12px;
+  font-size: 8px;
 }
 
-/* Celular */
-@media (max-width: 640px) {
+/* Texto sempre embaixo da imagem e com largura total. */
+.academy-presentation-copy {
+  order: 2;
+  width: 100%;
+  padding: 28px clamp(20px, 4vw, 46px) 30px !important;
+  display: block !important;
+}
+
+.academy-presentation-copy > small {
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.academy-presentation-copy h3 {
+  max-width: 960px;
+  font-size: clamp(29px, 4vw, 46px) !important;
+  line-height: 1.08 !important;
+  margin: 10px 0 16px !important;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.academy-presentation-copy p {
+  max-width: 980px;
+  font-size: clamp(15px, 1.7vw, 18px) !important;
+  line-height: 1.58 !important;
+  margin: 0 0 16px;
+}
+
+.academy-presentation-copy ul {
+  max-width: 980px;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.academy-presentation-copy li {
+  font-size: clamp(14px, 1.5vw, 17px) !important;
+  line-height: 1.55 !important;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* Controles permanecem sempre visíveis embaixo. */
+.academy-presentation > footer {
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 760px) {
   .academy-presentation {
-    width: 100%;
-    border-radius: 13px;
+    border-radius: 12px;
   }
 
   .academy-presentation > header {
-    padding: 12px 13px;
-    gap: 10px;
+    padding: 11px 12px !important;
+    gap: 8px;
   }
 
   .academy-presentation > header b {
     font-size: 9px;
-    line-height: 1.35;
+    line-height: 1.3;
   }
 
   .academy-presentation > header button {
     padding: 8px 9px;
+    font-size: 9px;
+  }
+
+  .academy-presentation figure {
+    height: 165px !important;
   }
 
   .academy-presentation-copy {
-    padding: 24px 17px 22px;
-  }
-
-  .academy-presentation-copy > small {
-    font-size: 8px;
-    line-height: 1.35;
+    padding: 20px 16px 22px !important;
   }
 
   .academy-presentation-copy h3 {
-    font-size: clamp(27px, 8vw, 34px);
-    line-height: 1.08;
-    margin: 10px 0 14px;
-    overflow-wrap: normal;
-    word-break: normal;
-    hyphens: none;
+    font-size: clamp(26px, 8vw, 33px) !important;
+    margin: 8px 0 12px !important;
   }
 
   .academy-presentation-copy p,
   .academy-presentation-copy li {
-    font-size: 15px;
-    line-height: 1.55;
-    overflow-wrap: normal;
-    word-break: normal;
-  }
-
-  .academy-presentation-copy ul {
-    gap: 10px;
-  }
-
-  .academy-presentation figure {
-    height: 220px;
-  }
-
-  .academy-presentation figcaption {
-    left: 12px;
-    bottom: 10px;
-    font-size: 8px;
+    font-size: 15px !important;
+    line-height: 1.55 !important;
   }
 
   .academy-presentation > footer {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 12px 13px;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    padding: 11px 12px !important;
   }
 
   .academy-presentation > footer span {
@@ -154,11 +154,25 @@
   .academy-presentation > footer button {
     width: 100%;
     font-size: 10px;
-    padding: 10px 8px;
+    padding: 10px 7px;
   }
 }
 
-/* Perfil Pesquisador: reforça comportamento responsivo mesmo em navegador com zoom. */
+@media (max-width: 420px) {
+  .academy-presentation figure {
+    height: 145px !important;
+  }
+
+  .academy-presentation-copy {
+    padding: 18px 14px 20px !important;
+  }
+
+  .academy-presentation-copy h3 {
+    font-size: 27px !important;
+  }
+}
+
+/* Perfil Pesquisador: cards verticais, imagem menor e texto abaixo. */
 .research-profile-page,
 .research-profile-grid,
 .research-profile-grid article,
@@ -169,36 +183,41 @@
   box-sizing: border-box;
 }
 
+.research-profile-page .research-profile-grid figure {
+  height: 190px !important;
+}
+
+.research-profile-page .research-profile-grid figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
 @media (max-width: 1000px) {
   .research-profile-page .research-profile-grid {
     grid-template-columns: 1fr !important;
   }
 
   .research-profile-page .research-profile-grid figure {
-    height: clamp(220px, 36vw, 320px) !important;
-  }
-
-  .research-profile-page .research-profile-grid figure img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: 175px !important;
   }
 }
 
 @media (max-width: 600px) {
   .research-profile-page {
     width: 100%;
-    padding: 16px 10px 28px !important;
+    padding: 14px 9px 26px !important;
     overflow-x: hidden;
   }
 
   .research-profile-page .research-profile-header {
     width: 100%;
-    gap: 14px;
+    gap: 12px;
   }
 
   .research-profile-page .research-profile-header h1 {
-    font-size: clamp(30px, 9vw, 40px);
+    font-size: clamp(29px, 9vw, 38px);
     line-height: 1.05;
   }
 
@@ -208,19 +227,19 @@
   }
 
   .research-profile-page .research-profile-grid {
-    gap: 14px;
+    gap: 13px;
   }
 
   .research-profile-page .research-profile-grid figure {
-    height: 190px !important;
+    height: 150px !important;
   }
 
   .research-profile-page .research-profile-grid article > div {
-    padding: 18px 16px 21px !important;
+    padding: 17px 15px 20px !important;
   }
 
   .research-profile-page .research-profile-grid h2 {
-    font-size: 23px !important;
+    font-size: 22px !important;
     line-height: 1.14;
   }
 
