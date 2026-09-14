@@ -1,5 +1,5 @@
-// Deploy trigger: v62 com apresentações verticais e imagens menores.
-const CACHE = "nortep-pesquisa-v62";
+// Deploy trigger: v63 com apresentações verticais e imagens completas.
+const CACHE = "nortep-pesquisa-v63";
 const CORE = ["/", "/?acesso=pesquisador", "/?acesso=coordenacao", "/?acesso=administracao", "/inteligencia", "/rede/gestao", "/qualidade", "/perfil-pesquisador", "/nortep-icon-v1.png", "/manifest.webmanifest"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting())));
 self.addEventListener("activate", event => event.waitUntil(
