@@ -256,3 +256,27 @@
     gap: 4px;
   }
 }
+
+
+/* v63 — apresentação sem corte de imagem.
+   A imagem precisa aparecer inteira; espaço vazio é preferível a cortar pessoas/cena. */
+.academy-presentation figure,
+.research-profile-page .research-profile-grid figure {
+  background: #24161d !important;
+}
+.academy-presentation figure img,
+.research-profile-page .research-profile-grid figure img {
+  object-fit: contain !important;
+  object-position: center center !important;
+}
+.research-profile-page .research-profile-grid figure {
+  height: clamp(210px, 30vw, 340px) !important;
+}
+@media (max-width: 760px) {
+  .academy-presentation figure { height: 210px !important; }
+  .research-profile-page .research-profile-grid figure { height: 210px !important; }
+}
+@media (max-width: 420px) {
+  .academy-presentation figure { height: 185px !important; }
+  .research-profile-page .research-profile-grid figure { height: 185px !important; }
+}
