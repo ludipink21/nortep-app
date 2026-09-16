@@ -1,5 +1,7 @@
 "use client";
 
+import { NortePIcon } from "./nortep-icons";
+
 import { useEffect, useState } from "react";
 import "./mobilization-intelligence-shortcut.css";
 
@@ -89,12 +91,12 @@ export default function MobilizationIntelligenceShortcut() {
 
   return <div className="nortep-mobilization-shortcuts">
     <a className="nortep-intelligence-shortcut" href="/inteligencia">
-      <span aria-hidden="true">◆</span>
+      <span aria-hidden="true"><NortePIcon name="compass" size={21}/></span>
       <b>Inteligência de propostas</b>
       <small>Triagem da mobilização</small>
     </a>
     <a className="nortep-social-quiz-shortcut" href="/rede/gestao">
-      <span aria-hidden="true">✦</span>
+      <span aria-hidden="true"><NortePIcon name="message" size={21}/></span>
       <b>Quiz das redes</b>
       <small>Links e alcance por canal</small>
     </a>

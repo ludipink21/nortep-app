@@ -1,5 +1,7 @@
 "use client";
 
+import { NortePIcon } from "./nortep-icons";
+
 import { useEffect, useState } from "react";
 import { configured, loadProfile, loadRuntimeConfig, readSession } from "./supabase";
 import "./founder-pilot-shortcut.css";
@@ -21,5 +23,5 @@ export default function FounderPilotShortcut() {
     void boot();
   }, []);
   if (!visible) return null;
-  return <a className="founder-pilot-shortcut" href="/qualidade" aria-label="Abrir qualidade do piloto"><i>✓</i><span><small>PILOTO</small><b>Qualidade e perfis</b></span></a>;
+  return <a className="founder-pilot-shortcut" href="/qualidade" aria-label="Abrir qualidade do piloto"><i><NortePIcon name="shield" size={21}/></i><span><small>PILOTO</small><b>Qualidade e perfis</b></span></a>;
 }

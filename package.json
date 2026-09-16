@@ -10,7 +10,9 @@
     "build": "next build",
     "start": "next start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
-    "lint": "eslint app tests --ignore-pattern dist --ignore-pattern .next --ignore-pattern work"
+    "lint": "eslint app tests --ignore-pattern dist --ignore-pattern .next --ignore-pattern work",
+    "test:electoral": "node --experimental-strip-types --test tests/electoral-model.test.mjs",
+    "test:electoral:browser": "node tests/electoral-browser.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -25,6 +27,7 @@
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
+    "playwright": "1.63.0",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3"
   },

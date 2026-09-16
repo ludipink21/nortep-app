@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import AdminGovernance from "./admin-governance";
-import FounderPilotShortcut from "./founder-pilot-shortcut";
-import MobilizationIntelligenceShortcut from "./mobilization-intelligence-shortcut";
-import ResearcherProfileShortcut from "./researcher-profile-shortcut";
-import SurveyIntroVideo from "./survey-intro-video";
+import PortalAddons from "./portal-addons";
 import "./globals.css";
 import "./academia.css";
 import "./responsive-fixes.css";
@@ -53,17 +49,17 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         }
         var reloading = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (reloading || sessionStorage.getItem('nortep-reload-v62')) return;
+          if (reloading || sessionStorage.getItem('nortep-reload-v64')) return;
           reloading = true;
-          sessionStorage.setItem('nortep-reload-v62', '1');
+          sessionStorage.setItem('nortep-reload-v64', '1');
           window.location.reload();
         });
         try {
-          var registration = await navigator.serviceWorker.register('/sw.js?v=62', { updateViaCache: 'none' });
+          var registration = await navigator.serviceWorker.register('/sw.js?v=64', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });
     }
   `;
-  return <html lang="pt-BR"><body>{children}<AdminGovernance /><FounderPilotShortcut /><MobilizationIntelligenceShortcut /><ResearcherProfileShortcut /><SurveyIntroVideo /><script dangerouslySetInnerHTML={{ __html: serviceWorkerUpdate }} /></body></html>;
+  return <html lang="pt-BR"><body>{children}<PortalAddons /><script dangerouslySetInnerHTML={{ __html: serviceWorkerUpdate }} /></body></html>;
 }
