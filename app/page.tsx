@@ -3,6 +3,8 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components, react-hooks/exhaustive-deps */
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import EcosystemHub, { ElectoralFounderPreviews } from "./ecosystem-hub";
+import { NortePIcon } from "./nortep-icons";
 import AcademiaNorteP, { AcademiaInstrutoriaNorteP } from "./academia";
 import { CandidateOperation, clearSurveyTestData, configured, createAccessInvite, createCandidateObserverInvite, createMobilizationPartner, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadCandidateOperations, loadFieldEvents, loadInterviews, loadMobilizationPartners, loadObserverSummary, loadProfile, loadProfiles, loadProfileTerritories, loadPublicMobilizationForm, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadTeamLinks, loadVaultAudit, loadVaultContacts, MobilizationPartner, ObserverSummary, Profile, ProfileTerritory, PublicMobilizationForm, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setMobilizationPartnerActive, setProfileActive, setProfileTerritories, setSurveyAssignments, setupVaultKey, signIn, signUp, submitPublicMobilizationResponse, Survey, SurveyQuestion, TeamLink, unlockVault, updatePassword, updateSurveyStatusAdmin, updateSurveyThankYouVideo, VaultAudit, VaultContact } from "./supabase";
 
@@ -25,12 +27,6 @@ function readAccessChannel(): AccessChannel {
   const value = new URLSearchParams(window.location.search).get("acesso");
   return value === "pesquisador" || value === "observador" || value === "supervisao" || value === "coordenacao" || value === "administracao" || value === "principal" ? value : "publico";
 }
-
-const pesquisas = [
-  { nome: "Betim: território e escolhas 2026", status: "Liberada", tipo: "Quantitativa", videoPermitido: false, feitas: 0, meta: 100, equipe: 5 },
-  { nome: "Avaliação dos serviços públicos", status: "Planejada", tipo: "Qualitativa", videoPermitido: false, feitas: 0, meta: 500, equipe: 0 },
-  { nome: "Prioridades da comunidade", status: "Planejada", tipo: "Direcional", videoPermitido: true, feitas: 0, meta: 400, equipe: 0 },
-];
 
 export default function Home() {
   const [view, setView] = useState<View>("inicio");
@@ -196,6 +192,15 @@ export default function Home() {
       saveSession(null);
       throw new Error("Este link é exclusivo para observadores autorizados.");
     }
+    const destination = new URLSearchParams(window.location.search);
+    if (p.active && !p.access_removed_at && destination.get("continuar") === "analise-eleitoral") {
+      const electoralParams = new URLSearchParams();
+      for (const key of ["eleicao", "zona", "candidato"]) {
+        for (const value of destination.getAll(key).slice(0, 2)) electoralParams.append(key, value.slice(0, 80));
+      }
+      window.location.replace(`/analise-eleitoral${electoralParams.size ? `?${electoralParams}` : ""}`);
+      return;
+    }
     setSession(current);
     setProfile(p);
     if (hasPrincipalAdminAccess(p)) setFounderPerspective(ownPrincipalPerspective(p));
@@ -217,7 +222,8 @@ export default function Home() {
     setSurvey(visibleSurveys[0] ?? null);
     if (p.active) setInterviews(await loadInterviews(current));
     await carregarAdmin(current, p);
-    setView(p.role === "pesquisador" ? "portal" : "inicio");
+    const requestedView = destination.get("abrir");
+    setView(requestedView === "visoes" && hasPrincipalAdminAccess(p) ? "visoes" : requestedView === "ecossistema" ? "ecossistema" : p.role === "pesquisador" ? "portal" : "inicio");
   }
 
   useEffect(() => {
@@ -582,7 +588,7 @@ export default function Home() {
     network: mobilizationPartners.map(item => ({ ...item, meetings_opt_ins: Number(item.meetings_opt_ins || 0), referrals: Number(item.referrals || 0) })),
   };
   if (founderAccess && founderPerspective === "publico") return <><FounderPreviewBar label="Capa pública" voltar={leavePreview} /><div className="founder-preview-surface"><PublicLanding /></div></>;
-  if (founderAccess && (founderPerspective === "observador" || founderPerspective === "candidato")) return <><FounderPreviewBar label={founderPerspective === "candidato" ? "Painel Estratégico do Candidato" : "Observador geral"} voltar={leavePreview} /><div className="founder-preview-surface"><ObserverPanel profile={visualProfile} summary={{ ...previewObserverSummary, observer_mode: founderPerspective === "candidato" ? "candidato" : "geral" }} session={session} partners={mobilizationPartners} operations={candidateOperations} aviso={aviso} sair={leavePreview} descadastrar={async () => aviso("A prévia não altera a sua conta principal.")} atualizar={async () => atualizarDadosAdmin()} /></div></>;
+  if (founderAccess && (founderPerspective === "observador" || founderPerspective === "candidato")) return <><FounderPreviewBar label={founderPerspective === "candidato" ? "Painel Estratégico do Candidato" : "Observador geral"} voltar={leavePreview} /><div className="founder-preview-surface"><ObserverPanel electoralPreview={founderPerspective} profile={visualProfile} summary={{ ...previewObserverSummary, observer_mode: founderPerspective === "candidato" ? "candidato" : "geral" }} session={session} partners={mobilizationPartners} operations={candidateOperations} aviso={aviso} sair={leavePreview} descadastrar={async () => aviso("A prévia não altera a sua conta principal.")} atualizar={async () => atualizarDadosAdmin()} /></div></>;
 
   const campo = founderPerspective === "pesquisador" || view === "portal" || view === "entrevista" || view === "obrigado" || (view === "academia" && visualProfile.role === "pesquisador");
   const titulos: Record<View, string> = {
@@ -621,16 +627,16 @@ export default function Home() {
         ...(visualProfile.role === "admin" ? [["mobilizacao", "✦", "Mobilização"]] : []),
         ...(visualProfile.role === "admin" ? [["cofre", "◉", "Cofre de contatos"]] : []),
         ["ecossistema", "◇", "Ecossistema NorteP"],
-      ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i>{item[1]}</i>{item[2]}</button>)}</nav>
-      <div className="coleta"><b>● Coleta conectada</b><small>{interviews.length} de 100 entrevistas</small><div><i style={{ width: `${Math.min(interviews.length, 100)}%` }} /></div></div>
+      ].map(item => <button className={view === item[0] ? "active" : ""} onClick={() => ir(item[0] as View)} key={item[0]}><i><NortePIcon name={item[0] === "inicio" || item[0] === "visoes" ? "grid" : item[0] === "ecossistema" ? "compass" : item[0] === "pesquisas" ? "ballot" : item[0] === "academia" || item[0] === "instrutoria" ? "book" : item[0] === "rankings" || item[0] === "resultados" ? "chart" : item[0] === "cofre" ? "shield" : "people"} size={20}/></i>{item[2]}</button>)}</nav>
+      <div className="coleta"><b>{offline ? "Sem conexão" : "Conectado ao NorteP"}</b><small>{interviews.length} entrevistas sincronizadas</small></div>
       <div className="perfil"><i>{visualProfile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{visualProfile.name}</b><small>{isFounderAccount(visualProfile) ? "Administradora fundadora" : visualProfile.role === "admin" ? (visualProfile.admin_level === "primary" ? "Administrador primário" : "Administração") : visualProfile.role === "supervisor" ? "Supervisão de campo" : "Coordenação de campo"}</small></span><button onClick={previewing ? leavePreview : sair}>{previewing ? "Voltar" : "Sair"}</button></div>
     </aside>}
 
     <main>
       <header>
-        {!campo && <button className="hamb" onClick={() => setMenu(!menu)}>☰</button>}
+        {!campo && <button className="hamb" aria-label={menu ? "Fechar menu" : "Abrir menu"} onClick={() => setMenu(!menu)}><NortePIcon name="menu" size={22}/></button>}
         <div className={campo ? "marca-campo" : ""}>
-          <small>{view === "academia" ? "NORTEP ACADEMIA · AULAS E EXERCÍCIOS" : view === "instrutoria" ? "NORTEP ACADEMIA · ÁREA DA INSTRUTORA" : campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR · V49" : "NORTEP · DADOS QUE APROXIMAM · V49"}</small>
+          <small>{view === "academia" ? "NORTEP ACADEMIA · AULAS E EXERCÍCIOS" : view === "instrutoria" ? "NORTEP ACADEMIA · ÁREA DA INSTRUTORA" : campo ? "NORTEP PESQUISA · ÁREA DO PESQUISADOR" : "NORTEP · DADOS QUE APROXIMAM"}</small>
           <h1>{titulos[view]}</h1>
         </div>
         <section>
@@ -644,7 +650,7 @@ export default function Home() {
       </header>
 
       <div className={campo ? "content campo-content" : "content"}>
-        {view === "inicio" && <><Inicio ir={ir} aviso={aviso} interviews={interviews} profiles={team} pending={pendingCount} fieldEvents={fieldEvents} currentProfile={visualProfile} /><AlertasSeguranca events={fieldEvents} /></>}
+        {view === "inicio" && <><Inicio ir={ir} atualizar={atualizarDadosAdmin} surveys={adminSurveys} interviews={interviews} profiles={team} pending={pendingCount} fieldEvents={fieldEvents} currentProfile={visualProfile} /><AlertasSeguranca events={fieldEvents} /></>}
         {view === "visoes" && founderAccess && <FounderViews abrir={openFounderPerspective} ir={ir} aviso={aviso} />}
         {view === "pesquisas" && <Pesquisas ir={ir} aviso={aviso} surveys={adminSurveys} profiles={team} session={session} currentProfile={profile} atualizar={atualizarDadosAdmin} />}
         {view === "coordenacao" && <Coordenacao aviso={aviso} profiles={team} links={teamLinks} territories={profileTerritories} interviews={interviews} currentProfile={visualProfile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onSetTerritories={atualizarTerritoriosCoordenador} onRefresh={atualizarDadosAdmin} />}
@@ -652,7 +658,7 @@ export default function Home() {
         {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "mobilizacao" && visualProfile.role === "admin" && <Mobilizacao aviso={aviso} session={session} partners={mobilizationPartners} atualizar={atualizarDadosAdmin} />}
-        {view === "ecossistema" && <Ecossistema profile={visualProfile} abrirAcademia={() => ir("academia")} abrirInstrutoria={() => ir("instrutoria")} />}
+        {view === "ecossistema" && <EcosystemHub profile={visualProfile} preview={previewing} abrirPesquisa={() => ir(visualProfile.role === "pesquisador" ? "portal" : "pesquisas")} abrirAcademia={() => ir("academia")} abrirInstrutoria={() => ir("instrutoria")} />}
         {view === "academia" && (visualProfile.role === "pesquisador" || visualProfile.role === "supervisor") && <><Cabecalho titulo="Aulas e exercícios" sub="Parte do seu acesso normal: estude, salve e continue quando quiser." botao={visualProfile.role === "pesquisador" ? "← Entrevistas" : "← Painel"} acao={() => ir(visualProfile.role === "pesquisador" ? "portal" : "inicio")} /><AcademiaNorteP key={`${visualProfile.id}-${visualProfile.role}-${previewing ? "preview" : "conta"}`} profile={visualProfile} profiles={team} session={previewing ? null : session} /></>}
         {view === "instrutoria" && founderAccess && !previewing && session && <><Cabecalho titulo="Instrutoria e materiais" sub="Planos de aula, exemplos e aulões para formar Pesquisadores e Supervisores." botao="← Painel" acao={() => ir("inicio")} /><AcademiaInstrutoriaNorteP profile={profile} session={session} /></>}
         {view === "cofre" && visualProfile.role === "admin" && <CofreContatos session={session} profiles={team} aviso={aviso} />}
@@ -724,9 +730,10 @@ function FounderViews({ abrir, ir, aviso }: { abrir: (perspective: FounderPerspe
       <span><b>Seu acesso continua protegido</b><small>Administradores secundários não enxergam esta área.</small></span>
     </section>
     <div className="founder-entry-grid">{entradas.map(item => <article key={item.perspective}>
-      <i>{item.icon}</i><small>ENTRADA</small><h3>{item.title}</h3><p>{item.description}</p>
+      <i><NortePIcon name={item.perspective === "publico" ? "compass" : item.perspective === "pesquisador" ? "ballot" : item.perspective === "observador" || item.perspective === "candidato" ? "chart" : "people"} size={26}/></i><small>ENTRADA</small><h3>{item.title}</h3><p>{item.description}</p>
       <div><button type="button" onClick={() => item.perspective === "candidato" ? ir("equipe") : void copiar(item.access)}>{item.perspective === "candidato" ? "Criar convite" : "Copiar entrada"}</button><button type="button" className="primary" onClick={() => abrir(item.perspective)}>Visualizar como</button></div>
     </article>)}</div>
+    <ElectoralFounderPreviews />
     <section className="painel founder-pages">
       <div><small>TODAS AS ÁREAS DA ADMINISTRAÇÃO PRINCIPAL</small><h3>Abrir uma página do seu painel</h3><p>Atalhos para conferir todo o conteúdo administrativo sem procurar no menu.</p></div>
       <nav>{paginas.map(item => <button type="button" key={item.view} onClick={() => ir(item.view)}>{item.label}<span>→</span></button>)}</nav>
@@ -996,7 +1003,7 @@ function AcessoRemovido({ profile, sair }: { profile: Profile; sair: () => void 
   return <div className="auth-shell"><ControleFonte /><div className="auth-card pending-card"><div className="auth-logo">NP</div><small>ACESSO ENCERRADO</small><h2>Olá, {profile.name}.</h2><p>Este acesso foi removido pela administração e não pode abrir pesquisas ou painéis.</p><div className="pending-shield"><i>×</i><span><b>Acesso indisponível</b><small>Se acreditar que houve um engano, fale com a coordenação da NorteP.</small></span></div><button className="auth-switch" onClick={sair}>Sair</button></div></div>;
 }
 
-function ObserverPanel({ profile, summary, session, partners, operations, aviso, sair, descadastrar, atualizar }: { profile: Profile; summary: ObserverSummary | null; session: Session; partners: MobilizationPartner[]; operations: CandidateOperation[]; aviso: (text: string) => void; sair: () => void; descadastrar: () => Promise<void>; atualizar: () => Promise<void> }) {
+function ObserverPanel({ profile, summary, session, partners, operations, aviso, sair, descadastrar, atualizar, electoralPreview }: { electoralPreview?: "observador" | "candidato"; profile: Profile; summary: ObserverSummary | null; session: Session; partners: MobilizationPartner[]; operations: CandidateOperation[]; aviso: (text: string) => void; sair: () => void; descadastrar: () => Promise<void>; atualizar: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"situacao" | "mobilizacao" | "operacao" | "rede" | "gestao">("situacao");
   const [presentation, setPresentation] = useState(false);
@@ -1038,7 +1045,7 @@ function ObserverPanel({ profile, summary, session, partners, operations, aviso,
       <div className="observer-user"><i>{profile.name.split(" ").slice(0, 2).map(x => x[0]).join("").toUpperCase()}</i><span><b>{profile.name}</b><small>{candidateMode ? "Candidato · gestão da mobilização" : "Observador autorizado"}</small></span><button onClick={sair}>Sair</button></div>
     </aside>
     <main>
-      <header><div><small>NORTEP · DADOS QUE ORIENTAM</small><h1>{candidateMode ? "Painel Estratégico do Candidato" : "Sala de Situação NorteP"}</h1></div><div className="observer-header-actions"><button onClick={() => setPresentation(!presentation)}>{presentation ? "Sair da apresentação" : "▣ Modo apresentação"}</button><button className="observer-refresh" onClick={refresh} disabled={busy}>{busy ? "Atualizando…" : "↻ Atualizar"}</button></div></header>
+      <header><div><small>NORTEP · DADOS QUE ORIENTAM</small><h1>{candidateMode ? "Painel Estratégico do Candidato" : "Sala de Situação NorteP"}</h1></div><div className="observer-header-actions"><a href={`/analise-eleitoral${electoralPreview ? `?previa=${electoralPreview}` : ""}`} className="observer-electoral-link"><NortePIcon name="compass" size={18}/>Análise Eleitoral</a><button onClick={() => setPresentation(!presentation)}>{presentation ? "Sair da apresentação" : "▣ Modo apresentação"}</button><button className="observer-refresh" onClick={refresh} disabled={busy}>{busy ? "Atualizando…" : "↻ Atualizar"}</button></div></header>
       <div className="observer-content">
         <div className="observer-intro"><div><small>{tabCopy.eyebrow}</small><h2>{tabCopy.title}</h2><p>{tabCopy.text}</p></div><span>Última atualização<b>{lastUpdate}</b></span></div>
         {!summary ? <div className="painel resultado-vazio"><h3>Preparando indicadores</h3><p>Aguarde um momento e atualize os números.</p></div> : tab === "situacao" ? <>
@@ -1071,14 +1078,13 @@ function ObserverPanel({ profile, summary, session, partners, operations, aviso,
   </div>;
 }
 
-function Inicio({ ir, aviso, interviews, profiles, pending, fieldEvents, currentProfile }: { ir: (v: View) => void; aviso: (t: string) => void; interviews: SavedInterview[]; profiles: Profile[]; pending: number; fieldEvents: FieldEvent[]; currentProfile: Profile }) {
+function Inicio({ ir, atualizar, surveys, interviews, profiles, pending, fieldEvents, currentProfile }: { ir: (v: View) => void; atualizar: () => Promise<void>; surveys: Survey[]; interviews: SavedInterview[]; profiles: Profile[]; pending: number; fieldEvents: FieldEvent[]; currentProfile: Profile }) {
   const hoje = new Date();
   const dias = Array.from({ length: 7 }, (_, i) => { const d = new Date(hoje); d.setDate(d.getDate() - (6 - i)); return d; });
   const contagens = dias.map(d => interviews.filter(x => new Date(x.completed_at || x.created_at).toDateString() === d.toDateString()).length);
   const max = Math.max(...contagens, 1);
   const ativos = new Set(interviews.map(x => x.researcher_id)).size;
-  const progresso = Math.min(interviews.length, 100);
-  const pesquisaPiloto = { ...pesquisas[0], feitas: interviews.length, equipe: ativos };
+  const activeSurveys = surveys.filter(s => !s.archived_at && (s.status === "active" || s.status === "pilot"));
   const abordagens = interviews.length + fieldEvents.length;
   const adesao = abordagens ? Math.round(interviews.length / abordagens * 100) : 0;
   const recusas = fieldEvents.filter(x => x.outcome === "refused").length;
@@ -1104,13 +1110,13 @@ function Inicio({ ir, aviso, interviews, profiles, pending, fieldEvents, current
   const maiorCobertura = Math.max(...coberturaCidades.map(([, total]) => total), 1);
   const nivelCobertura = (total: number) => total / maiorCobertura >= .75 ? "forte" : total / maiorCobertura >= .4 ? "medio" : "leve";
   return <>
-    <div className="boas"><div><small>{isFounderAccount(currentProfile) ? "CENTRAL DA ADMINISTRADORA FUNDADORA" : currentProfile.role === "admin" && currentProfile.admin_level === "primary" ? "CENTRAL DO ADMINISTRADOR PRIMÁRIO" : currentProfile.role === "coordenador" ? "PAINEL DA COORDENAÇÃO DE CAMPO" : "PAINEL ADMINISTRATIVO"}</small><h2>Olá, {currentProfile.name.split(" ")[0]}. <span>O campo está avançando.</span></h2><p>{hasPrincipalAdminAccess(currentProfile) ? "Você possui acesso principal protegido e a visão completa da operação." : currentProfile.role === "coordenador" ? "Acompanhe a equipe de campo, o ritmo e as ocorrências da coleta." : "Acompanhe a operação sem compartilhar a senha da conta fundadora."}</p></div><button onClick={() => aviso("Dados atualizados agora")}>↻ Atualizar dados</button></div>
-    <div className="metricas"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(interviews.length)} s="salvas com segurança" /><Metrica c="laranja" i="◎" t="Meta da pesquisa" v={`${progresso}%`} s={`${Math.max(100 - interviews.length, 0)} entrevistas restantes`} /><Metrica c="roxo" i="♙" t="Pesquisadores com coleta" v={String(ativos)} s="na pesquisa atual" /><Metrica c="azul" i="⌁" t="Neste aparelho" v={String(pending)} s="pendentes de sincronização" /></div>
+    <div className="boas"><div><small>{isFounderAccount(currentProfile) ? "CENTRAL DA ADMINISTRADORA FUNDADORA" : currentProfile.role === "admin" && currentProfile.admin_level === "primary" ? "CENTRAL DO ADMINISTRADOR PRIMÁRIO" : currentProfile.role === "coordenador" ? "PAINEL DA COORDENAÇÃO DE CAMPO" : "PAINEL ADMINISTRATIVO"}</small><h2>Olá, {currentProfile.name.split(" ")[0]}. <span>Vamos acompanhar o trabalho?</span></h2><p>{hasPrincipalAdminAccess(currentProfile) ? "Você possui acesso principal protegido e a visão completa da operação." : currentProfile.role === "coordenador" ? "Acompanhe a equipe de campo, o ritmo e as ocorrências da coleta." : "Acompanhe a operação sem compartilhar a senha da conta fundadora."}</p></div><button onClick={() => void atualizar()}>Atualizar dados</button></div>
+    <div className="metricas"><Metrica c="verde" i="✓" t="Entrevistas realizadas" v={String(interviews.length)} s="salvas com segurança" /><Metrica c="laranja" i="◎" t="Pesquisas em andamento" v={String(activeSurveys.length)} s="liberadas para coleta" /><Metrica c="roxo" i="♙" t="Pesquisadores com coleta" v={String(ativos)} s="na pesquisa atual" /><Metrica c="azul" i="⌁" t="Neste aparelho" v={String(pending)} s="pendentes de sincronização" /></div>
     <div className="operacao-piloto"><article><small>ABORDAGENS REGISTRADAS</small><b>{abordagens}</b><span>entrevistas e ocorrências</span></article><article><small>TAXA DE CONCLUSÃO</small><b>{adesao}%</b><span>concluídas sobre abordagens</span></article><article><small>RECUSAS E INTERRUPÇÕES</small><b>{recusas + interrompidas}</b><span>{recusas} recusas · {interrompidas} interrompidas</span></article><article className={alertasQualidade ? "com-alerta" : ""}><small>ALERTAS DE QUALIDADE</small><b>{alertasQualidade}</b><span>{alertasQualidade ? "verificar antes da análise" : "nenhum alerta atual"}</span></article></div>
     <div className="duas"><div className="painel"><Topo sup="RITMO DE COLETA" titulo="Entrevistas nos últimos 7 dias" /><div className="grafico">{contagens.map((valor, i) => <div key={dias[i].toISOString()}><b>{valor}</b><i style={{ height: `${Math.max(valor ? valor / max * 90 : 3, 3)}%` }} /><small>{i === 6 ? "HOJE" : dias[i].toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3).toUpperCase()}</small></div>)}</div></div><div className="painel"><Topo sup="SITUAÇÃO DA COLETA" titulo="Acompanhamento" /><div className="alerta"><i className={pending ? "a1" : "a0"}>{pending ? "!" : "✓"}</i><span><b>{pending ? `${pending} entrevista(s) aguardando internet` : "Todas as respostas sincronizadas"}</b><small>{pending ? "Abra a área do pesquisador e toque em sincronizar" : "Nenhuma pendência neste aparelho"}</small></span></div><div className="alerta"><i className="a2">i</i><span><b>{interviews.length ? "Coleta em andamento" : "Pronto para a primeira entrevista"}</b><small>Acompanhe aqui a evolução da pesquisa.</small></span></div></div></div>
     <div className="ranking-grid"><div className="painel"><Topo sup="EQUIPE DE CAMPO" titulo="Entrevistas concluídas por pesquisador" />{rankingPesquisadores.length ? rankingPesquisadores.map(([id, total], index) => <div className="ranking-row" key={id}><i>{index + 1}</i><span><b>{nomesPesquisadores[id] || "Pesquisador"}</b><small>Entrevistas sincronizadas</small></span><strong>{total}</strong></div>) : <div className="ranking-empty">O ranking aparecerá após a primeira entrevista.</div>}</div><div className="painel"><Topo sup="CIDADES E BAIRROS" titulo="Entrevistas concluídas por território" />{rankingTerritorios.length ? rankingTerritorios.map(([local, total], index) => <div className="ranking-row" key={local}><i>{index + 1}</i><span><b>{local}</b><small>Entrevistas sincronizadas</small></span><strong>{total}</strong></div>) : <div className="ranking-empty">Os territórios aparecerão após a primeira entrevista.</div>}</div></div>
     <section className="painel cobertura-territorial"><Topo sup="COBERTURA TERRITORIAL" titulo="Intensidade da coleta por cidade" /><p>Leitura operacional sem mapa físico: quanto mais intensa a cor, maior o volume de entrevistas naquele território.</p>{coberturaCidades.length ? <div className="cobertura-conteudo"><div className="heat-grid">{coberturaCidades.map(([cidade, total]) => <article className={`heat-cell ${nivelCobertura(total)}`} key={cidade}><small>{cidade}</small><b>{total}</b><span>{total === 1 ? "entrevista" : "entrevistas"}</span></article>)}</div><div className="cobertura-lista">{rankingTerritorios.map(([local, total]) => <div key={local}><span><b>{local}</b><small>{total} entrevista(s) no ponto de coleta</small></span><em><i style={{ width: `${total / maiorCobertura * 100}%` }} /></em><strong>{total}</strong></div>)}</div></div> : <div className="ranking-empty">A cobertura aparecerá após a primeira entrevista sincronizada.</div>}</section>
-    <div className="painel lista"><div className="topo"><div><small>PESQUISAS ATIVAS</small><h3>Acompanhamento por pesquisa</h3></div><button onClick={() => ir("pesquisas")}>Ver todas →</button></div><LinhaPesquisa p={pesquisaPiloto} ir={ir} /></div>
+    <div className="painel lista"><div className="topo"><div><small>PESQUISAS ATIVAS</small><h3>Acompanhamento por pesquisa</h3></div><button onClick={() => ir("pesquisas")}>Ver todas →</button></div>{activeSurveys.length ? activeSurveys.map(item => <LinhaPesquisa key={item.id} survey={item} interviews={interviews.filter(row => row.survey_id === item.id)} ir={ir} />) : <p className="ranking-empty">Nenhuma pesquisa liberada no momento.</p>}</div>
   </>;
 }
 
@@ -1166,7 +1172,7 @@ function Rankings({ interviews, profiles, surveys, fieldEvents }: { interviews: 
 
 function Metrica({ c, i, t, v, s }: { c: string; i: string; t: string; v: string; s: string }) { return <div className="metrica"><i className={c}>{i}</i><span><small>{t}</small><b>{v}</b><em>{s}</em></span></div>; }
 function Topo({ sup, titulo }: { sup: string; titulo: string }) { return <div className="topo"><div><small>{sup}</small><h3>{titulo}</h3></div></div>; }
-function LinhaPesquisa({ p, ir }: { p: typeof pesquisas[0]; ir: (v: View) => void }) { return <div className="linha-pesquisa"><i>▤</i><span><b>{p.nome}</b><small>● {p.status} · {p.equipe} pesquisadores</small></span><div><small>{p.feitas} de {p.meta}</small><em><i style={{ width: (p.feitas / p.meta * 100) + "%" }} /></em></div><strong>{Math.round(p.feitas / p.meta * 100)}%</strong><button onClick={() => ir("resultados")}>Ver detalhes</button></div>; }
+function LinhaPesquisa({ survey, interviews, ir }: { survey: Survey; interviews: SavedInterview[]; ir: (v: View) => void }) { return <div className="linha-pesquisa"><i><NortePIcon name="ballot" size={23}/></i><span><b>{survey.title}</b><small>{survey.status === "pilot" ? "Piloto" : "Liberada"} · {new Set(interviews.map(item => item.researcher_id)).size} pesquisadores com coleta</small></span><strong>{interviews.length}</strong><span>entrevistas</span><button onClick={() => ir("resultados")}>Ver resultados</button></div>; }
 
 function Pesquisas({ ir, aviso, surveys, profiles, session, currentProfile, atualizar }: { ir: (v: View) => void; aviso: (t: string) => void; surveys: Survey[]; profiles: Profile[]; session: Session; currentProfile: Profile; atualizar: () => Promise<void> }) {
   const [editorOpen, setEditorOpen] = useState(false);
@@ -1584,22 +1590,6 @@ function PublicMobilization({ code, form }: { code: string; form: PublicMobiliza
   </div>;
 }
 
-function Ecossistema({ profile, abrirAcademia, abrirInstrutoria }: { profile: Profile; abrirAcademia: () => void; abrirInstrutoria: () => void }) {
-  const produtos = [
-    ["NorteP Pesquisa", "Ativo", "Pesquisa de campo, coleta e resultados."],
-    ["Formação NorteP", "Ativo", "Academia por perfil, prática, avaliação e certificação."],
-    ["NorteP Comunicação", "Em breve", "Comunicação política e relacionamento."],
-    ["NorteP Gestão", "Em breve", "Operação de campanha e mandato."],
-    ["NorteP Auditoria", "Em breve", "Controle, conferência e acompanhamento."],
-    ["NorteP Financeiro", "Futuro", "Gestão financeira em ambiente separado."],
-  ];
-  return <><Cabecalho titulo="Ecossistema NorteP" sub="Política, povo e pesquisa em uma operação integrada." botao={hasPrincipalAdminAccess(profile) ? "Abrir Instrutoria" : profile.role === "supervisor" ? "Abrir aulas" : ""} acao={hasPrincipalAdminAccess(profile) ? abrirInstrutoria : abrirAcademia} /><div className="ecos-grid">{produtos.map((p, i) => {
-    const academy = i === 1;
-    const academyAvailable = hasPrincipalAdminAccess(profile) || profile.role === "supervisor";
-    const active = i === 0 || (academy && academyAvailable);
-    return <article className={`${active ? "eco ativo" : "eco"}${academy ? " ecos-academy-card" : ""}`} key={p[0]}><i>{i === 0 ? "NP" : academy ? "N+" : "◇"}</i><label>{academy && !academyAvailable ? "Pesquisa e Supervisão" : p[1]}</label><h3>{p[0]}</h3><p>{academy ? hasPrincipalAdminAccess(profile) ? "Planos, exemplos e materiais da instrutora para Pesquisa e Supervisão." : profile.role === "supervisor" ? "Suas aulas e exercícios fazem parte deste mesmo acesso." : "As aulas são exclusivas dos perfis Pesquisador e Supervisor." : p[2]}</p>{i === 0 ? <button>Produto atual</button> : academy && hasPrincipalAdminAccess(profile) ? <button onClick={abrirInstrutoria}>Abrir instrutoria →</button> : academy && profile.role === "supervisor" ? <button onClick={abrirAcademia}>Abrir aulas →</button> : academy ? <button disabled>Sem aulas neste perfil</button> : <button disabled>Planejado</button>}</article>;
-  })}</div></>;
-}
 
 function Portal({ iniciar, abrirAcademia, profile, surveys, interviews, pending, sincronizar, registrar }: { iniciar: (survey: Survey) => void; abrirAcademia: () => void; profile: Profile; surveys: Survey[]; interviews: SavedInterview[]; pending: number; sincronizar: () => void; registrar: (outcome: FieldEvent["outcome"], reason?: string, survey?: Survey | null) => void }) {
   const hoje = interviews.filter(x => new Date(x.completed_at || x.created_at).toDateString() === new Date().toDateString()).length;

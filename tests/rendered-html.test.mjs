@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+const ecosystem = await readFile(new URL("../app/ecosystem-hub.tsx", import.meta.url), "utf8");
 const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const worker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 const faviconRoute = await readFile(new URL("../app/favicon.ico/route.ts", import.meta.url), "utf8");
@@ -37,9 +38,11 @@ test("V49 mantém entradas separadas, supervisão e visão exclusiva da fundador
 });
 
 test("service worker e interface usam a mesma versão", () => {
-  assert.match(page, /V49/);
-  assert.match(layout, /sw\.js\?v=49/);
-  assert.match(worker, /nortep-pesquisa-v49/);
+  const registrationVersion = layout.match(/sw\.js\?v=(\d+)/)?.[1];
+  const workerVersion = worker.match(/nortep-pesquisa-v(\d+)/)?.[1];
+  assert.ok(registrationVersion);
+  assert.equal(registrationVersion, workerVersion);
+  assert.match(layout, new RegExp(`nortep-reload-v${registrationVersion}`));
   assert.match(layout, /nortep-icon-v1\.png/);
   assert.match(worker, /nortep-icon-v1\.png/);
   assert.match(layout, /location\.hostname === 'localhost'/);
@@ -130,7 +133,7 @@ test("capa pública não exibe instruções internas ou mapa físico", () => {
 
 test("Formação NorteP está integrada ao Ecossistema sem substituir a V49", () => {
   assert.match(page, /import AcademiaNorteP, \{ AcademiaInstrutoriaNorteP \} from "\.\/academia"/);
-  assert.match(page, /Formação NorteP/);
+  assert.match(ecosystem, /Formação NorteP/);
   assert.match(page, /<AcademiaNorteP/);
   assert.match(layout, /\.\/academia\.css/);
   assert.match(page, /session=\{previewing \? null : session\}/);

@@ -1,5 +1,7 @@
 "use client";
 
+import { NortePIcon } from "./nortep-icons";
+
 import { useEffect, useMemo, useState } from "react";
 import "./admin-governance.css";
 
@@ -298,7 +300,7 @@ export default function AdminGovernance() {
 
   return <div className="nortep-admin-governance">
     <button className="nortep-admin-trigger" type="button" onClick={() => setOpen(value => !value)} aria-expanded={open}>
-      <span className="nortep-admin-trigger-icon">◆</span>
+      <span className="nortep-admin-trigger-icon"><NortePIcon name="people" size={21}/></span>
       <span><b>{adminLabel(profile.admin_level || "secondary")}</b><small>{canSeePresence ? `${onlineCount} online agora` : "gestão administrativa"}</small></span>
     </button>
 
