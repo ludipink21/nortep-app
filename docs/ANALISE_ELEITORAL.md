@@ -55,6 +55,7 @@ O retorno do login aceita somente o destino fixo `/analise-eleitoral` e parâmet
 ```sh
 npm ci
 npm run build
+npm audit --omit=dev --audit-level=high
 npm run test:electoral
 npx playwright install chromium
 npm run test:electoral:browser
@@ -66,6 +67,12 @@ Variáveis opcionais: `NORTEP_CHROMIUM_PATH` para um executável instalado e `NO
 
 A suíte legada `tests/rendered-html.test.mjs` já tinha quatro falhas no commit base `87ee88949979c540db224ca966ba69a5cd685309`. A inconsistência de versões do service worker foi corrigida e o teste agora compara as versões de registro, cache e recarga. Permanecem três falhas anteriores: texto antigo de exclusividade da prévia e duas expectativas de conteúdo da Academia V4. Os demais 20 testes legados passam.
 
+### Dependências de segurança
+
+A primeira execução do fluxo de segurança identificou versões vulneráveis já presentes no projeto. Next.js e sua configuração de ESLint foram alinhados em 16.3.5, o override de sharp passou para 0.35.4 e o lockfile atualizou nanoid para 3.3.19 e js-yaml para 4.3.2. Nenhum bloqueio da auditoria foi desativado. Após a atualização, `npm audit` e a auditoria de produção retornaram zero vulnerabilidades; a compilação, os seis testes eleitorais, o fluxo completo no navegador e o ESLint dos componentes novos passaram. A conferência final no navegador utilizou Chromium Headless Shell 153.
+
+Referências dos mantenedores: [Next.js](https://github.com/vercel/next.js/security/advisories/GHSA-2xp9-vwfh-vxw4), [sharp](https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c).
+
 ## Pendências de ambiente
 
-Na execução de 16/09/2026, o projeto Vercel retornou 403 e o acesso administrativo ao banco NorteP foi recusado. Nenhuma migração, exclusão, alteração de conta ou limpeza de dados de produção foi executada. A limpeza solicitada depende de identificar os registros reais que devem permanecer e de acesso autorizado ao projeto correto. Publicação deve passar por revisão conforme `INFLINT_ACCESS_MODEL.md` e conferência das prévias conforme `REGRA_PREVIA_FUNDADORA.md`.
+Na execução de 16/09/2026, o projeto Vercel retornou 403, a publicação vinculada ao primeiro commit foi marcada como cancelada no painel da Vercel e o acesso administrativo ao banco NorteP foi recusado. Nenhuma migração, exclusão, alteração de conta ou limpeza de dados de produção foi executada. A limpeza solicitada depende de identificar os registros reais que devem permanecer e de acesso autorizado ao projeto correto. Publicação deve passar por revisão conforme `INFLINT_ACCESS_MODEL.md` e conferência das prévias conforme `REGRA_PREVIA_FUNDADORA.md`.
