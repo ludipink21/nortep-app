@@ -1,32 +1,15 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { buildSupportMetadata } from "./preview-metadata";
 
-export const metadata: Metadata = {
-  title: "Maria Vanuzia | Conteúdos e participação | NorteP",
-  description: "Formulário voluntário para receber conteúdos e participar de atividades relacionadas à candidata Maria Vanuzia.",
-  openGraph: {
-    title: "Maria Vanuzia | Conteúdos e participação",
-    description: "Formulário voluntário para receber conteúdos e participar de atividades relacionadas à candidata Maria Vanuzia.",
-    url: "https://nortep.ia.br",
-    siteName: "NorteP",
-    images: [
-      {
-        url: "https://nortep.ia.br/maria-vanuzia-cover.jpg",
-        width: 510,
-        height: 700,
-        alt: "Maria Vanuzia",
-      },
-    ],
-    locale: "pt_BR",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Maria Vanuzia | Conteúdos e participação",
-    description: "Formulário voluntário para receber conteúdos e participar de atividades relacionadas à candidata Maria Vanuzia.",
-    images: ["https://nortep.ia.br/maria-vanuzia-cover.jpg"],
-  },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ codigo: string }>;
+}): Promise<Metadata> {
+  const { codigo } = await params;
+  return buildSupportMetadata(decodeURIComponent(codigo || "").trim());
+}
 
 export default function SupporterInviteLayout({ children }: { children: ReactNode }) {
   return children;
