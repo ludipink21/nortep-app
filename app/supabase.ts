@@ -370,6 +370,17 @@ export async function signUp(name: string, email: string, password: string, redi
   return { session: null, confirmationRequired: true };
 }
 
+export async function confirmInvitedAccount(email: string, code: string) {
+  const ready = await loadRuntimeConfig();
+  if (!ready) throw new Error("Configuração indisponível.");
+  const response = await fetch(`${url}/rest/v1/rpc/confirm_invited_account`, {
+    method: "POST",
+    headers: { apikey: key, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_email: email, p_code: code }),
+  });
+  return parseResponse(response) as Promise<boolean>;
+}
+
 export async function requestPasswordReset(email: string, redirectTo: string) {
   const response = await fetch(`${url}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, {
     method: "POST",

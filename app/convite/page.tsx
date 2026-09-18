@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { loadRuntimeConfig, readSessionFromUrl, redeemAccessInvite, signIn, signUp } from "../supabase";
+import { confirmInvitedAccount, loadRuntimeConfig, readSessionFromUrl, redeemAccessInvite, signIn, signUp } from "../supabase";
 import "./convite.css";
 
 type Mode = "criar" | "entrar";
@@ -85,8 +85,14 @@ export default function InvitePage() {
         if (result.session) {
           await finish(result.session);
         } else {
-          setConfirmationSent(true);
-          setMessage("Cadastro recebido. Abra o e-mail de confirmação e depois volte por este mesmo link.");
+          try {
+            await confirmInvitedAccount(normalizedEmail, code);
+            const session = await signIn(normalizedEmail, password);
+            await finish(session);
+          } catch {
+            setConfirmationSent(true);
+            setMessage("Cadastro recebido. Este convite não permite confirmação automática; confira o e-mail de confirmação.");
+          }
         }
       }
     } catch (error) {
@@ -143,13 +149,13 @@ export default function InvitePage() {
       <small>NORTEP PESQUISA</small>
       <h1>{accessTitle(access)}</h1>
       <p>Este convite é individual, vinculado ao seu e-mail e válido por tempo limitado.</p>
-      <div><span>✓ E-mail confirmado</span><span>✓ Função definida pela administração</span><span>✓ Acesso pessoal e auditável</span></div>
+      <div><span>✓ E-mail pré-autorizado</span><span>✓ Função definida pela administração</span><span>✓ Acesso pessoal e auditável</span></div>
     </section>
 
     <form className="invite-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
       <small>{mode === "criar" ? "PRIMEIRO ACESSO" : "CONTA JÁ CRIADA"}</small>
       <h2>{mode === "criar" ? "Crie sua senha" : "Entre para aceitar o convite"}</h2>
-      <p>{mode === "criar" ? "Use exatamente o e-mail que recebeu o convite." : "Use o mesmo e-mail e a senha já cadastrada."}</p>
+      <p>{mode === "criar" ? "Use exatamente o e-mail autorizado. Para administradores e candidata, não é necessário confirmar o e-mail depois." : "Use o mesmo e-mail e a senha já cadastrada."}</p>
 
       {mode === "criar" && <label>Nome completo<input value={name} onChange={event => setName(event.target.value)} autoComplete="name" /></label>}
       <label>E-mail<input value={email} onChange={event => setEmail(event.target.value)} type="email" autoComplete="email" /></label>
