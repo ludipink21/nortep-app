@@ -358,6 +358,21 @@ function SupportVideo({ title, url }: { title: string; url: string }) {
       Seu navegador não conseguiu reproduzir este vídeo.
     </video>;
   }
+
+  const instagram = url.match(/instagram\.com\/(?:reel|p)\/([^/?#]+)/i);
+  if (instagram?.[1]) {
+    return <div className="support-instagram-wrap">
+      <iframe
+        className="support-instagram-embed"
+        src={`https://www.instagram.com/reel/${instagram[1]}/embed/`}
+        title={title}
+        loading="lazy"
+        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    </div>;
+  }
+
   return <a className="support-video-external" href={url} target="_blank" rel="noreferrer">Abrir vídeo</a>;
 }
 
