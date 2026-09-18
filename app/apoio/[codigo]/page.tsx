@@ -124,7 +124,7 @@ export default function SupporterInvitePage() {
   const shareUrl = useMemo(() => {
     if (!result?.share_code || typeof window === "undefined") return "";
     const originCode = result.origin_code || code;
-    return `${window.location.origin}/apoio/${encodeURIComponent(originCode)}/s/${encodeURIComponent(result.share_code)}?v=4`;
+    return `${window.location.origin}/apoio/${encodeURIComponent(originCode)}/s/${encodeURIComponent(result.share_code)}?v=5`;
   }, [code, result?.origin_code, result?.share_code]);
 
   const rememberShare = (saved: SubmitResult, firstName: string) => {
