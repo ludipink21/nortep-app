@@ -9,7 +9,8 @@ const CANDIDATE_NAME = "Maria Vanuzia";
 type RuntimeConfig = { url: string; key: string };
 type PublicForm = {
   partner: { name: string; kind: "apoiador" | "lideranca"; city?: string | null; region?: string | null; neighborhood?: string | null };
-  survey: { id: string; title: string; description?: string | null; consent_text?: string | null; video_url?: string | null };
+  survey: { id: string; title: string; description?: string | null; consent_text?: string | null; intro_video_url?: string | null; video_url?: string | null };
+  videos?: Array<{ id: string; title: string; description?: string | null; video_url: string }>;
   questions: unknown[];
 };
 type SubmitResult = {
@@ -144,6 +145,7 @@ export default function SupporterInvitePage() {
         candidata: CANDIDATE_NAME,
         finalidade_contato: `Conteúdos e comunicações relacionados à candidata ${CANDIDATE_NAME}, conforme opções marcadas no formulário.`,
         receber_conteudos: wantContent ? "Sim" : "Não",
+        receber_videos: wantVideos ? "Sim" : "Não",
         receber_dois_videos: wantVideos ? "Sim" : "Não",
         receber_material: wantMaterial ? "Sim" : "Não",
         participar_reuniao: wantMeeting ? "Sim" : "Não",
@@ -284,6 +286,23 @@ export default function SupporterInvitePage() {
         )}
       </div>
 
+      {form.survey.intro_video_url && <section className="support-video-section">
+        <small>APRESENTAÇÃO</small>
+        <h2>Vídeo de abertura</h2>
+        <SupportVideo title="Vídeo de abertura" url={form.survey.intro_video_url} />
+      </section>}
+
+      {!!form.videos?.length && <section className="support-video-section">
+        <small>VÍDEOS</small>
+        <h2>Conheça os conteúdos em vídeo</h2>
+        <div className="support-video-grid">
+          {form.videos.map(video => <article className="support-video-card" key={video.id}>
+            <SupportVideo title={video.title} url={video.video_url} />
+            <div><b>{video.title}</b>{video.description && <small>{video.description}</small>}</div>
+          </article>)}
+        </div>
+      </section>}
+
       {storedShare && <section className="support-returning">
         <small>VOCÊ JÁ RESPONDEU NESTE APARELHO</small>
         <h2>Seu link está disponível.</h2>
@@ -307,7 +326,7 @@ export default function SupporterInvitePage() {
           <h2>O que você gostaria de receber ou fazer?</h2>
           <p>Marque somente as opções que você autoriza.</p>
           <Choice checked={wantContent} setChecked={setWantContent} title="Quero receber conteúdos e informações desta candidata" />
-          <Choice checked={wantVideos} setChecked={setWantVideos} title="Quero receber os dois vídeos de apresentação" text="Trajetória, origem, experiências e projetos." />
+          <Choice checked={wantVideos} setChecked={setWantVideos} title="Quero receber vídeos desta candidata" text="Vídeos de apresentação e outros conteúdos disponibilizados no NorteP." />
           <Choice checked={wantMaterial} setChecked={setWantMaterial} title="Quero receber materiais desta candidata" />
           <Choice checked={wantMeeting} setChecked={setWantMeeting} title="Quero participar de encontros ou reuniões" />
           <Choice checked={offerHome} setChecked={setOfferHome} title="Posso disponibilizar minha casa ou um espaço para reunião" />
@@ -329,6 +348,17 @@ export default function SupporterInvitePage() {
       <footer>Sem e-mail · sem criação de conta · participação voluntária · não é pesquisa eleitoral nem registro de voto</footer>
     </section>
   </main>;
+}
+
+function SupportVideo({ title, url }: { title: string; url: string }) {
+  const direct = /\.(mp4|webm|ogg)(?:[?#].*)?$/i.test(url);
+  if (direct) {
+    return <video className="support-video-player" controls preload="metadata" playsInline aria-label={title}>
+      <source src={url} />
+      Seu navegador não conseguiu reproduzir este vídeo.
+    </video>;
+  }
+  return <a className="support-video-external" href={url} target="_blank" rel="noreferrer">Abrir vídeo</a>;
 }
 
 function Choice({ checked, setChecked, title, text }: { checked: boolean; setChecked: (value: boolean) => void; title: string; text?: string }) {
