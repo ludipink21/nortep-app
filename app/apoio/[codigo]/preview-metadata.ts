@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 const CANDIDATE_NAME = "Maria Vanuzia";
 const SITE_URL = "https://nortep.ia.br";
-const COVER_URL = `${SITE_URL}/maria-vanuzia-cover.jpg?v=20260918-2`;
+const COVER_URL = `${SITE_URL}/apoio-preview?v=20260918-4`;
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
@@ -32,6 +32,7 @@ async function getPreviewName(code: string, shareCode?: string | null) {
           p_share_code: shareCode || null,
         }),
         cache: "no-store",
+        signal: AbortSignal.timeout(900),
       },
     );
 
@@ -62,6 +63,7 @@ export async function buildSupportMetadata(
     : `${SITE_URL}/apoio/${encodeURIComponent(code)}`;
 
   return {
+    metadataBase: new URL(SITE_URL),
     title,
     description,
     alternates: { canonical },
@@ -73,9 +75,10 @@ export async function buildSupportMetadata(
       images: [
         {
           url: COVER_URL,
-          width: 360,
-          height: 696,
+          width: 600,
+          height: 315,
           alt: CANDIDATE_NAME,
+          type: "image/jpeg",
         },
       ],
       locale: "pt_BR",
