@@ -1460,7 +1460,7 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
     setBusy(true);
     try {
       const created = await createMobilizationPartner(session, { name: name.trim(), kind, city, region, neighborhood, videoUrl, parentId });
-      const link = `${window.location.origin}/apoio/${encodeURIComponent(created.code)}`;
+      const link = `${window.location.origin}/apoio/${encodeURIComponent(created.code)}?v=4`;
       setGeneratedLink(link);
       await navigator.clipboard.writeText(link);
       await atualizar();
@@ -1470,7 +1470,7 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
     } finally { setBusy(false); }
   };
   const copyLink = async (code: string) => {
-    await navigator.clipboard.writeText(`${window.location.origin}/apoio/${encodeURIComponent(code)}`);
+    await navigator.clipboard.writeText(`${window.location.origin}/apoio/${encodeURIComponent(code)}?v=4`);
     aviso("Link copiado.");
   };
   const openWhatsApp = (link: string) => {
