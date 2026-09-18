@@ -1473,6 +1473,10 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
     await navigator.clipboard.writeText(`${window.location.origin}/apoio/${encodeURIComponent(code)}`);
     aviso("Link copiado.");
   };
+  const openWhatsApp = (link: string) => {
+    const text = encodeURIComponent(`Formulário de informações da Maria Vanuzia: ${link}`);
+    window.location.href = `whatsapp://send?text=${text}`;
+  };
   const togglePartner = async (partner: MobilizationPartner) => {
     setBusy(true);
     try {
@@ -1504,14 +1508,14 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
       <label className="wide">Indicado por<select value={parentId} onChange={event => setParentId(event.target.value)}><option value="">Início da rede · NorteP</option>{partners.filter(item => item.active).map(item => <option key={item.id} value={item.id}>{item.name} · {item.kind === "lideranca" ? "liderança" : "apoiador"}</option>)}</select></label>
       <label className="wide">Vídeo de agradecimento (YouTube)<input value={videoUrl} onChange={event => setVideoUrl(event.target.value)} placeholder="https://youtu.be/..." /></label>
       <button className="primary" onClick={() => void create()} disabled={busy}>{busy ? "Criando…" : "Criar e copiar link"}</button>
-      {generatedLink && <div className="generated-link wide"><b>Link pronto</b><span>Envie por WhatsApp. O eleitor abre e responde sem cadastro.</span><div className="link-row"><input readOnly value={generatedLink} /><button onClick={() => void navigator.clipboard.writeText(generatedLink)}>Copiar</button></div></div>}
+      {generatedLink && <div className="generated-link wide"><b>Link pronto</b><span>Envie por WhatsApp. O eleitor abre e responde sem cadastro.</span><div className="link-row"><input readOnly value={generatedLink} /><button onClick={() => openWhatsApp(generatedLink)}>Abrir no WhatsApp</button><button onClick={() => void navigator.clipboard.writeText(generatedLink)}>Copiar</button></div></div>}
     </section>}
     <section className="painel mobilization-list"><Topo sup="DESEMPENHO POR LINK" titulo="Apoiadores e lideranças" />{partners.length ? partners.map(item => <article key={item.id}>
       <span><i>{item.kind === "lideranca" ? "L" : "A"}</i><span><b>{item.name}</b><small>{item.kind === "lideranca" ? "Liderança" : "Apoiador"} · {[item.city, item.region, item.neighborhood].filter(Boolean).join(" · ") || "território não informado"}</small>{item.parent_name && <small>Indicado por {item.parent_name}</small>}</span></span>
       <strong>{item.responses}<small>respostas</small></strong>
       <strong>{item.content_opt_ins}<small>conteúdo</small></strong>
       <strong>{item.volunteer_opt_ins}<small>voluntariado</small></strong>
-      <span className="mobilization-actions"><button onClick={() => void copyLink(item.code)}>Copiar link</button><button className={item.active ? "suspender" : "aprovar"} disabled={busy} onClick={() => void togglePartner(item)}>{item.active ? "Pausar" : "Reativar"}</button></span>
+      <span className="mobilization-actions"><button onClick={() => openWhatsApp(`${window.location.origin}/apoio/${encodeURIComponent(item.code)}`)}>WhatsApp</button><button onClick={() => void copyLink(item.code)}>Copiar link</button><button className={item.active ? "suspender" : "aprovar"} disabled={busy} onClick={() => void togglePartner(item)}>{item.active ? "Pausar" : "Reativar"}</button></span>
     </article>) : <div className="ranking-empty">Nenhum link criado. Use “Novo link” para começar.</div>}</section>
   </>;
 }
