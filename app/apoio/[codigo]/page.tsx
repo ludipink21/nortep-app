@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import "./apoio.css";
 
+const CANDIDATE_NAME = "Maria Vanuzia";
+
 type RuntimeConfig = { url: string; key: string };
 type PublicForm = {
   partner: { name: string; kind: "apoiador" | "lideranca"; city?: string | null; region?: string | null; neighborhood?: string | null };
@@ -61,7 +63,7 @@ export default function SupporterInvitePage() {
   const [state, setState] = useState("MG");
   const [neighborhood, setNeighborhood] = useState("");
 
-  const [wantContent, setWantContent] = useState(true);
+  const [wantContent, setWantContent] = useState(false);
   const [wantVideos, setWantVideos] = useState(false);
   const [wantMaterial, setWantMaterial] = useState(false);
   const [wantMeeting, setWantMeeting] = useState(false);
@@ -108,6 +110,8 @@ export default function SupporterInvitePage() {
     setError("");
     try {
       const answers = {
+        candidata: CANDIDATE_NAME,
+        finalidade_contato: `Conteúdos e comunicações relacionados à candidata ${CANDIDATE_NAME}, conforme opções marcadas no formulário.`,
         receber_conteudos: wantContent ? "Sim" : "Não",
         receber_dois_videos: wantVideos ? "Sim" : "Não",
         receber_material: wantMaterial ? "Sim" : "Não",
@@ -123,7 +127,7 @@ export default function SupporterInvitePage() {
         p_name: name.trim(),
         p_whatsapp: whatsapp.trim(),
         p_contact_consent: privacyConsent,
-        p_content_opt_in: wantContent || wantVideos,
+        p_content_opt_in: wantContent || wantVideos || wantMaterial,
         p_meetings_opt_in: wantMeeting || offerHome,
         p_volunteer_opt_in: wantParticipate,
         p_city: city.trim(),
@@ -143,10 +147,10 @@ export default function SupporterInvitePage() {
 
   const share = async () => {
     if (!shareUrl) return;
-    const text = "Estou te enviando este formulário caso você queira receber conteúdos e informações.";
+    const text = `Estou te enviando o formulário da candidata ${CANDIDATE_NAME} para quem quiser receber conteúdos e informações.`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Conteúdos e participação", text, url: shareUrl });
+        await navigator.share({ title: `${CANDIDATE_NAME} · Conteúdos e participação`, text, url: shareUrl });
         return;
       }
       await navigator.clipboard.writeText(shareUrl);
@@ -167,30 +171,35 @@ export default function SupporterInvitePage() {
         <small>CADASTRO CONCLUÍDO</small>
         <h1>Pronto, {name.split(" ")[0]}.</h1>
         <p>Seu cadastro foi registrado. Código: <b>{result.code}</b>.</p>
-        {(wantContent || wantVideos) && <div className="support-confirm"><b>Conteúdos autorizados</b><span>O contato poderá ser usado somente conforme as opções que você marcou.</span></div>}
+        {(wantContent || wantVideos || wantMaterial) && <div className="support-confirm"><b>Comunicações autorizadas</b><span>Seu contato poderá ser usado para conteúdos de {CANDIDATE_NAME} somente conforme as opções que você marcou.</span></div>}
         {wantMultiply && <div className="support-share-box">
-          <small>MULTIPLICAR</small>
-          <h2>Quer encaminhar para outras pessoas?</h2>
-          <p>Use este botão. O NorteP registra automaticamente a cadeia do compartilhamento sem criar uma conta nova para você.</p>
+          <small>COMPARTILHAR</small>
+          <h2>Quer encaminhar este formulário?</h2>
+          <p>Use este botão. O NorteP registra a origem do compartilhamento para organizar a cadeia de indicação, sem criar uma conta nova para você.</p>
           <button type="button" className="support-primary" onClick={() => void share()}>{copied ? "Link copiado ✓" : "Compartilhar este convite"}</button>
           {shareUrl && <input className="support-share-url" readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} />}
         </div>}
-        <p className="support-privacy-note">Você pode pedir a retirada do contato e das autorizações de comunicação a qualquer momento.</p>
+        <p className="support-privacy-note">Você pode pedir a interrupção dos contatos e a retirada dos dados vinculados a essa finalidade.</p>
       </section>
     </main>;
   }
 
   return <main className="support-shell">
     <section className="support-card">
+      <div className="support-cover-wrap">
+        <img className="support-cover" src="/maria-vanuzia-cover.jpg" alt="Maria Vanuzia" />
+        <div className="support-cover-caption"><small>CANDIDATA</small><strong>{CANDIDATE_NAME}</strong></div>
+      </div>
+
       <header className="support-header">
         <div className="support-logo">NP</div>
-        <span><small>CONTEÚDOS E PARTICIPAÇÃO</small><h1>Quero receber informações</h1></span>
+        <span><small>CONTEÚDOS E PARTICIPAÇÃO</small><h1>Receber informações desta candidata</h1></span>
       </header>
 
       <div className="support-origin">
-        <small>LINK DE APOIADOR</small>
+        <small>LINK DE ORIGEM</small>
         <b>{form.partner.name}</b>
-        <span>Você chegou por este link. Se ele foi encaminhado por outra pessoa, o NorteP consegue registrar essa cadeia quando o compartilhamento é feito pelo botão do formulário.</span>
+        <span>Você chegou por este link. Quando o compartilhamento é feito pelo botão do formulário, o NorteP consegue registrar a cadeia de indicação.</span>
       </div>
 
       <form onSubmit={submit}>
@@ -206,26 +215,29 @@ export default function SupporterInvitePage() {
 
         <section className="support-options">
           <h2>O que você gostaria de receber ou fazer?</h2>
-          <p>Marque só o que fizer sentido para você.</p>
-          <Choice checked={wantContent} setChecked={setWantContent} title="Quero receber conteúdos e informações" />
+          <p>Marque somente as opções que você autoriza.</p>
+          <Choice checked={wantContent} setChecked={setWantContent} title="Quero receber conteúdos e informações desta candidata" />
           <Choice checked={wantVideos} setChecked={setWantVideos} title="Quero receber os dois vídeos de apresentação" text="Trajetória, origem, experiências e projetos." />
-          <Choice checked={wantMaterial} setChecked={setWantMaterial} title="Quero receber material" />
+          <Choice checked={wantMaterial} setChecked={setWantMaterial} title="Quero receber materiais desta candidata" />
           <Choice checked={wantMeeting} setChecked={setWantMeeting} title="Quero participar de encontros ou reuniões" />
           <Choice checked={offerHome} setChecked={setOfferHome} title="Posso disponibilizar minha casa ou um espaço para reunião" />
           <Choice checked={wantParticipate} setChecked={setWantParticipate} title="Quero participar de atividades" />
-          <Choice checked={wantMultiply} setChecked={setWantMultiply} title="Quero multiplicar e compartilhar este convite" text="Depois do cadastro, você recebe um botão de compartilhamento rastreável." />
+          <Choice checked={wantMultiply} setChecked={setWantMultiply} title="Quero compartilhar este convite" text="Depois do cadastro, você recebe um botão de compartilhamento rastreável." />
         </section>
 
         <label className="support-consent">
           <input type="checkbox" checked={privacyConsent} onChange={event => setPrivacyConsent(event.target.checked)} />
-          <span><b>Autorizo o contato e o registro da origem deste compartilhamento.</b><small>Nome, WhatsApp, cidade, UF, bairro e vínculo de indicação serão usados internamente conforme as opções marcadas. Posso pedir a retirada do contato depois.</small></span>
+          <span>
+            <b>Autorizo o armazenamento e o uso dos meus dados para esta finalidade.</b>
+            <small>Autorizo que meu nome, WhatsApp, cidade, UF e bairro sejam armazenados para comunicações relacionadas à candidata {CANDIDATE_NAME} e às opções que marquei. A origem do compartilhamento também pode ser registrada para organizar a rede. Posso solicitar a interrupção dos contatos e a retirada dos dados vinculados a essa finalidade.</small>
+          </span>
         </label>
 
         {error && <div className="support-error">{error}</div>}
         <button type="submit" className="support-primary" disabled={!canSubmit || busy}>{busy ? "Enviando…" : "Enviar"}</button>
       </form>
 
-      <footer>Sem e-mail · sem criação de conta · participação voluntária</footer>
+      <footer>Sem e-mail · sem criação de conta · participação voluntária · não é pesquisa eleitoral nem registro de voto</footer>
     </section>
   </main>;
 }
