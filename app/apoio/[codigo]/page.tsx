@@ -196,6 +196,27 @@ export default function SupporterInvitePage() {
     setPrivacyConsent(false);
   };
 
+  const copyLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch {
+      const input = document.createElement("textarea");
+      input.value = shareUrl;
+      input.setAttribute("readonly", "");
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
   const share = async () => {
     if (!shareUrl) return;
     const text = `Estou te enviando o formulário da candidata ${CANDIDATE_NAME} para quem quiser conhecer os conteúdos e escolher se deseja receber informações.`;
@@ -204,11 +225,9 @@ export default function SupporterInvitePage() {
         await navigator.share({ title: `${CANDIDATE_NAME} · Conteúdos e participação`, text, url: shareUrl });
         return;
       }
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
+      await copyLink();
     } catch {
-      await navigator.clipboard.writeText(shareUrl).catch(() => undefined);
-      setCopied(true);
+      // Cancelar o menu nativo não deve gerar erro no formulário.
     }
   };
 
@@ -228,9 +247,12 @@ export default function SupporterInvitePage() {
         <div className="support-share-box">
           <small>COMPARTILHAR</small>
           <h2>Enviar para outras pessoas</h2>
-          <p>Você pode usar este mesmo botão sempre que quiser compartilhar novamente.</p>
-          <button type="button" className="support-primary" onClick={() => void share()}>{copied ? "Link copiado ✓" : "Compartilhar convite"}</button>
-          {shareUrl && <input className="support-share-url" readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} />}
+          <p>Este é o seu link pessoal. Você pode compartilhar ou copiar quantas vezes quiser, sem preencher o formulário novamente.</p>
+          <div className="support-share-actions">
+            <button type="button" className="support-primary" onClick={() => void share()}>Compartilhar</button>
+            <button type="button" className="support-copy" onClick={() => void copyLink()}>{copied ? "Copiado ✓" : "Copiar link"}</button>
+          </div>
+          {shareUrl && <div className="support-share-link"><input className="support-share-url" readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} /><button type="button" className="support-copy-inline" onClick={() => void copyLink()} aria-label="Copiar link">Copiar</button></div>}
         </div>
 
         <p className="support-privacy-note">Você pode pedir a interrupção dos contatos e a retirada dos dados vinculados a essa finalidade.</p>
