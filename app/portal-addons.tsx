@@ -11,6 +11,6 @@ import SurveyIntroVideo from "./survey-intro-video";
 // not mount legacy presence/audit writers or survey-interaction observers.
 export default function PortalAddons() {
   const pathname = usePathname();
-  if (pathname.startsWith("/analise-eleitoral")) return null;
+  if (pathname.startsWith("/analise-eleitoral") || pathname.startsWith("/apoio")) return null;
   return <><AdminGovernance/><FounderPilotShortcut/><MobilizationIntelligenceShortcut/><ResearcherProfileShortcut/><SurveyIntroVideo/></>;
 }
