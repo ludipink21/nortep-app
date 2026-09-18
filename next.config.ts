@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  async rewrites() {
+    return [
+      {
+        source: "/maria-vanuzia-share-v5.jpg",
+        destination: "/apoio-preview",
+      },
+    ];
+  },
   async headers() {
     return [
       {
