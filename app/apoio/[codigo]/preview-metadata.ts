@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 const CANDIDATE_NAME = "Maria Vanuzia";
 const SITE_URL = "https://nortep.ia.br";
-const COVER_URL = `${SITE_URL}/apoio-preview?v=20260918-4`;
+const COVER_URL = `${SITE_URL}/maria-vanuzia-share-v5.jpg`;
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
