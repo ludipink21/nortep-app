@@ -58,10 +58,10 @@ function storageKey(surveyId: string) {
 }
 
 export default function SupporterInvitePage() {
-  const params = useParams<{ codigo: string }>();
+  const params = useParams<{ codigo: string; share?: string }>();
   const search = useSearchParams();
   const code = decodeURIComponent(params.codigo || "").trim();
-  const incomingShare = search.get("s")?.trim().toUpperCase() || "";
+  const incomingShare = params.share?.trim().toUpperCase() || search.get("s")?.trim().toUpperCase() || "";
 
   const [form, setForm] = useState<PublicForm | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,7 +124,7 @@ export default function SupporterInvitePage() {
   const shareUrl = useMemo(() => {
     if (!result?.share_code || typeof window === "undefined") return "";
     const originCode = result.origin_code || code;
-    return `${window.location.origin}/apoio/${encodeURIComponent(originCode)}?s=${encodeURIComponent(result.share_code)}`;
+    return `${window.location.origin}/apoio/${encodeURIComponent(originCode)}/s/${encodeURIComponent(result.share_code)}`;
   }, [code, result?.origin_code, result?.share_code]);
 
   const rememberShare = (saved: SubmitResult, firstName: string) => {
@@ -252,8 +252,14 @@ export default function SupporterInvitePage() {
       </header>
 
       <div className="support-origin">
-        <small>CONVITE COMPARTILHADO POR</small>
-        <b>{form.partner.name}</b>
+        {incomingShare ? (
+          <small>LINK COMPARTILHADO</small>
+        ) : (
+          <>
+            <small>LINK DE {form.partner.kind === "lideranca" ? "LIDERANÇA" : "APOIADOR"}</small>
+            <b>{form.partner.name}</b>
+          </>
+        )}
       </div>
 
       {storedShare && <section className="support-returning">
