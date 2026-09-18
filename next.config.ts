@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  outputFileTracingIncludes: { "/api/analise-eleitoral/dados": ["./app/analise-eleitoral/data/minas/*.gz"] },
   async headers() {
     return [
       {

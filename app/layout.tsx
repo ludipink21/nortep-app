@@ -49,13 +49,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         }
         var reloading = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (reloading || sessionStorage.getItem('nortep-reload-v64')) return;
+          if (reloading || sessionStorage.getItem('nortep-reload-v65')) return;
           reloading = true;
-          sessionStorage.setItem('nortep-reload-v64', '1');
+          sessionStorage.setItem('nortep-reload-v65', '1');
           window.location.reload();
         });
         try {
-          var registration = await navigator.serviceWorker.register('/sw.js?v=64', { updateViaCache: 'none' });
+          var registration = await navigator.serviceWorker.register('/sw.js?v=65', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });
