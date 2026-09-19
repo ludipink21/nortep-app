@@ -9,7 +9,7 @@ import AcademiaNorteP, { AcademiaInstrutoriaNorteP } from "./academia";
 import { CandidateOperation, clearSurveyTestData, configured, createAccessInvite, createCandidateObserverInvite, createMobilizationPartner, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadCandidateOperations, loadFieldEvents, loadInterviews, loadMobilizationPartners, loadObserverSummary, loadProfile, loadProfiles, loadProfileTerritories, loadPublicMobilizationForm, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadTeamLinks, loadVaultAudit, loadVaultContacts, MobilizationPartner, ObserverSummary, Profile, ProfileTerritory, PublicMobilizationForm, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setMobilizationPartnerActive, setProfileActive, setProfileTerritories, setSurveyAssignments, setupVaultKey, signIn, signUp, submitPublicMobilizationResponse, Survey, SurveyQuestion, TeamLink, unlockVault, updatePassword, updateSurveyStatusAdmin, updateSurveyThankYouVideo, VaultAudit, VaultContact } from "./supabase";
 
 type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "mobilizacao" | "ecossistema" | "cofre" | "academia" | "instrutoria" | "portal" | "entrevista" | "obrigado";
-type AccessChannel = "publico" | "pesquisador" | "observador" | "supervisao" | "coordenacao" | "administracao" | "principal";
+type AccessChannel = "publico" | "pesquisador" | "observador" | "candidata" | "supervisao" | "coordenacao" | "administracao" | "principal";
 type FounderPerspective = "fundadora" | "primario" | "publico" | "pesquisador" | "observador" | "candidato" | "supervisor" | "coordenador" | "administrador";
 type PendingItem =
   | { kind: "interview"; id: string; survey: Survey; responses: Record<string, string>; deviceId: string; durationSeconds: number; savedAt: string; attempts: number }
@@ -25,7 +25,7 @@ const ownPrincipalPerspective = (profile?: Profile | null): FounderPerspective =
 function readAccessChannel(): AccessChannel {
   if (typeof window === "undefined") return "publico";
   const value = new URLSearchParams(window.location.search).get("acesso");
-  return value === "pesquisador" || value === "observador" || value === "supervisao" || value === "coordenacao" || value === "administracao" || value === "principal" ? value : "publico";
+  return value === "pesquisador" || value === "observador" || value === "candidata" || value === "supervisao" || value === "coordenacao" || value === "administracao" || value === "principal" ? value : "publico";
 }
 
 export default function Home() {
@@ -192,6 +192,10 @@ export default function Home() {
       saveSession(null);
       throw new Error("Este link é exclusivo para observadores autorizados.");
     }
+    if (channel === "candidata" && !(p.role === "observador" && p.observer_mode === "candidato")) {
+      saveSession(null);
+      throw new Error("Este link é exclusivo para a candidata autorizada.");
+    }
     const destination = new URLSearchParams(window.location.search);
     if (p.active && !p.access_removed_at && destination.get("continuar") === "analise-eleitoral") {
       const electoralParams = new URLSearchParams();
@@ -331,7 +335,7 @@ export default function Home() {
   const gerarConviteCandidato = async (email: string) => {
     if (!session || !hasPrincipalAdminAccess(profile)) throw new Error("Somente a Fundadora ou o Administrador Primário pode criar este acesso.");
     const code = await createCandidateObserverInvite(session, email);
-    return `${window.location.origin}/?acesso=observador&convite=${encodeURIComponent(code)}`;
+    return `${window.location.origin}/convite?acesso=candidata&codigo=${encodeURIComponent(code)}`;
   };
   const fila = () => {
     const raw = JSON.parse(localStorage.getItem("nortep-pendentes") || "[]") as Array<PendingItem | Record<string, unknown>>;
@@ -819,7 +823,7 @@ function PublicLanding() {
 }
 
 function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel; inviteCode: string; onAuthenticated: (session: Session, channel?: AccessChannel) => Promise<void> }) {
-  const invited = (access === "administracao" || access === "coordenacao" || access === "supervisao" || access === "observador") && Boolean(inviteCode);
+  const invited = (access === "administracao" || access === "coordenacao" || access === "supervisao" || access === "observador" || access === "candidata") && Boolean(inviteCode);
   const allowSignup = access === "pesquisador" || invited;
   const [modo, setModo] = useState<"entrar" | "criar" | "recuperar">(invited ? "criar" : "entrar");
   const [name, setName] = useState("");
@@ -863,7 +867,8 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
   const coordinatorAccess = access === "coordenacao";
   const supervisorAccess = access === "supervisao";
   const observerAccess = access === "observador";
-  const accessName = principalAccess ? "administração principal" : adminAccess ? "administração" : coordinatorAccess ? "coordenação" : supervisorAccess ? "supervisão" : observerAccess ? "observação" : "pesquisa de campo";
+  const candidateAccess = access === "candidata";
+  const accessName = principalAccess ? "administração principal" : adminAccess ? "administração" : coordinatorAccess ? "coordenação" : supervisorAccess ? "supervisão" : candidateAccess ? "candidata" : observerAccess ? "observação" : "pesquisa de campo";
   if (confirmationEmail) return <div className="auth-shell"><ControleFonte />
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
@@ -907,14 +912,14 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
     <section className="auth-brand">
       <small>NORTEP PESQUISA</small>
       <h1><b>N</b>orte<b>P</b> Pesquisa</h1>
-      <p>{principalAccess ? "Seu acesso reservado à Administração Principal da NorteP." : adminAccess ? "Acesso administrativo reservado para pessoas autorizadas." : coordinatorAccess ? "Acesso de coordenação reservado para acompanhar equipes autorizadas." : supervisorAccess ? "Acesso de supervisão com pesquisas, aulas e exercícios no mesmo ambiente." : observerAccess ? "Acompanhamento reservado para pessoas autorizadas." : "Pesquisas, aulas e exercícios no mesmo acesso protegido."}</p>
-      <div>{principalAccess ? <><span>✓ Perfil principal obrigatório</span><span>✓ Controle total protegido</span><span>✓ Auditoria de acessos</span></> : adminAccess ? <><span>✓ Administração autorizada</span><span>✓ Controle de acessos</span><span>✓ Auditoria e privacidade</span></> : coordinatorAccess ? <><span>✓ Coordenação autorizada</span><span>✓ Equipes e territórios</span><span>✓ Acompanhamento protegido</span></> : supervisorAccess ? <><span>✓ Supervisão autorizada</span><span>✓ Pesquisadores vinculados</span><span>✓ Território protegido</span></> : observerAccess ? <><span>✓ Indicadores agrupados</span><span>✓ Sem dados pessoais</span><span>✓ Acesso protegido</span></> : <><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></>}</div>
+      <p>{principalAccess ? "Seu acesso reservado à Administração Principal da NorteP." : adminAccess ? "Acesso administrativo reservado para pessoas autorizadas." : coordinatorAccess ? "Acesso de coordenação reservado para acompanhar equipes autorizadas." : supervisorAccess ? "Acesso de supervisão com pesquisas, aulas e exercícios no mesmo ambiente." : candidateAccess ? "Acesso exclusivo ao Painel da Candidata, com visão estratégica e acompanhamento da mobilização." : observerAccess ? "Acompanhamento reservado para pessoas autorizadas." : "Pesquisas, aulas e exercícios no mesmo acesso protegido."}</p>
+      <div>{principalAccess ? <><span>✓ Perfil principal obrigatório</span><span>✓ Controle total protegido</span><span>✓ Auditoria de acessos</span></> : adminAccess ? <><span>✓ Administração autorizada</span><span>✓ Controle de acessos</span><span>✓ Auditoria e privacidade</span></> : coordinatorAccess ? <><span>✓ Coordenação autorizada</span><span>✓ Equipes e territórios</span><span>✓ Acompanhamento protegido</span></> : supervisorAccess ? <><span>✓ Supervisão autorizada</span><span>✓ Pesquisadores vinculados</span><span>✓ Território protegido</span></> : candidateAccess ? <><span>✓ Painel estratégico</span><span>✓ Rede de mobilização</span><span>✓ Acesso exclusivo da candidata</span></> : observerAccess ? <><span>✓ Indicadores agrupados</span><span>✓ Sem dados pessoais</span><span>✓ Acesso protegido</span></> : <><span>✓ Entrevistado sem login</span><span>✓ Pesquisador com acesso próprio</span><span>✓ Consentimento e auditoria</span></>}</div>
     </section>
     <form className="auth-card" onSubmit={e => { e.preventDefault(); void enviar(); }}>
       <div className="auth-logo">NP</div>
-      <small>{principalAccess ? "ADMINISTRAÇÃO PRINCIPAL" : adminAccess ? "ADMINISTRAÇÃO RESTRITA" : coordinatorAccess ? "COORDENAÇÃO RESTRITA" : supervisorAccess ? "SUPERVISÃO RESTRITA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
-      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (principalAccess ? "Entrar no meu acesso principal" : adminAccess ? "Entrar na administração" : coordinatorAccess ? "Entrar na coordenação" : supervisorAccess ? "Entrar na supervisão" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar e estudar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
-      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (principalAccess ? "Somente a conta marcada como administradora principal poderá entrar por este endereço." : adminAccess ? "Somente a administração responsável possui controle total." : coordinatorAccess ? "Acompanhe equipes e a coleta sem controlar a administração principal." : supervisorAccess ? "Acompanhe somente seus pesquisadores e o território vinculado." : observerAccess ? "Este acesso mostra somente indicadores agrupados da coleta, sem respostas individuais." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela gestão." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
+      <small>{principalAccess ? "ADMINISTRAÇÃO PRINCIPAL" : adminAccess ? "ADMINISTRAÇÃO RESTRITA" : coordinatorAccess ? "COORDENAÇÃO RESTRITA" : supervisorAccess ? "SUPERVISÃO RESTRITA" : candidateAccess ? "PAINEL DA CANDIDATA" : observerAccess ? "ACOMPANHAMENTO RESTRITO" : "ÁREA DO PESQUISADOR"}</small>
+      <h2>{modo === "recuperar" ? "Recuperar minha senha" : modo === "entrar" ? (principalAccess ? "Entrar no meu acesso principal" : adminAccess ? "Entrar na administração" : coordinatorAccess ? "Entrar na coordenação" : supervisorAccess ? "Entrar na supervisão" : candidateAccess ? "Entrar no Painel da Candidata" : observerAccess ? "Entrar como observador" : "Entrar para pesquisar e estudar") : (invited ? "Aceitar convite" : "Criar acesso de pesquisador")}</h2>
+      <p>{modo === "recuperar" ? "Digite o e-mail usado no cadastro. Enviaremos um link seguro para você criar uma nova senha." : modo === "entrar" ? (principalAccess ? "Somente a conta marcada como administradora principal poderá entrar por este endereço." : adminAccess ? "Somente a administração responsável possui controle total." : coordinatorAccess ? "Acompanhe equipes e a coleta sem controlar a administração principal." : supervisorAccess ? "Acompanhe somente seus pesquisadores e o território vinculado." : candidateAccess ? "Este é o acesso exclusivo da candidata ao painel estratégico e à mobilização." : observerAccess ? "Este acesso mostra somente indicadores agrupados da coleta, sem respostas individuais." : "Entre com seu cadastro. Se a conta estiver ativa, a pesquisa será aberta; caso contrário, você verá a situação da aprovação.") : (invited ? "Este convite é individual, temporário e vinculado ao e-mail informado pela gestão." : "Crie sua conta. Depois da aprovação da coordenação, a pesquisa será liberada neste mesmo acesso.")}</p>
       {modo === "criar" && <div className="existing-account-note"><span><b>Já possui ou já teve uma conta?</b><small>Não faça outro cadastro com o mesmo e-mail. Entre com sua senha; se o acesso foi removido, este novo convite fará a reativação.</small></span><button type="button" onClick={() => { setModo("entrar"); setMessage(""); }}>Entrar e reativar</button></div>}
       {modo === "criar" && <><label htmlFor="auth-name">Nome completo</label><input id="auth-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></>}
       <label htmlFor="auth-email">E-mail</label>
@@ -930,7 +935,7 @@ function Login({ access, inviteCode, onAuthenticated }: { access: AccessChannel;
       {modo === "entrar" && <button type="button" className="auth-forgot" onClick={() => { setModo("recuperar"); setMessage(""); setPassword(""); }}>Esqueci minha senha</button>}
       {modo === "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo("entrar"); setMessage(""); }}>Voltar para entrar</button>}
       {allowSignup && modo !== "recuperar" && <button type="button" className="auth-switch" onClick={() => { setModo(modo === "entrar" ? "criar" : "entrar"); setMessage(""); }}>{modo === "entrar" ? (invited ? "Primeiro acesso? Aceitar convite" : "Primeiro acesso? Criar conta") : "Já possui acesso? Entrar"}</button>}
-      <small className="auth-help">{adminAccess || coordinatorAccess || supervisorAccess || observerAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V49</small>
+      <small className="auth-help">{adminAccess || coordinatorAccess || supervisorAccess || observerAccess || candidateAccess ? `Este link é exclusivo para ${accessName} autorizada.` : "O entrevistado não precisa criar conta."} · V49</small>
     </form>
   </div>;
 }
