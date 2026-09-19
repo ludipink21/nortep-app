@@ -5,7 +5,7 @@ import { confirmInvitedAccount, loadRuntimeConfig, readSessionFromUrl, redeemAcc
 import "./convite.css";
 
 type Mode = "criar" | "entrar";
-type Access = "administracao" | "coordenacao" | "pesquisador" | "observador";
+type Access = "administracao" | "coordenacao" | "pesquisador" | "observador" | "candidata";
 
 function accessTitle(access: Access) {
   return ({
@@ -13,6 +13,7 @@ function accessTitle(access: Access) {
     coordenacao: "Coordenação Geral",
     pesquisador: "Pesquisador",
     observador: "Observador",
+    candidata: "Painel da Candidata",
   } as const)[access];
 }
 
@@ -148,13 +149,13 @@ export default function InvitePage() {
       <div className="invite-logo">NP</div>
       <small>NORTEP PESQUISA</small>
       <h1>{accessTitle(access)}</h1>
-      <p>Este convite é individual, vinculado ao seu e-mail e válido por tempo limitado.</p>
+      <p>{access === "candidata" ? "Este é o seu acesso exclusivo ao Painel da Candidata. O convite é individual, vinculado ao seu e-mail e válido por tempo limitado." : "Este convite é individual, vinculado ao seu e-mail e válido por tempo limitado."}</p>
       <div><span>✓ E-mail pré-autorizado</span><span>✓ Função definida pela administração</span><span>✓ Acesso pessoal e auditável</span></div>
     </section>
 
     <form className="invite-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
       <small>{mode === "criar" ? "PRIMEIRO ACESSO" : "CONTA JÁ CRIADA"}</small>
-      <h2>{mode === "criar" ? "Crie sua senha" : "Entre para aceitar o convite"}</h2>
+      <h2>{access === "candidata" ? (mode === "criar" ? "Crie sua senha de candidata" : "Entre no Painel da Candidata") : (mode === "criar" ? "Crie sua senha" : "Entre para aceitar o convite")}</h2>
       <p>{mode === "criar" ? "Use exatamente o e-mail autorizado. Para administradores e candidata, não é necessário confirmar o e-mail depois." : "Use o mesmo e-mail e a senha já cadastrada."}</p>
 
       {mode === "criar" && <label>Nome completo<input value={name} onChange={event => setName(event.target.value)} autoComplete="name" /></label>}
