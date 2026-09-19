@@ -156,7 +156,7 @@ export default function InvitePage() {
     <form className="invite-card" onSubmit={event => { event.preventDefault(); void submit(); }}>
       <small>{mode === "criar" ? "PRIMEIRO ACESSO" : "CONTA JÁ CRIADA"}</small>
       <h2>{access === "candidata" ? (mode === "criar" ? "Crie sua senha de candidata" : "Entre no Painel da Candidata") : (mode === "criar" ? "Crie sua senha" : "Entre para aceitar o convite")}</h2>
-      <p>{mode === "criar" ? "Use exatamente o e-mail autorizado. Para administradores e candidata, não é necessário confirmar o e-mail depois." : "Use o mesmo e-mail e a senha já cadastrada."}</p>
+      <p>{mode === "criar" ? (access === "candidata" ? "Use exatamente o e-mail autorizado, crie a conta aqui e escolha uma senha com pelo menos 8 caracteres. Depois o convite da candidata será confirmado automaticamente." : "Use exatamente o e-mail autorizado. Para administradores e candidata, não é necessário confirmar o e-mail depois.") : "Use o mesmo e-mail e a senha já cadastrada."}</p>
 
       {mode === "criar" && <label>Nome completo<input value={name} onChange={event => setName(event.target.value)} autoComplete="name" /></label>}
       <label>E-mail<input value={email} onChange={event => setEmail(event.target.value)} type="email" autoComplete="email" /></label>
@@ -165,9 +165,9 @@ export default function InvitePage() {
       {message && <div className="invite-message" role="status">{message}</div>}
       <button className="invite-primary" type="submit" disabled={busy}>{busy ? "Processando…" : mode === "criar" ? "Criar conta e aceitar convite" : "Entrar e aceitar convite"}</button>
 
-      {(confirmationSent || unconfirmed || mode === "entrar") && <button className="invite-resend" type="button" disabled={busy} onClick={() => void resend()}>Reenviar e-mail de confirmação</button>}
+      {(confirmationSent || unconfirmed) && <button className="invite-resend" type="button" disabled={busy} onClick={() => void resend()}>Reenviar e-mail de confirmação</button>}
       <button className="invite-switch" type="button" onClick={() => { setMode(mode === "criar" ? "entrar" : "criar"); setMessage(""); }}>
-        {mode === "criar" ? "Já criei a conta: entrar" : "Ainda não criei a conta"}
+        {mode === "criar" ? "Já criei a conta: entrar" : access === "candidata" ? "Ainda não criei a conta da candidata" : "Ainda não criei a conta"}
       </button>
       <small className="invite-note">Não compartilhe sua senha. Mobilizadores não usam esta tela e não recebem login.</small>
     </form>
