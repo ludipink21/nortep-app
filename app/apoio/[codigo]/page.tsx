@@ -10,7 +10,7 @@ type RuntimeConfig = { url: string; key: string };
 type PublicForm = {
   partner: { name: string; kind: "apoiador" | "lideranca"; city?: string | null; region?: string | null; neighborhood?: string | null };
   survey: { id: string; title: string; description?: string | null; consent_text?: string | null; intro_video_url?: string | null; video_url?: string | null };
-  videos?: Array<{ id: string; title: string; description?: string | null; video_url: string }>;
+  videos?: Array<{ id: string; title: string; description?: string | null; video_url: string; placement?: "gallery" | "middle" | "before_end" }>;
   questions: unknown[];
 };
 type SubmitResult = {
@@ -292,11 +292,11 @@ export default function SupporterInvitePage() {
         <SupportVideo title="Vídeo de abertura" url={form.survey.intro_video_url} />
       </section>}
 
-      {!!form.videos?.length && <section className="support-video-section">
+      {!!form.videos?.filter(video => !video.placement || video.placement === "gallery").length && <section className="support-video-section">
         <small>VÍDEOS</small>
         <h2>Conheça os conteúdos em vídeo</h2>
         <div className="support-video-grid">
-          {form.videos.map(video => <article className="support-video-card" key={video.id}>
+          {form.videos?.filter(video => !video.placement || video.placement === "gallery").map(video => <article className="support-video-card" key={video.id}>
             <SupportVideo title={video.title} url={video.video_url} />
             <div><b>{video.title}</b>{video.description && <small>{video.description}</small>}</div>
           </article>)}
@@ -322,6 +322,16 @@ export default function SupporterInvitePage() {
           <label>Bairro<input value={neighborhood} onChange={event => setNeighborhood(event.target.value)} autoComplete="address-level3" required /></label>
         </section>
 
+        {!!form.videos?.filter(video => video.placement === "middle").length && <section className="support-video-section support-video-inline">
+          <small>CONTEÚDO EM VÍDEO</small>
+          <div className="support-video-grid">
+            {form.videos?.filter(video => video.placement === "middle").map(video => <article className="support-video-card" key={video.id}>
+              <SupportVideo title={video.title} url={video.video_url} />
+              <div><b>{video.title}</b>{video.description && <small>{video.description}</small>}</div>
+            </article>)}
+          </div>
+        </section>}
+
         <section className="support-options">
           <h2>O que você gostaria de receber ou fazer?</h2>
           <p>Marque somente as opções que você autoriza.</p>
@@ -332,6 +342,16 @@ export default function SupporterInvitePage() {
           <Choice checked={offerHome} setChecked={setOfferHome} title="Posso disponibilizar minha casa ou um espaço para reunião" />
           <Choice checked={wantParticipate} setChecked={setWantParticipate} title="Quero participar de atividades" />
         </section>
+
+        {!!form.videos?.filter(video => video.placement === "before_end").length && <section className="support-video-section support-video-inline support-video-before-end">
+          <small>ANTES DE CONCLUIR</small>
+          <div className="support-video-grid">
+            {form.videos?.filter(video => video.placement === "before_end").map(video => <article className="support-video-card" key={video.id}>
+              <SupportVideo title={video.title} url={video.video_url} />
+              <div><b>{video.title}</b>{video.description && <small>{video.description}</small>}</div>
+            </article>)}
+          </div>
+        </section>}
 
         <label className="support-consent">
           <input type="checkbox" checked={privacyConsent} onChange={event => setPrivacyConsent(event.target.checked)} />
