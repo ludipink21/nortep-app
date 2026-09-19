@@ -160,7 +160,7 @@ export default function InvitePage() {
 
       {mode === "criar" && <label>Nome completo<input value={name} onChange={event => setName(event.target.value)} autoComplete="name" /></label>}
       <label>E-mail<input value={email} onChange={event => setEmail(event.target.value)} type="email" autoComplete="email" /></label>
-      <label>Senha<div className="invite-password"><input value={password} onChange={event => setPassword(event.target.value)} type={showPassword ? "text" : "password"} autoComplete={mode === "criar" ? "new-password" : "current-password"} minLength={6} /><button type="button" onClick={() => setShowPassword(value => !value)}>{showPassword ? "Ocultar" : "Mostrar"}</button></div></label>
+      <label>Senha<div className="invite-password"><input value={password} onChange={event => setPassword(event.target.value)} type={showPassword ? "text" : "password"} autoComplete={mode === "criar" ? "new-password" : "current-password"} minLength={8} /><button type="button" onClick={() => setShowPassword(value => !value)}>{showPassword ? "Ocultar" : "Mostrar"}</button></div></label>
 
       {message && <div className="invite-message" role="status">{message}</div>}
       <button className="invite-primary" type="submit" disabled={busy}>{busy ? "Processando…" : mode === "criar" ? "Criar conta e aceitar convite" : "Entrar e aceitar convite"}</button>
