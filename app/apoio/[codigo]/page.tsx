@@ -328,6 +328,7 @@ export default function SupporterInvitePage() {
             {form.videos?.filter(video => video.placement === "middle").map(video => <article className="support-video-card" key={video.id}>
               <SupportVideo title={video.title} url={video.video_url} />
               <div><b>{video.title}</b>{video.description && <small>{video.description}</small>}</div>
+              {video.video_url.includes("instagram.com/") && <a className="support-instagram-cta" href={video.video_url} target="_blank" rel="noreferrer">Ver no Instagram</a>}
             </article>)}
           </div>
         </section>}
