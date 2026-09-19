@@ -265,11 +265,6 @@ export default function SupporterInvitePage() {
 
   return <main className="support-shell">
     <section className="support-card">
-      <div className="support-cover-wrap">
-        <img className="support-cover" src="/maria-vanuzia-cover.jpg" alt="Maria Vanuzia" />
-        <div className="support-cover-caption"><small>CANDIDATA</small><strong>{CANDIDATE_NAME}</strong></div>
-      </div>
-
       <header className="support-header">
         <div className="support-logo">NP</div>
         <span><small>CONTEÚDOS E PARTICIPAÇÃO</small><h1>Receber informações desta candidata</h1></span>
@@ -349,6 +344,7 @@ export default function SupporterInvitePage() {
             {form.videos?.filter(video => video.placement === "before_end").map(video => <article className="support-video-card" key={video.id}>
               <SupportVideo title={video.title} url={video.video_url} />
               <div><b>{video.title}</b>{video.description && <small>{video.description}</small>}</div>
+              {video.video_url.includes("instagram.com/") && <a className="support-instagram-cta" href={video.video_url} target="_blank" rel="noreferrer">Ver no Instagram</a>}
             </article>)}
           </div>
         </section>}
@@ -381,7 +377,9 @@ function SupportVideo({ title, url }: { title: string; url: string }) {
 
   const instagram = url.match(/instagram\.com\/(?:reel|p)\/([^/?#]+)/i);
   if (instagram?.[1]) {
-    return <div className="support-instagram-wrap">
+    return <div className="support-instagram-block">
+      <div className="support-instagram-label">▶ Vídeo no Instagram</div>
+      <div className="support-instagram-wrap">
       <iframe
         className="support-instagram-embed"
         src={`https://www.instagram.com/reel/${instagram[1]}/embed/`}
@@ -390,6 +388,8 @@ function SupportVideo({ title, url }: { title: string; url: string }) {
         allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
         allowFullScreen
       />
+      </div>
+      <a className="support-instagram-watch" href={url} target="_blank" rel="noreferrer">Assistir vídeo no Instagram</a>
     </div>;
   }
 
