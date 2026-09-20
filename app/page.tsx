@@ -1495,7 +1495,11 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
     }
   };
   return <>
-    <Cabecalho titulo={candidateMode ? "Controle da mobilização" : "Mobilização e relacionamentos"} sub="Links públicos sem cadastro, com consentimentos separados e resultado por apoiador ou liderança." botao="＋ Novo link" acao={() => setOpen(!open)} />
+    <Cabecalho titulo={candidateMode ? "Controle da mobilização" : "Mobilização e relacionamentos"} sub="Links públicos sem cadastro, com consentimentos separados e resultado por apoiador ou liderança." botao="＋ Gerar link de apoiador/liderança" acao={() => setOpen(!open)} />
+    <section className="mobilization-link-cta" aria-label="Gerar link de apoiador ou liderança">
+      <div><small>REDE DE APOIO</small><b>Cadastre apoiadores e lideranças</b><span>Administradores e candidata podem gerar um link individual e acompanhar a origem das respostas.</span></div>
+      <button className="primary" type="button" onClick={() => setOpen(true)}>＋ Gerar link de apoiador/liderança</button>
+    </section>
     <div className="coord-summary mobilization-summary">
       <article><small>LINKS ATIVOS</small><b>{partners.filter(item => item.active).length}</b><span>apoiadores e lideranças</span></article>
       <article><small>FORMULÁRIOS RECEBIDOS</small><b>{total}</b><span>respostas identificadas pelo link</span></article>
@@ -1512,7 +1516,7 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
       <label>Bairro<input value={neighborhood} onChange={event => setNeighborhood(event.target.value)} /></label>
       <label className="wide">Indicado por<select value={parentId} onChange={event => setParentId(event.target.value)}><option value="">Início da rede · NorteP</option>{partners.filter(item => item.active).map(item => <option key={item.id} value={item.id}>{item.name} · {item.kind === "lideranca" ? "liderança" : "apoiador"}</option>)}</select></label>
       <label className="wide">Vídeo de agradecimento (YouTube)<input value={videoUrl} onChange={event => setVideoUrl(event.target.value)} placeholder="https://youtu.be/..." /></label>
-      <button className="primary" onClick={() => void create()} disabled={busy}>{busy ? "Criando…" : "Criar e copiar link"}</button>
+      <button className="primary" onClick={() => void create()} disabled={busy}>{busy ? "Criando…" : "Gerar e copiar link"}</button>
       {generatedLink && <div className="generated-link wide"><b>Link pronto</b><span>Envie por WhatsApp. O eleitor abre e responde sem cadastro.</span><div className="link-row"><input readOnly value={generatedLink} /><button onClick={() => openWhatsApp(generatedLink)}>Abrir no WhatsApp</button><button onClick={() => void navigator.clipboard.writeText(generatedLink)}>Copiar</button></div></div>}
     </section>}
     <section className="painel mobilization-list"><Topo sup="DESEMPENHO POR LINK" titulo="Apoiadores e lideranças" />{partners.length ? partners.map(item => <article key={item.id}>
