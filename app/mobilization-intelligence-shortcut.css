@@ -62,9 +62,10 @@
 
 @media (max-width: 600px) {
   .nortep-mobilization-shortcuts {
-    left: 10px;
-    right: 10px;
-    bottom: 78px;
+    position: static;
+    margin: 14px 10px 92px;
+    width: auto;
+    z-index: auto;
   }
   .nortep-intelligence-shortcut,
   .nortep-social-quiz-shortcut {
