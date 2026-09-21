@@ -51,6 +51,19 @@ async function publicRpc<T>(name: string, body: Record<string, unknown>) {
   return value as T;
 }
 
+async function submitReliable<T>(body: Record<string, unknown>) {
+  const requestId = crypto.randomUUID();
+  const response = await fetch("/api/mobilization/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Request-Id": requestId },
+    cache: "no-store",
+    body: JSON.stringify({ ...body, request_id: requestId }),
+  });
+  const value = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(value?.message || value?.error || "Não foi possível registrar sua resposta.");
+  return value as T;
+}
+
 function normalizePhone(value: string) {
   return value.replace(/[^0-9+() -]/g, "").slice(0, 22);
 }
@@ -219,7 +232,7 @@ export default function SupporterInvitePage() {
         uf: state.trim().toUpperCase(),
         regiao: region.trim(),
       };
-      const saved = await publicRpc<SubmitResult>("submit_public_mobilization_response_v2", {
+      const saved = await submitReliable<SubmitResult>({
         p_code: code,
         p_answers: answers,
         p_name: name.trim(),
