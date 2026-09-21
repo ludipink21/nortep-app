@@ -1,8 +1,9 @@
 .nortep-admin-governance {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 2200;
+  position: static;
+  z-index: 20;
+  width: fit-content;
+  max-width: calc(100% - 36px);
+  margin: 12px 18px 18px auto;
   font-family: inherit;
 }
 
@@ -47,9 +48,9 @@
 }
 
 .nortep-admin-panel {
-  position: absolute;
-  right: 0;
-  bottom: 64px;
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
   width: min(470px, calc(100vw - 24px));
   max-height: min(760px, calc(100vh - 105px));
   overflow: auto;
