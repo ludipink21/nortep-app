@@ -149,6 +149,9 @@ export type MobilizationPartner = {
   content_opt_ins: number;
   meetings_opt_ins: number;
   volunteer_opt_ins: number;
+  shares?: number;
+  opens?: number;
+  copies?: number;
   referrals?: number;
   last_response_at?: string | null;
 };
@@ -907,6 +910,13 @@ export async function loadMobilizationPartners(session: Session) {
   });
   if (!Array.isArray(result)) throw new Error(result.error || "Não foi possível carregar os relacionamentos.");
   return result;
+}
+
+export async function recordPublicMobilizationEvent(code: string, eventType: "open" | "share" | "copy", shareCode?: string | null) {
+  return publicRest<boolean>("rpc/record_public_mobilization_event", {
+    method: "POST",
+    body: JSON.stringify({ p_code: code, p_event_type: eventType, p_share_code: shareCode || null }),
+  });
 }
 
 export async function loadPublicMobilizationForm(code: string) {
