@@ -267,3 +267,5 @@ html[data-tema="escuro"] .candidate-operation-grid>article{background:#292027;bo
 
 /* Auditoria funcional da mobilização: atualização separada do aviso do Cofre. */
 .mobilization-refresh-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 16px;padding:12px 16px;border:1px solid #e6d7b2;border-radius:14px;background:#fffdf7}.mobilization-refresh-bar span{display:grid;gap:2px}.mobilization-refresh-bar small{color:#756b61}.mobilization-refresh-bar button{white-space:nowrap}@media(max-width:720px){.mobilization-refresh-bar{align-items:stretch;flex-direction:column}.mobilization-refresh-bar button{width:100%}}
+
+.mobilization-refresh-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}@media(max-width:720px){.mobilization-refresh-actions{display:grid;width:100%}.mobilization-refresh-actions button{width:100%}}
