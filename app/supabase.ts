@@ -149,6 +149,9 @@ export type MobilizationPartner = {
   content_opt_ins: number;
   meetings_opt_ins: number;
   volunteer_opt_ins: number;
+  shares?: number;
+  opens?: number;
+  copies?: number;
   referrals?: number;
   last_response_at?: string | null;
 };
