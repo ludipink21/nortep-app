@@ -129,6 +129,13 @@ export default function SupporterInvitePage() {
         if (!active) return;
         setForm(loaded);
         if (loaded?.survey?.id) {
+          const openKey = `nortep:mobilization-open:${code}:${incomingShare || "origin"}`;
+          if (!sessionStorage.getItem(openKey)) {
+            sessionStorage.setItem(openKey, "1");
+            void publicRpc<boolean>("record_public_mobilization_event", { p_code: code, p_event_type: "open", p_share_code: incomingShare || null }).catch(() => {
+              sessionStorage.removeItem(openKey);
+            });
+          }
           try {
             const saved = localStorage.getItem(storageKey(loaded.survey.id));
             if (saved) {
@@ -148,7 +155,7 @@ export default function SupporterInvitePage() {
     if (code) void load();
     else setLoading(false);
     return () => { active = false; };
-  }, [code]);
+  }, [code, incomingShare]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -207,6 +214,7 @@ export default function SupporterInvitePage() {
 
   const shareWhatsApp = () => {
     if (!shareUrl) return;
+    void publicRpc<boolean>("record_public_mobilization_event", { p_code: result?.origin_code || code, p_event_type: "share", p_share_code: result?.share_code || null }).catch(() => {});
     const candidateName = form?.partner?.name || "Maria Vanuzia";
     const text = encodeURIComponent(`Estou te enviando o formulario da candidata ${candidateName} para quem quiser conhecer os conteudos e escolher se deseja receber informacoes. ${shareUrl}`);
     window.open(`https://wa.me/?text=${text}`, "_blank");
@@ -282,6 +290,7 @@ export default function SupporterInvitePage() {
     if (!shareUrl) return;
     try {
       await navigator.clipboard.writeText(shareUrl);
+      void publicRpc<boolean>("record_public_mobilization_event", { p_code: result?.origin_code || code, p_event_type: "copy", p_share_code: result?.share_code || null }).catch(() => {});
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2500);
     } catch {
@@ -294,6 +303,7 @@ export default function SupporterInvitePage() {
       input.select();
       document.execCommand("copy");
       document.body.removeChild(input);
+      void publicRpc<boolean>("record_public_mobilization_event", { p_code: result?.origin_code || code, p_event_type: "copy", p_share_code: result?.share_code || null }).catch(() => {});
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2500);
     }
@@ -306,6 +316,7 @@ export default function SupporterInvitePage() {
     try {
       if (navigator.share) {
         await navigator.share({ title: `${candidateName} · Conteúdos e participação`, text, url: shareUrl });
+        void publicRpc<boolean>("record_public_mobilization_event", { p_code: result?.origin_code || code, p_event_type: "share", p_share_code: result?.share_code || null }).catch(() => {});
         return;
       }
       await copyLink();
