@@ -912,6 +912,13 @@ export async function loadMobilizationPartners(session: Session) {
   return result;
 }
 
+export async function recordPublicMobilizationEvent(code: string, eventType: "open" | "share" | "copy", shareCode?: string | null) {
+  return publicRest<boolean>("rpc/record_public_mobilization_event", {
+    method: "POST",
+    body: JSON.stringify({ p_code: code, p_event_type: eventType, p_share_code: shareCode || null }),
+  });
+}
+
 export async function loadPublicMobilizationForm(code: string) {
   return publicRest<PublicMobilizationForm | null>("rpc/get_public_mobilization_form", {
     method: "POST",
