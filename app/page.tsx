@@ -512,7 +512,8 @@ export default function Home() {
     setProfile(null);
   }} />;
   if (!session || !profile) {
-    if (accessChannel === "publico") return <PublicLanding />;
+    // O domínio oficial também é uma porta de entrada: qualquer conta já
+    // autorizada pode entrar em um aparelho novo sem depender do link original.
     return <Login access={accessChannel} inviteCode={inviteCode} onAuthenticated={(incoming, channel) => autenticar(incoming, channel)} />;
   }
   if (profile.access_removed_at) return <AcessoRemovido profile={profile} sair={sair} />;
