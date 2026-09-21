@@ -1492,6 +1492,50 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
     catch { aviso("Não foi possível atualizar os dados agora."); }
     finally { setBusy(false); }
   };
+  const shareResultImage = async () => {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080; canvas.height = 1080;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas indisponível");
+      ctx.fillStyle = "#f7f2fb"; ctx.fillRect(0, 0, 1080, 1080);
+      ctx.fillStyle = "#35164f"; ctx.fillRect(0, 0, 1080, 210);
+      ctx.fillStyle = "#d8b34d"; ctx.font = "700 32px Arial"; ctx.fillText("NORTEP", 72, 78);
+      ctx.fillStyle = "#ffffff"; ctx.font = "700 52px Arial"; ctx.fillText("Resultado da mobilização", 72, 148);
+      ctx.font = "24px Arial"; ctx.fillStyle = "#e9def0"; ctx.fillText(new Date().toLocaleString("pt-BR"), 72, 188);
+      const metrics = [
+        ["Links ativos", partners.filter(item => item.active).length],
+        ["Envios acionados", shares],
+        ["Aberturas", opens],
+        ["Formulários recebidos", total],
+        ["Aceitaram conteúdo", content],
+        ["Encontros e voluntariado", meetings + volunteers],
+      ] as Array<[string, number]>;
+      metrics.forEach(([label, value], index) => {
+        const col = index % 2, row = Math.floor(index / 2);
+        const x = 72 + col * 480, y = 270 + row * 220;
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(x, y, 420, 170);
+        ctx.fillStyle = "#6a4a78"; ctx.font = "700 22px Arial"; ctx.fillText(label.toUpperCase(), x + 28, y + 48);
+        ctx.fillStyle = "#35164f"; ctx.font = "700 58px Arial"; ctx.fillText(String(value), x + 28, y + 118);
+      });
+      ctx.fillStyle = "#6d6073"; ctx.font = "22px Arial"; ctx.fillText("Resumo operacional · sem nomes, telefones ou dados pessoais", 72, 970);
+      ctx.fillStyle = "#35164f"; ctx.font = "700 24px Arial"; ctx.fillText("NorteP · Mobilização", 72, 1015);
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png"));
+      if (!blob) throw new Error("Não foi possível gerar a imagem");
+      const file = new File([blob], `nortep-mobilizacao-${new Date().toISOString().slice(0,10)}.png`, { type: "image/png" });
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+        await navigator.share({ title: "Resultado da mobilização NorteP", files: [file] });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a"); link.href = url; link.download = file.name; link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        aviso("Imagem do resultado pronta para compartilhar.");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      aviso("Não foi possível gerar a imagem do resultado.");
+    }
+  };
   const togglePartner = async (partner: MobilizationPartner) => {
     setBusy(true);
     try {
@@ -1519,7 +1563,7 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
       <article><small>ENCONTROS E VOLUNTARIADO</small><b>{meetings + volunteers}</b><span>{meetings} encontros · {volunteers} voluntariado</span></article>
     </div>
     <div className="admin-guidance"><i>i</i><span><b>Relacionamento transparente</b><small>Nome e contato ficam protegidos no Cofre e só são usados conforme cada autorização marcada. Os indicadores desta tela são operacionais e não exibem contatos individuais.</small></span>{abrirCofre && <button className="pause-all" onClick={abrirCofre}>Abrir Cofre</button>}</div>
-    <div className="mobilization-refresh-bar"><span><b>Dados da mobilização</b><small>Atualiza links, envios, aberturas, formulários e autorizações.</small></span><button className="pause-all" disabled={busy} onClick={() => void refreshMobilization()}>{busy ? "Atualizando…" : "↻ Atualizar dados da mobilização"}</button></div>
+    <div className="mobilization-refresh-bar"><span><b>Dados da mobilização</b><small>Atualiza links, envios, aberturas, formulários e autorizações.</small></span><div className="mobilization-refresh-actions"><button className="pause-all" type="button" onClick={() => void shareResultImage()}>▣ Compartilhar resultado</button><button className="pause-all" disabled={busy} onClick={() => void refreshMobilization()}>{busy ? "Atualizando…" : "↻ Atualizar dados da mobilização"}</button></div></div>
     {open && <section className="painel mobilization-create">
       <div><small>NOVO LINK INDIVIDUAL</small><h3>Apoiador ou liderança</h3><p>Cada link permite acompanhar o volume e o território de origem sem misturar equipes.</p></div>
       <label>Nome<input value={name} onChange={event => setName(event.target.value)} placeholder="Nome da pessoa responsável pelo link" /></label>
