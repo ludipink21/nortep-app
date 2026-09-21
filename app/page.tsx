@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import EcosystemHub, { ElectoralFounderPreviews } from "./ecosystem-hub";
 import { NortePIcon } from "./nortep-icons";
 import AcademiaNorteP, { AcademiaInstrutoriaNorteP } from "./academia";
-import { CandidateOperation, clearSurveyTestData, configured, createAccessInvite, createCandidateObserverInvite, createMobilizationPartner, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadCandidateOperations, loadFieldEvents, loadInterviews, loadMobilizationPartners, loadObserverSummary, loadProfile, loadProfiles, loadProfileTerritories, loadPublicMobilizationForm, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadTeamLinks, loadVaultAudit, loadVaultContacts, MobilizationPartner, ObserverSummary, Profile, ProfileTerritory, PublicMobilizationForm, readSession, readSessionFromUrl, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setMobilizationPartnerActive, setProfileActive, setProfileTerritories, setSurveyAssignments, setupVaultKey, signIn, signUp, submitPublicMobilizationResponse, Survey, SurveyQuestion, TeamLink, unlockVault, updatePassword, updateSurveyStatusAdmin, updateSurveyThankYouVideo, VaultAudit, VaultContact } from "./supabase";
+import { CandidateOperation, clearSurveyTestData, configured, createAccessInvite, createCandidateObserverInvite, createMobilizationPartner, deleteOrArchiveSurvey, FieldEvent, grantVaultAccess, loadAllSurveys, loadCandidateOperations, loadFieldEvents, loadInterviews, loadMobilizationPartners, loadObserverSummary, loadProfile, loadProfiles, loadProfileTerritories, loadPublicMobilizationForm, loadRuntimeConfig, loadSurveyAssignments, loadSurveyQuestions, loadSurveys, loadTeamLinks, loadVaultAudit, loadVaultContacts, MobilizationPartner, ObserverSummary, Profile, ProfileTerritory, PublicMobilizationForm, readSession, readSessionFromUrl, recordPublicMobilizationEvent, redeemAccessInvite, refreshSession, removeOwnProfileAccess, removeProfileAccess, requestPasswordReset, saveFieldEvent, saveInterview, saveSession, SavedInterview, saveSurveyAdmin, Session, setMobilizationPartnerActive, setProfileActive, setProfileTerritories, setSurveyAssignments, setupVaultKey, signIn, signUp, submitPublicMobilizationResponse, Survey, SurveyQuestion, TeamLink, unlockVault, updatePassword, updateSurveyStatusAdmin, updateSurveyThankYouVideo, VaultAudit, VaultContact } from "./supabase";
 
 type View = "inicio" | "visoes" | "pesquisas" | "coordenacao" | "equipe" | "rankings" | "resultados" | "mobilizacao" | "ecossistema" | "cofre" | "academia" | "instrutoria" | "portal" | "entrevista" | "obrigado";
 type AccessChannel = "publico" | "pesquisador" | "observador" | "candidata" | "supervisao" | "coordenacao" | "administracao" | "principal";
@@ -662,7 +662,7 @@ export default function Home() {
         {view === "equipe" && <Equipe aviso={aviso} profiles={team} currentProfile={visualProfile} onToggle={atualizarEquipe} onDelete={removerAcessoEquipe} onInvite={gerarConvite} onCandidateInvite={gerarConviteCandidato} onRefresh={atualizarDadosAdmin} />}
         {view === "rankings" && <Rankings interviews={interviews} profiles={team} surveys={adminSurveys} fieldEvents={fieldEvents} />}
         {view === "resultados" && <Resultados aviso={aviso} interviews={interviews} surveys={adminSurveys} fieldEvents={fieldEvents} />}
-        {view === "mobilizacao" && visualProfile.role === "admin" && <Mobilizacao aviso={aviso} session={session} partners={mobilizationPartners} atualizar={atualizarDadosAdmin} />}
+        {view === "mobilizacao" && visualProfile.role === "admin" && <Mobilizacao aviso={aviso} session={session} partners={mobilizationPartners} atualizar={atualizarDadosAdmin} abrirCofre={() => ir("cofre")} />}
         {view === "ecossistema" && <EcosystemHub profile={visualProfile} preview={previewing} abrirPesquisa={() => ir(visualProfile.role === "pesquisador" ? "portal" : "pesquisas")} abrirAcademia={() => ir("academia")} abrirInstrutoria={() => ir("instrutoria")} />}
         {view === "academia" && (visualProfile.role === "pesquisador" || visualProfile.role === "supervisor") && <><Cabecalho titulo="Aulas e exercícios" sub="Parte do seu acesso normal: estude, salve e continue quando quiser." botao={visualProfile.role === "pesquisador" ? "← Entrevistas" : "← Painel"} acao={() => ir(visualProfile.role === "pesquisador" ? "portal" : "inicio")} /><AcademiaNorteP key={`${visualProfile.id}-${visualProfile.role}-${previewing ? "preview" : "conta"}`} profile={visualProfile} profiles={team} session={previewing ? null : session} /></>}
         {view === "instrutoria" && founderAccess && !previewing && session && <><Cabecalho titulo="Instrutoria e materiais" sub="Planos de aula, exemplos e aulões para formar Pesquisadores e Supervisores." botao="← Painel" acao={() => ir("inicio")} /><AcademiaInstrutoriaNorteP profile={profile} session={session} /></>}
@@ -1446,7 +1446,7 @@ function Resultados({ aviso, interviews, surveys, fieldEvents }: { aviso: (t: st
   return <><Cabecalho titulo="Resultados" sub={`${filtered.length} entrevista(s) nos filtros selecionados`} botao="⇩ Exportar CSV" acao={exportar} /><div className="filtros result-filters"><select value={surveyFilter} onChange={e => setSurveyFilter(e.target.value)}><option value="todos">Todas as pesquisas</option>{surveys.map(s => <option value={s.id} key={s.id}>{s.title}</option>)}</select><select value={periodFilter} onChange={e => setPeriodFilter(e.target.value)}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="todos">Todo o período</option></select><select value={dataMode} onChange={e => setDataMode(e.target.value)}><option value="todos">Testes e oficiais</option><option value="teste">Somente testes</option><option value="oficial">Somente oficiais</option></select><input value={territoryFilter} onChange={e => setTerritoryFilter(e.target.value)} placeholder="Cidade, região ou bairro" /></div>{!filtered.length && !filteredEvents.length ? <div className="painel resultado-vazio"><i>◎</i><h3>Nenhum dado encontrado</h3><p>Ajuste os filtros ou aguarde a próxima sincronização.</p></div> : <><div className="result-summary"><article><small>ENTREVISTAS</small><b>{filtered.length}</b></article><article><small>ABORDAGENS SEM ENTREVISTA</small><b>{filteredEvents.length}</b></article><article className={alerts.length ? "alert" : ""}><small>ALERTAS DE QUALIDADE</small><b>{alerts.length}</b></article><article><small>TAXA DE CONCLUSÃO</small><b>{filtered.length + filteredEvents.length ? Math.round(filtered.length / (filtered.length + filteredEvents.length) * 100) : 0}%</b></article></div><div className="duas resultados"><div className="painel"><Topo sup="PRIORIDADE DA CIDADE" titulo="O que deveria melhorar primeiro?" />{prioridades.length ? prioridades.map(([nome, valor]) => <div className="barra" key={nome}><span>{nome}</span><em><i style={{ width: `${valor / Math.max(filtered.length, 1) * 100}%` }} /></em><b>{Math.round(valor / Math.max(filtered.length, 1) * 100)}%</b></div>) : <div className="ranking-empty">Esta pergunta não existe nas pesquisas filtradas.</div>}</div><div className="painel outcome-panel"><Topo sup="RESULTADO DAS ABORDAGENS" titulo="Ocorrências de campo" /><div><span>Recusas</span><b>{outcomes.refused}</b></div><div><span>Fora do público</span><b>{outcomes.ineligible}</b></div><div><span>Interrompidas</span><b>{outcomes.interrupted}</b></div><div><span>Ninguém atendeu</span><b>{outcomes.no_answer}</b></div></div></div><div className="duas resultados"><div className="painel recentes"><Topo sup="ÚLTIMAS RESPOSTAS" titulo="Entrevistas sincronizadas" />{filtered.slice(0, 8).map(x => <div key={x.id}><span><b>{x.code} {x.is_test && <mark>TESTE</mark>}</b><small>{x.responses.bairro || "Bairro não informado"}</small></span><time>{new Date(x.completed_at).toLocaleDateString("pt-BR")}</time></div>)}</div><div className="painel quality-panel"><Topo sup="AUDITORIA AUTOMÁTICA" titulo="Entrevistas para conferir" />{alerts.length ? alerts.slice(0, 8).map(item => <div key={item.id}><span><b>{item.code}</b><small>{(item.quality_flags || []).map(flag => flag === "muito_rapida" ? "Entrevista muito rápida" : "Possível resposta repetida").join(" · ")}</small></span><strong>{item.duration_seconds ? `${Math.round(item.duration_seconds / 60)} min` : "—"}</strong></div>) : <div className="ranking-empty">Nenhum alerta automático nos filtros atuais.</div>}</div></div></>}</>;
 }
 
-function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = false }: { aviso: (text: string) => void; session: Session; partners: MobilizationPartner[]; atualizar: () => Promise<void>; candidateMode?: boolean }) {
+function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = false, abrirCofre }: { aviso: (text: string) => void; session: Session; partners: MobilizationPartner[]; atualizar: () => Promise<void>; candidateMode?: boolean; abrirCofre?: () => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
@@ -1461,6 +1461,8 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
   const content = partners.reduce((sum, item) => sum + Number(item.content_opt_ins || 0), 0);
   const volunteers = partners.reduce((sum, item) => sum + Number(item.volunteer_opt_ins || 0), 0);
   const meetings = partners.reduce((sum, item) => sum + Number(item.meetings_opt_ins || 0), 0);
+  const shares = partners.reduce((sum, item) => sum + Number(item.shares || 0), 0);
+  const opens = partners.reduce((sum, item) => sum + Number(item.opens || 0), 0);
   const create = async () => {
     if (name.trim().length < 2) return aviso("Informe o nome do apoiador ou liderança.");
     setBusy(true);
@@ -1479,9 +1481,16 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
     await navigator.clipboard.writeText(`${window.location.origin}/apoio/${encodeURIComponent(code)}?v=5`);
     aviso("Link copiado.");
   };
-  const openWhatsApp = (link: string) => {
+  const openWhatsApp = (link: string, code?: string) => {
+    if (code) void recordPublicMobilizationEvent(code, "share").catch(() => {});
     const text = encodeURIComponent(`Formulário de informações da Maria Vanuzia: ${link}`);
     window.location.href = `whatsapp://send?text=${text}`;
+  };
+  const refreshMobilization = async () => {
+    setBusy(true);
+    try { await atualizar(); aviso("Dados da mobilização atualizados."); }
+    catch { aviso("Não foi possível atualizar os dados agora."); }
+    finally { setBusy(false); }
   };
   const togglePartner = async (partner: MobilizationPartner) => {
     setBusy(true);
@@ -1503,11 +1512,14 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
     </section>
     <div className="coord-summary mobilization-summary">
       <article><small>LINKS ATIVOS</small><b>{partners.filter(item => item.active).length}</b><span>apoiadores e lideranças</span></article>
-      <article><small>FORMULÁRIOS RECEBIDOS</small><b>{total}</b><span>respostas identificadas pelo link</span></article>
+      <article><small>ENVIOS ACIONADOS</small><b>{shares}</b><span>compartilhamentos feitos pelo sistema</span></article>
+      <article><small>ABERTURAS</small><b>{opens}</b><span>vezes que os links foram abertos</span></article>
+      <article><small>FORMULÁRIOS RECEBIDOS</small><b>{total}</b><span>respostas concluídas e registradas</span></article>
       <article><small>ACEITARAM CONTEÚDO</small><b>{content}</b><span>autorização específica</span></article>
       <article><small>ENCONTROS E VOLUNTARIADO</small><b>{meetings + volunteers}</b><span>{meetings} encontros · {volunteers} voluntariado</span></article>
     </div>
-    <div className="admin-guidance"><i>i</i><span><b>Relacionamento transparente</b><small>O eleitor não cria conta. Nome e contato são opcionais, ficam no Cofre e só são usados conforme cada autorização marcada.</small></span><button className="pause-all" onClick={() => void atualizar()}>Atualizar</button></div>
+    <div className="admin-guidance"><i>i</i><span><b>Relacionamento transparente</b><small>Nome e contato ficam protegidos no Cofre e só são usados conforme cada autorização marcada. Os indicadores desta tela são operacionais e não exibem contatos individuais.</small></span>{abrirCofre && <button className="pause-all" onClick={abrirCofre}>Abrir Cofre</button>}</div>
+    <div className="mobilization-refresh-bar"><span><b>Dados da mobilização</b><small>Atualiza links, envios, aberturas, formulários e autorizações.</small></span><button className="pause-all" disabled={busy} onClick={() => void refreshMobilization()}>{busy ? "Atualizando…" : "↻ Atualizar dados da mobilização"}</button></div>
     {open && <section className="painel mobilization-create">
       <div><small>NOVO LINK INDIVIDUAL</small><h3>Apoiador ou liderança</h3><p>Cada link permite acompanhar o volume e o território de origem sem misturar equipes.</p></div>
       <label>Nome<input value={name} onChange={event => setName(event.target.value)} placeholder="Nome da pessoa responsável pelo link" /></label>
@@ -1522,10 +1534,12 @@ function Mobilizacao({ aviso, session, partners, atualizar, candidateMode = fals
     </section>}
     <section className="painel mobilization-list"><Topo sup="DESEMPENHO POR LINK" titulo="Apoiadores e lideranças" />{partners.length ? partners.map(item => <article key={item.id}>
       <span><i>{item.kind === "lideranca" ? "L" : "A"}</i><span><b>{item.name}</b><small>{item.kind === "lideranca" ? "Liderança" : "Apoiador"} · {[item.city, item.region, item.neighborhood].filter(Boolean).join(" · ") || "território não informado"}</small>{item.parent_name && <small>Indicado por {item.parent_name}</small>}</span></span>
+      <strong>{item.shares || 0}<small>envios</small></strong>
+      <strong>{item.opens || 0}<small>aberturas</small></strong>
       <strong>{item.responses}<small>respostas</small></strong>
       <strong>{item.content_opt_ins}<small>conteúdo</small></strong>
       <strong>{item.volunteer_opt_ins}<small>voluntariado</small></strong>
-      <span className="mobilization-actions"><button onClick={() => openWhatsApp(`${window.location.origin}/apoio/${encodeURIComponent(item.code)}`)}>WhatsApp</button><button onClick={() => void copyLink(item.code)}>Copiar link</button><button className={item.active ? "suspender" : "aprovar"} disabled={busy} onClick={() => void togglePartner(item)}>{item.active ? "Pausar" : "Reativar"}</button></span>
+      <span className="mobilization-actions"><button onClick={() => openWhatsApp(`${window.location.origin}/apoio/${encodeURIComponent(item.code)}`, item.code)}>WhatsApp</button><button onClick={() => void copyLink(item.code)}>Copiar link</button><button className={item.active ? "suspender" : "aprovar"} disabled={busy} onClick={() => void togglePartner(item)}>{item.active ? "Pausar" : "Reativar"}</button></span>
     </article>) : <div className="ranking-empty">Nenhum link criado. Use “Novo link” para começar.</div>}</section>
   </>;
 }
